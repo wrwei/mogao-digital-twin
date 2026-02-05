@@ -39,11 +39,6 @@ import InscriptionCard from './components/InscriptionCard.js';
 import InscriptionForm from './components/InscriptionForm.js';
 import InscriptionList from './components/InscriptionList.js';
 import InscriptionDetailView from './components/InscriptionDetailView.js';
-// Defect Components
-import DefectCard from './components/DefectCard.js';
-import DefectForm from './components/DefectForm.js';
-import DefectList from './components/DefectList.js';
-import DefectDetailView from './components/DefectDetailView.js';
 
 // ============================================
 // Generated Composable Imports
@@ -53,7 +48,6 @@ import { useStatues } from './composables/useStatues.js';
 import { useMurals } from './composables/useMurals.js';
 import { usePaintings } from './composables/usePaintings.js';
 import { useInscriptions } from './composables/useInscriptions.js';
-import { useDefects } from './composables/useDefects.js';
 
 // ============================================
 // Shared UI Components
@@ -108,11 +102,6 @@ const AppHeader = {
                         :class="currentView === 'inscriptions' ? 'btn-secondary' : 'btn-outline'">
                     {{ t('entities.inscriptions') }}
                 </button>
-                <button @click="$emit('change-view', 'defects')"
-                        class="btn btn-sm"
-                        :class="currentView === 'defects' ? 'btn-secondary' : 'btn-outline'">
-                    {{ t('entities.defects') }}
-                </button>
             </div>
         </div>
     `
@@ -160,6 +149,28 @@ const ModalDialog = {
     `
 };
 
+const DrawerPanel = {
+    props: ['show', 'title'],
+    emits: ['close'],
+    setup() {
+        const { t } = useI18n();
+        return { t };
+    },
+    template: `
+        <div v-if="show" class="drawer-overlay" @click.self="$emit('close')">
+            <div class="drawer drawer-right">
+                <div class="drawer-header">
+                    <h3>{{ title }}</h3>
+                    <button class="drawer-close" @click="$emit('close')">&times;</button>
+                </div>
+                <div class="drawer-body">
+                    <slot></slot>
+                </div>
+            </div>
+        </div>
+    `
+};
+
 // ============================================
 // Generated Entity View Components
 // ============================================
@@ -171,6 +182,7 @@ const CaveView = {
         CaveCard,
         CaveDetailView,
         ModalDialog,
+        DrawerPanel,
     },
     setup() {
         const composable = useCaves();
@@ -187,6 +199,8 @@ const CaveView = {
             editingItem: null,
             showDetail: false,
             detailItem: null,
+            selectedGid: null,
+            selectedItem: null,
         };
     },
     methods: {
@@ -230,10 +244,14 @@ const CaveView = {
             this.editingItem = null;
         },
         handleSelect(item) {
+            this.selectedGid = item.gid;
+            this.selectedItem = item;
             this.selectCave(item);
             this.$emit('item-selected', item);
         },
         handleViewDetail(item) {
+            this.selectedGid = item.gid;
+            this.selectedItem = item;
             this.detailItem = item;
             this.showDetail = true;
         },
@@ -257,15 +275,16 @@ const CaveView = {
                     @error="(msg) => $emit('show-message', msg, 'error')"
                 ></cave-form>            </modal-dialog>
 
-            <modal-dialog :show="showDetail" :title="t('common.detail') + ' - ' + (detailItem ? detailItem.name || detailItem.title || detailItem.gid : '')" @close="handleCloseDetail" :wide="true">
+            <drawer-panel :show="showDetail" :title="t('common.detail') + ' - ' + (detailItem ? detailItem.name || detailItem.title || detailItem.gid : '')" @close="handleCloseDetail">
                 <cave-detail-view
                     v-if="detailItem"
                     :cave="detailItem"
-                ></cave-detail-view>            </modal-dialog>
+                ></cave-detail-view>            </drawer-panel>
 
             <cave-list
                 :caves="caves"
                 :loading="loading"
+                :selected-gid="selectedGid"
                 @select="handleSelect"
                 @edit="handleEdit"
                 @delete="handleDelete"
@@ -282,6 +301,7 @@ const StatueView = {
         StatueCard,
         StatueDetailView,
         ModalDialog,
+        DrawerPanel,
     },
     setup() {
         const composable = useStatues();
@@ -298,6 +318,8 @@ const StatueView = {
             editingItem: null,
             showDetail: false,
             detailItem: null,
+            selectedGid: null,
+            selectedItem: null,
         };
     },
     methods: {
@@ -341,10 +363,14 @@ const StatueView = {
             this.editingItem = null;
         },
         handleSelect(item) {
+            this.selectedGid = item.gid;
+            this.selectedItem = item;
             this.selectStatue(item);
             this.$emit('item-selected', item);
         },
         handleViewDetail(item) {
+            this.selectedGid = item.gid;
+            this.selectedItem = item;
             this.detailItem = item;
             this.showDetail = true;
         },
@@ -368,15 +394,16 @@ const StatueView = {
                     @error="(msg) => $emit('show-message', msg, 'error')"
                 ></statue-form>            </modal-dialog>
 
-            <modal-dialog :show="showDetail" :title="t('common.detail') + ' - ' + (detailItem ? detailItem.name || detailItem.title || detailItem.gid : '')" @close="handleCloseDetail" :wide="true">
+            <drawer-panel :show="showDetail" :title="t('common.detail') + ' - ' + (detailItem ? detailItem.name || detailItem.title || detailItem.gid : '')" @close="handleCloseDetail">
                 <statue-detail-view
                     v-if="detailItem"
                     :statue="detailItem"
-                ></statue-detail-view>            </modal-dialog>
+                ></statue-detail-view>            </drawer-panel>
 
             <statue-list
                 :statues="statues"
                 :loading="loading"
+                :selected-gid="selectedGid"
                 @select="handleSelect"
                 @edit="handleEdit"
                 @delete="handleDelete"
@@ -393,6 +420,7 @@ const MuralView = {
         MuralCard,
         MuralDetailView,
         ModalDialog,
+        DrawerPanel,
     },
     setup() {
         const composable = useMurals();
@@ -409,6 +437,8 @@ const MuralView = {
             editingItem: null,
             showDetail: false,
             detailItem: null,
+            selectedGid: null,
+            selectedItem: null,
         };
     },
     methods: {
@@ -452,10 +482,14 @@ const MuralView = {
             this.editingItem = null;
         },
         handleSelect(item) {
+            this.selectedGid = item.gid;
+            this.selectedItem = item;
             this.selectMural(item);
             this.$emit('item-selected', item);
         },
         handleViewDetail(item) {
+            this.selectedGid = item.gid;
+            this.selectedItem = item;
             this.detailItem = item;
             this.showDetail = true;
         },
@@ -479,15 +513,16 @@ const MuralView = {
                     @error="(msg) => $emit('show-message', msg, 'error')"
                 ></mural-form>            </modal-dialog>
 
-            <modal-dialog :show="showDetail" :title="t('common.detail') + ' - ' + (detailItem ? detailItem.name || detailItem.title || detailItem.gid : '')" @close="handleCloseDetail" :wide="true">
+            <drawer-panel :show="showDetail" :title="t('common.detail') + ' - ' + (detailItem ? detailItem.name || detailItem.title || detailItem.gid : '')" @close="handleCloseDetail">
                 <mural-detail-view
                     v-if="detailItem"
                     :mural="detailItem"
-                ></mural-detail-view>            </modal-dialog>
+                ></mural-detail-view>            </drawer-panel>
 
             <mural-list
                 :murals="murals"
                 :loading="loading"
+                :selected-gid="selectedGid"
                 @select="handleSelect"
                 @edit="handleEdit"
                 @delete="handleDelete"
@@ -504,6 +539,7 @@ const PaintingView = {
         PaintingCard,
         PaintingDetailView,
         ModalDialog,
+        DrawerPanel,
     },
     setup() {
         const composable = usePaintings();
@@ -520,6 +556,8 @@ const PaintingView = {
             editingItem: null,
             showDetail: false,
             detailItem: null,
+            selectedGid: null,
+            selectedItem: null,
         };
     },
     methods: {
@@ -563,10 +601,14 @@ const PaintingView = {
             this.editingItem = null;
         },
         handleSelect(item) {
+            this.selectedGid = item.gid;
+            this.selectedItem = item;
             this.selectPainting(item);
             this.$emit('item-selected', item);
         },
         handleViewDetail(item) {
+            this.selectedGid = item.gid;
+            this.selectedItem = item;
             this.detailItem = item;
             this.showDetail = true;
         },
@@ -590,15 +632,16 @@ const PaintingView = {
                     @error="(msg) => $emit('show-message', msg, 'error')"
                 ></painting-form>            </modal-dialog>
 
-            <modal-dialog :show="showDetail" :title="t('common.detail') + ' - ' + (detailItem ? detailItem.name || detailItem.title || detailItem.gid : '')" @close="handleCloseDetail" :wide="true">
+            <drawer-panel :show="showDetail" :title="t('common.detail') + ' - ' + (detailItem ? detailItem.name || detailItem.title || detailItem.gid : '')" @close="handleCloseDetail">
                 <painting-detail-view
                     v-if="detailItem"
                     :painting="detailItem"
-                ></painting-detail-view>            </modal-dialog>
+                ></painting-detail-view>            </drawer-panel>
 
             <painting-list
                 :paintings="paintings"
                 :loading="loading"
+                :selected-gid="selectedGid"
                 @select="handleSelect"
                 @edit="handleEdit"
                 @delete="handleDelete"
@@ -615,6 +658,7 @@ const InscriptionView = {
         InscriptionCard,
         InscriptionDetailView,
         ModalDialog,
+        DrawerPanel,
     },
     setup() {
         const composable = useInscriptions();
@@ -631,6 +675,8 @@ const InscriptionView = {
             editingItem: null,
             showDetail: false,
             detailItem: null,
+            selectedGid: null,
+            selectedItem: null,
         };
     },
     methods: {
@@ -674,10 +720,14 @@ const InscriptionView = {
             this.editingItem = null;
         },
         handleSelect(item) {
+            this.selectedGid = item.gid;
+            this.selectedItem = item;
             this.selectInscription(item);
             this.$emit('item-selected', item);
         },
         handleViewDetail(item) {
+            this.selectedGid = item.gid;
+            this.selectedItem = item;
             this.detailItem = item;
             this.showDetail = true;
         },
@@ -701,132 +751,22 @@ const InscriptionView = {
                     @error="(msg) => $emit('show-message', msg, 'error')"
                 ></inscription-form>            </modal-dialog>
 
-            <modal-dialog :show="showDetail" :title="t('common.detail') + ' - ' + (detailItem ? detailItem.name || detailItem.title || detailItem.gid : '')" @close="handleCloseDetail" :wide="true">
+            <drawer-panel :show="showDetail" :title="t('common.detail') + ' - ' + (detailItem ? detailItem.name || detailItem.title || detailItem.gid : '')" @close="handleCloseDetail">
                 <inscription-detail-view
                     v-if="detailItem"
                     :inscription="detailItem"
-                ></inscription-detail-view>            </modal-dialog>
+                ></inscription-detail-view>            </drawer-panel>
 
             <inscription-list
                 :inscriptions="inscriptions"
                 :loading="loading"
+                :selected-gid="selectedGid"
                 @select="handleSelect"
                 @edit="handleEdit"
                 @delete="handleDelete"
                 @create="handleCreate"
                 @view-detail="handleViewDetail"
             ></inscription-list>        </div>
-    `
-};
-
-const DefectView = {
-    components: {
-        DefectList,
-        DefectForm,
-        DefectCard,
-        DefectDetailView,
-        ModalDialog,
-    },
-    setup() {
-        const composable = useDefects();
-        const { t } = useI18n();
-        return {
-            ...composable,
-            t,
-        };
-    },
-    data() {
-        return {
-            showForm: false,
-            editMode: false,
-            editingItem: null,
-            showDetail: false,
-            detailItem: null,
-        };
-    },
-    methods: {
-        handleCreate() {
-            this.editMode = false;
-            this.editingItem = null;
-            this.showForm = true;
-        },
-        handleEdit(item) {
-            this.editMode = true;
-            this.editingItem = item;
-            this.showForm = true;
-        },
-        async handleDelete(item) {
-            if (confirm(this.t('actions.deleteConfirm', { entity: this.t('entities.defect') }))) {
-                try {
-                    await this.deleteDefect(item.gid);
-                    this.$emit('show-message', this.t('actions.deleteSuccess', { entity: this.t('entities.defect') }), 'success');
-                } catch (err) {
-                    this.$emit('show-message', this.t('actions.deleteError', { entity: this.t('entities.defect') }) + ': ' + err.message, 'error');
-                }
-            }
-        },
-        async handleFormSubmit(data) {
-            try {
-                if (this.editMode) {
-                    await this.updateDefect(this.editingItem.gid, data);
-                    this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.defect') }), 'success');
-                } else {
-                    await this.createDefect(data);
-                    this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.defect') }), 'success');
-                }
-                this.showForm = false;
-                await this.fetchDefects();
-            } catch (err) {
-                this.$emit('show-message', this.t('actions.saveError', { entity: this.t('entities.defect') }) + ': ' + err.message, 'error');
-            }
-        },
-        handleFormCancel() {
-            this.showForm = false;
-            this.editingItem = null;
-        },
-        handleSelect(item) {
-            this.selectDefect(item);
-            this.$emit('item-selected', item);
-        },
-        handleViewDetail(item) {
-            this.detailItem = item;
-            this.showDetail = true;
-        },
-        handleCloseDetail() {
-            this.showDetail = false;
-            this.detailItem = null;
-        }
-    },
-    mounted() {
-        this.fetchDefects();
-    },
-    template: `
-        <div class="entity-view">
-            <modal-dialog :show="showForm" :title="editMode ? t('common.edit') + ' ' + t('entities.defect') : t('actions.createNew', { entity: t('entities.defect') })" @close="handleFormCancel">
-                <defect-form
-                    :defect="editingItem"
-                    :mode="editMode ? 'edit' : 'create'"
-                    @created="handleFormSubmit"
-                    @updated="handleFormSubmit"
-                    @cancel="handleFormCancel"
-                    @error="(msg) => $emit('show-message', msg, 'error')"
-                ></defect-form>            </modal-dialog>
-
-            <modal-dialog :show="showDetail" :title="t('common.detail') + ' - ' + (detailItem ? detailItem.name || detailItem.title || detailItem.gid : '')" @close="handleCloseDetail" :wide="true">
-                <defect-detail-view
-                    v-if="detailItem"
-                    :defect="detailItem"
-                ></defect-detail-view>            </modal-dialog>
-
-            <defect-list
-                :defects="defects"
-                :loading="loading"
-                @select="handleSelect"
-                @edit="handleEdit"
-                @delete="handleDelete"
-                @create="handleCreate"
-                @view-detail="handleViewDetail"
-            ></defect-list>        </div>
     `
 };
 
@@ -844,7 +784,6 @@ const app = createApp({
         MuralView,
         PaintingView,
         InscriptionView,
-        DefectView,
     },
     setup() {
         const { locale, t, setLocale } = useI18n();
@@ -960,12 +899,7 @@ const app = createApp({
                         v-if="currentView === 'inscriptions'"
                         @show-message="showMessage"
                         @item-selected="(item) => console.log('Inscription selected:', item)"
-                    ></inscription-view>
-                    <defect-view
-                        v-if="currentView === 'defects'"
-                        @show-message="showMessage"
-                        @item-selected="(item) => console.log('Defect selected:', item)"
-                    ></defect-view>                </div>
+                    ></inscription-view>                </div>
             </div>
 
             <div class="status-bar" :class="backendOnline ? 'status-online' : 'status-offline'">

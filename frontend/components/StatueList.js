@@ -4,6 +4,7 @@
  * Displays list of 雕像 with search and filter
  */
 import StatueCard from './StatueCard.js';
+import ModelViewer from './ModelViewer.js';
 import { useI18n } from '../i18n.js';
 
 export default {
@@ -13,7 +14,8 @@ export default {
         return { t };
     },
     components: {
-        StatueCard
+        StatueCard,
+        ModelViewer
     },
     props: {
         statues: {
@@ -23,14 +25,21 @@ export default {
         loading: {
             type: Boolean,
             default: false
+        },
+        selectedGid: {
+            type: String,
+            default: null
         }
     },
-    emits: ['select', 'edit', 'delete', 'create'],
+    emits: ['select', 'edit', 'delete', 'create', 'view-detail'],
     data() {
         return {
             searchQuery: '',
             sortBy: 'name',
-            sortDesc: false
+            sortDesc: false,
+            autoRotate: false,
+            viewerWidth: 800,
+            viewerHeight: 600
         };
     },
     computed: {
@@ -59,62 +68,99 @@ export default {
         },
         isEmpty() {
             return this.statues.length === 0;
+        },
+        selectedItem() {
+            if (!this.selectedGid) return null;
+            return this.statues.find(item => item.gid === this.selectedGid);
         }
     },
     template: `
-        <div class="statue-list">
-            <div class="list-header" style="padding: var(--spacing-md); border-bottom: 1px solid var(--border);">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-md);">
-                    <h2 style="margin: 0;">{{ t('entities.statues') }}</h2>
-                    <button class="btn btn-primary" @click="$emit('create')">
-                        ➕ {{ t('actions.createNew', { entity: t('entities.statue') }) }}
-                    </button>
+        <div class="statue-list-container" style="display: grid; grid-template-columns: 400px 1fr; height: calc(100vh - 140px); gap: 0;">
+            <!-- Left Panel: List -->
+            <div class="entity-list-panel" style="border-right: 1px solid var(--border); overflow-y: auto; display: flex; flex-direction: column;">
+                <div class="list-header" style="padding: var(--spacing-md); border-bottom: 1px solid var(--border);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-md);">
+                        <h2 style="margin: 0; font-size: 1.2em;">{{ t('entities.statues') }}</h2>
+                        <button class="btn btn-sm btn-primary" @click="$emit('create')">
+                            ➕
+                        </button>
+                    </div>
+
+                    <div class="search-bar">
+                        <span class="search-icon">🔍</span>
+                        <input
+                            type="text"
+                            v-model="searchQuery"
+                            class="search-input"
+                            :placeholder="t('common.search')"
+                        />
+                    </div>
                 </div>
 
-                <div class="search-bar">
-                    <span class="search-icon">🔍</span>
-                    <input
-                        type="text"
-                        v-model="searchQuery"
-                        class="search-input"
-                        :placeholder="t('common.search') + ' ' + t('entities.statue')"
-                    />
+                <div class="list-body" style="flex: 1; overflow-y: auto; padding: var(--spacing-sm);">
+                    <div v-if="loading" class="loading-overlay">
+                        <div class="spinner"></div>
+                        <p style="margin-top: var(--spacing-md); color: var(--text-secondary);">{{ t('common.loading') }}</p>
+                    </div>
+
+                    <div v-else-if="isEmpty" class="empty-state">
+                        <div class="empty-state-icon">📭</div>
+                        <div class="empty-state-text">{{ t('common.noData') }}</div>
+                        <button class="btn btn-primary" @click="$emit('create')">
+                            {{ t('actions.createNew', { entity: t('entities.statue') }) }}
+                        </button>
+                    </div>
+
+                    <div v-else-if="filteredStatues.length === 0" class="empty-state">
+                        <div class="empty-state-icon">🔍</div>
+                        <div class="empty-state-text">{{ t('common.noData') }}</div>
+                    </div>
+
+                    <div v-else class="entity-cards" style="display: flex; flex-direction: column; gap: var(--spacing-sm);">
+                        <statue-card
+                            v-for="item in filteredStatues"
+                            :key="item.gid"
+                            :statue="item"
+                            :selected-gid="selectedGid"
+                            @select="$emit('select', item)"
+                            @view-detail="$emit('view-detail', item)"
+                            @edit="$emit('edit', item)"
+                            @delete="$emit('delete', item)"
+                        ></statue-card>                    </div>
+                </div>
+
+                <div class="list-footer" style="padding: var(--spacing-sm); border-top: 1px solid var(--border); text-align: center; color: var(--text-secondary); font-size: 0.9em;">
+                    {{ filteredStatues.length }} {{ t('entities.statue') }}
+                    <span v-if="searchQuery">({{ t('common.filtered') }})</span>
                 </div>
             </div>
 
-            <div class="list-body" style="padding: var(--spacing-md);">
-                <div v-if="loading" class="loading-overlay">
-                    <div class="spinner"></div>
-                    <p style="margin-top: var(--spacing-md); color: var(--text-secondary);">{{ t('common.loading') }}</p>
+            <!-- Right Panel: 3D Viewer -->
+            <div class="entity-viewer-panel" style="display: flex; align-items: center; justify-content: center; background: var(--bg-secondary); padding: var(--spacing-lg);">
+                <div v-if="selectedItem && selectedItem.reference && selectedItem.reference.modelLocation" class="viewer-container" style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                    <h3 style="margin-bottom: var(--spacing-md);">{{ selectedItem.name }}</h3>
+                    <model-viewer
+                        :asset-reference="selectedItem.reference"
+                        :width="viewerWidth"
+                        :height="viewerHeight"
+                        :auto-rotate="autoRotate"
+                    ></model-viewer>
+                    <div class="viewer-controls" style="margin-top: var(--spacing-md);">
+                        <label style="display: flex; align-items: center; gap: var(--spacing-sm); cursor: pointer;">
+                            <input type="checkbox" v-model="autoRotate" />
+                            <span>{{ t('viewer.autoRotate') }}</span>
+                        </label>
+                    </div>
                 </div>
-
-                <div v-else-if="isEmpty" class="empty-state">
-                    <div class="empty-state-icon">📭</div>
-                    <div class="empty-state-text">{{ t('common.noData') }}</div>
-                    <button class="btn btn-primary" @click="$emit('create')">
-                        {{ t('actions.createNew', { entity: t('entities.statue') }) }}
-                    </button>
+                <div v-else-if="selectedItem" class="viewer-placeholder" style="text-align: center; color: var(--text-secondary);">
+                    <div style="font-size: 4em; margin-bottom: var(--spacing-md);">🏛️</div>
+                    <p>{{ t('viewer.noModel') }}</p>
+                    <p class="text-muted">{{ selectedItem.name }}</p>
                 </div>
-
-                <div v-else-if="filteredStatues.length === 0" class="empty-state">
-                    <div class="empty-state-icon">🔍</div>
-                    <div class="empty-state-text">{{ t('common.noData') }}</div>
+                <div v-else class="viewer-empty" style="text-align: center; color: var(--text-secondary);">
+                    <div style="font-size: 4em; margin-bottom: var(--spacing-md);">👈</div>
+                    <p>{{ t('viewer.selectItem') }}</p>
                 </div>
-
-                <div v-else class="list-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--spacing-md);">
-                    <statue-card
-                        v-for="item in filteredStatues"
-                        :key="item.gid"
-                        :statue="item"
-                        @select="$emit('select', item)"
-                        @edit="$emit('edit', item)"
-                        @delete="$emit('delete', item)"
-                    ></statue-card>                </div>
-            </div>
-
-            <div class="list-footer" style="padding: var(--spacing-md); border-top: 1px solid var(--border); text-align: center; color: var(--text-secondary);">
-                {{ filteredStatues.length }} {{ t('entities.statue') }}
-                <span v-if="searchQuery">({{ statues.length }} {{ t('common.filter') }})</span>
             </div>
         </div>
     `

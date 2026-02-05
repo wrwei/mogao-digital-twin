@@ -11,60 +11,43 @@ export default {
         cave: {
             type: Object,
             required: true
+        },
+        selectedGid: {
+            type: String,
+            default: null
         }
     },
-    emits: ['select', 'edit', 'delete'],
+    emits: ['select', 'edit', 'delete', 'view-detail'],
     setup() {
         const { t } = useI18n();
         return { t };
     },
     template: `
-        <div class="card cave-card" @click="$emit('select', cave)">
+        <div class="card cave-card"
+             :class="{ 'selected': isSelected }"
+             @click="$emit('select', cave)">
             <div class="card-header">
                 <h3 class="card-title">{{ cave.name || '洞窟' }}</h3>
             </div>
             <div class="card-body">
-                <div class="card-field">
-                    <span class="field-label">描述:</span>
-                    <span class="field-value">{{ cave.description || 'N/A' }}</span>
-                </div>
-                <div class="card-field">
-                    <span class="field-label">label:</span>
-                    <span class="field-value">{{ cave.label || 'N/A' }}</span>
-                </div>
-                <div class="card-field">
-                    <span class="field-label">creationPeriod:</span>
-                    <span class="field-value">{{ cave.creationPeriod || 'N/A' }}</span>
-                </div>
-                <div v-if="cave.reference" class="card-section">
-                    <div class="field-label">{{ t('detail.assetReference') }}</div>
-                    <div class="card-field" v-if="cave.reference.modelLocation">
-                        <span class="field-label">{{ t('detail.modelPath') }}:</span>
-                        <span class="field-value">{{ cave.reference.modelLocation }}</span>
-                    </div>
-                    <div class="card-field" v-if="cave.reference.textureLocation">
-                        <span class="field-label">{{ t('detail.texturePath') }}:</span>
-                        <span class="field-value">{{ cave.reference.textureLocation }}</span>
-                    </div>
-                </div>
+                <p class="card-description">{{ cave.description || t('common.noDescription') }}</p>
             </div>
             <div class="card-footer">
-                <button class="btn btn-sm btn-primary" @click.stop="$emit('edit', cave)" :title="t('common.edit')">
-                    ✏️ {{ t('common.edit') }}
+                <button class="btn btn-sm btn-primary" @click.stop="$emit('view-detail', cave)" :title="t('actions.viewDetail')">
+                    {{ t('actions.viewDetail') }}
                 </button>
-                <button class="btn btn-sm btn-error" @click.stop="$emit('delete', cave)" :title="t('common.delete')">
-                    🗑️ {{ t('common.delete') }}
+                <button class="btn btn-sm" @click.stop="$emit('edit', cave)" :title="t('common.edit')">
+                    {{ t('common.edit') }}
+                </button>
+                <button class="btn btn-sm btn-danger" @click.stop="$emit('delete', cave)" :title="t('common.delete')">
+                    {{ t('common.delete') }}
                 </button>
             </div>
         </div>
     `,
     computed: {
-        displayName() {
-            return this.cave.name || this.cave.gid || '洞窟';
-        },
-        lastInspectionDateDisplay() {
-            const value = this.cave.lastInspectionDate;
-            if (!value) return 'N/A';
-            return value;
-        }    }
+        isSelected() {
+            return this.selectedGid === this.cave.gid;
+        }
+    }
 };

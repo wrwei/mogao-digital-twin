@@ -494,3 +494,21 @@ operation hasAttribute(eClass : Any, attrName : String) : Boolean {
     }
     return false;
 }
+
+/**
+ * Check if a class name represents an Exhibit type
+ */
+operation isExhibit(className : String) : Boolean {
+    var exhibitTypes = Sequence{"Statue", "Mural", "Painting", "Inscription"};
+    return exhibitTypes.includes(className);
+}
+
+/**
+ * Check if an EClass has defects reference
+ */
+operation hasDefects(eClass : Any) : Boolean {
+    if (eClass.isDefined() and eClass.eAllReferences.isDefined()) {
+        return eClass.eAllReferences.exists(r | r.name = "defects");
+    }
+    return false;
+}

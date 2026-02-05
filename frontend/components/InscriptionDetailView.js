@@ -3,7 +3,6 @@
  * Auto-generated from mogao_dt.ecore
  * Full detail view for 铭文 with 3D viewer support
  */
-import ModelViewer from './ModelViewer.js';
 import { useI18n } from '../i18n.js';
 
 export default {
@@ -12,9 +11,6 @@ export default {
         const { t } = useI18n();
         return { t };
     },
-    components: {
-        ModelViewer
-    },
     props: {
         inscription: {
             type: Object,
@@ -22,11 +18,6 @@ export default {
         }
     },
     emits: ['close', 'edit', 'delete'],
-    data() {
-        return {
-            autoRotate: false
-        };
-    },
     computed: {
         displayName() {
             return this.inscription.name || this.inscription.gid || '铭文';
@@ -55,23 +46,6 @@ export default {
             </div>
 
             <div class="detail-content">
-                <!-- 3D Model Viewer Section -->
-                <div v-if="inscription.reference && inscription.reference.modelLocation" class="detail-section model-section">
-                    <h2 class="section-title">{{ t('viewer.title') }}</h2>
-                    <model-viewer
-                        :asset-reference="inscription.reference"
-                        :width="800"
-                        :height="500"
-                        :auto-rotate="autoRotate"
-                    ></model-viewer>
-                    <div class="model-controls">
-                        <label class="checkbox-label">
-                            <input type="checkbox" v-model="autoRotate">
-                            {{ t('viewer.autoRotate') }}
-                        </label>
-                    </div>
-                </div>
-
                 <!-- Basic Information Section -->
                 <div class="detail-section info-section">
                     <h2 class="section-title">{{ t('detail.basicInfo') }}</h2>
@@ -162,6 +136,34 @@ export default {
                             <dd class="detail-value detail-path">{{ inscription.reference.textureLocation }}</dd>
                         </div>
                     </dl>
+                </div>
+
+
+                <!-- Defects Section -->
+                <div v-if="inscription.defects && inscription.defects.length > 0" class="detail-section defects-section">
+                    <h2 class="section-title">{{ t('entities.defects') }} ({{ inscription.defects.length }})</h2>
+                    <div class="defects-list">
+                        <div v-for="defect in inscription.defects" :key="defect.gid" class="defect-item" style="border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--spacing-md); margin-bottom: var(--spacing-sm);">
+                            <div class="defect-header" style="display: flex; justify-content: space-between; align-items: start; margin-bottom: var(--spacing-sm);">
+                                <strong style="font-size: 1.1em;">{{ defect.name || defect.gid }}</strong>
+                                <span v-if="defect.severity" class="badge" :class="'badge-' + (defect.severity || 'unknown').toLowerCase()" style="font-size: 0.85em;">
+                                    {{ defect.severity }}
+                                </span>
+                            </div>
+                            <p v-if="defect.description" style="margin-bottom: var(--spacing-sm); color: var(--text-secondary);">{{ defect.description }}</p>
+                            <div class="defect-meta" style="font-size: 0.9em; color: var(--text-secondary); display: flex; flex-wrap: wrap; gap: var(--spacing-md);">
+                                <span v-if="defect.defectType">
+                                    <strong>{{ t('detail.type') }}:</strong> {{ defect.defectType }}
+                                </span>
+                                <span v-if="defect.affectedArea">
+                                    <strong>{{ t('detail.affectedArea') }}:</strong> {{ defect.affectedArea }} m²
+                                </span>
+                                <span v-if="defect.requiresImmediateAction" style="color: var(--error-color); font-weight: bold;">
+                                    ⚠️ {{ t('detail.urgent') }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- coordinates Section -->

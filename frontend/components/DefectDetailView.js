@@ -3,7 +3,6 @@
  * Auto-generated from mogao_dt.ecore
  * Full detail view for 缺陷 with 3D viewer support
  */
-import ModelViewer from './ModelViewer.js';
 import { useI18n } from '../i18n.js';
 
 export default {
@@ -12,9 +11,6 @@ export default {
         const { t } = useI18n();
         return { t };
     },
-    components: {
-        ModelViewer
-    },
     props: {
         defect: {
             type: Object,
@@ -22,11 +18,6 @@ export default {
         }
     },
     emits: ['close', 'edit', 'delete'],
-    data() {
-        return {
-            autoRotate: false
-        };
-    },
     computed: {
         displayName() {
             return this.defect.name || this.defect.gid || '缺陷';
@@ -52,23 +43,6 @@ export default {
             </div>
 
             <div class="detail-content">
-                <!-- 3D Model Viewer Section -->
-                <div v-if="defect.reference && defect.reference.modelLocation" class="detail-section model-section">
-                    <h2 class="section-title">{{ t('viewer.title') }}</h2>
-                    <model-viewer
-                        :asset-reference="defect.reference"
-                        :width="800"
-                        :height="500"
-                        :auto-rotate="autoRotate"
-                    ></model-viewer>
-                    <div class="model-controls">
-                        <label class="checkbox-label">
-                            <input type="checkbox" v-model="autoRotate">
-                            {{ t('viewer.autoRotate') }}
-                        </label>
-                    </div>
-                </div>
-
                 <!-- Basic Information Section -->
                 <div class="detail-section info-section">
                     <h2 class="section-title">{{ t('detail.basicInfo') }}</h2>
@@ -142,6 +116,7 @@ export default {
                         </div>
                     </dl>
                 </div>
+
 
                 <!-- coordinates Section -->
                 <div v-if="defect.coordinates" class="detail-section">
