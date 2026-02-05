@@ -23,9 +23,11 @@ export const messages = {
             back: '返回',
             search: '搜索',
             filter: '筛选',
+            filtered: '已筛选',
             refresh: '刷新',
             loading: '加载中...',
             noData: '暂无数据',
+            noDescription: '无描述',
             confirm: '确认',
             yes: '是',
             no: '否',
@@ -34,6 +36,7 @@ export const messages = {
             success: '成功',
             warning: '警告',
             info: '信息',
+            detail: '详情',
             selected: '已选择'
         },
 
@@ -99,6 +102,7 @@ export const messages = {
             createNew: '创建新{entity}',
             edit: '编辑{entity}',
             delete: '删除{entity}',
+            viewDetail: '查看详情',
             deleteConfirm: '确认删除此{entity}吗？',
             saveSuccess: '{entity}保存成功',
             deleteSuccess: '{entity}删除成功',
@@ -154,6 +158,8 @@ export const messages = {
             title: '三维模型',
             loading: '加载3D模型中...',
             error: '加载3D模型失败',
+            noModel: '该展品无3D模型',
+            selectItem: '请选择一个展品',
             autoRotate: '启用自动旋转',
             resetCamera: '重置视角',
             controls: '左键旋转 | 右键平移 | 滚轮缩放'
@@ -167,7 +173,10 @@ export const messages = {
             defects: '缺陷记录',
             modelPath: '3D模型路径',
             metadataPath: '元数据路径',
-            texturePath: '纹理路径'
+            texturePath: '纹理路径',
+            type: '类型',
+            affectedArea: '影响面积',
+            urgent: '需要立即处理'
         },
 
         // Form Validation
@@ -194,9 +203,11 @@ export const messages = {
             back: 'Back',
             search: 'Search',
             filter: 'Filter',
+            filtered: 'Filtered',
             refresh: 'Refresh',
             loading: 'Loading...',
             noData: 'No Data',
+            noDescription: 'No description',
             confirm: 'Confirm',
             yes: 'Yes',
             no: 'No',
@@ -205,6 +216,7 @@ export const messages = {
             success: 'Success',
             warning: 'Warning',
             info: 'Information',
+            detail: 'Details',
             selected: 'Selected'
         },
 
@@ -270,6 +282,7 @@ export const messages = {
             createNew: 'Create New {entity}',
             edit: 'Edit {entity}',
             delete: 'Delete {entity}',
+            viewDetail: 'View Details',
             deleteConfirm: 'Are you sure you want to delete this {entity}?',
             saveSuccess: '{entity} saved successfully',
             deleteSuccess: '{entity} deleted successfully',
@@ -325,6 +338,8 @@ export const messages = {
             title: '3D Model',
             loading: 'Loading 3D model...',
             error: 'Failed to load 3D model',
+            noModel: 'No 3D model available for this item',
+            selectItem: 'Select an item to view',
             autoRotate: 'Enable Auto-rotate',
             resetCamera: 'Reset Camera',
             controls: 'Left-click: Rotate | Right-click: Pan | Scroll: Zoom'
@@ -338,7 +353,10 @@ export const messages = {
             defects: 'Defect Records',
             modelPath: '3D Model Path',
             metadataPath: 'Metadata Path',
-            texturePath: 'Texture Path'
+            texturePath: 'Texture Path',
+            type: 'Type',
+            affectedArea: 'Affected Area',
+            urgent: 'Requires Immediate Action'
         },
 
         // Form Validation
