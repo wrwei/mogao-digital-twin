@@ -1,0 +1,221 @@
+// EOL operations for Exhibit model objects
+
+/**
+ * Get all Exhibit objects from the model
+ */
+operation getAllExhibits() : Sequence {
+    return Exhibit.all;
+}
+
+/**
+ * Get Exhibit by GID
+ */
+operation getExhibitByGid(gid : String) : Exhibit {
+    return Exhibit.all.selectOne(e | e.gid = gid);
+}
+
+/**
+ * Get exhibits by conservation status
+ */
+operation getExhibitsByStatus(status : String) : Sequence {
+    return Exhibit.all.select(e | e.conservationStatus.toString() = status);
+}
+
+/**
+ * Get exhibits in critical condition
+ */
+operation getCriticalExhibits() : Sequence {
+    return Exhibit.all.select(e | e.conservationStatus.toString() = "critical");
+}
+
+/**
+ * Get all Statue exhibits
+ */
+operation getAllStatues() : Sequence {
+    return Statue.all;
+}
+
+/**
+ * Get all Mural exhibits
+ */
+operation getAllMurals() : Sequence {
+    return Mural.all;
+}
+
+/**
+ * Get all Painting exhibits
+ */
+operation getAllPaintings() : Sequence {
+    return Painting.all;
+}
+
+/**
+ * Get all Inscription exhibits
+ */
+operation getAllInscriptions() : Sequence {
+    return Inscription.all;
+}
+
+/**
+ * Get exhibits by material
+ */
+operation getExhibitsByMaterial(material : String) : Sequence {
+    return Exhibit.all.select(e | e.material = material);
+}
+
+/**
+ * Get exhibits by period
+ */
+operation getExhibitsByPeriod(period : String) : Sequence {
+    return Exhibit.all.select(e | e.period = period);
+}
+
+/**
+ * Get exhibits with defects
+ */
+operation getExhibitsWithDefects() : Sequence {
+    return Exhibit.all.select(e | e.defects.notEmpty());
+}
+
+/**
+ * Get exhibits requiring attention (with critical or severe defects)
+ */
+operation getExhibitsRequiringAttention() : Sequence {
+    return Exhibit.all.select(e |
+        e.defects.exists(d | d.severity.toString() = "critical" or d.severity.toString() = "severe")
+    );
+}
+
+/**
+ * Create new Statue
+ */
+operation createStatue(gid : String, name : String, label : String, material : String,
+                       width : Real, height : Real, depth : Real, subject : String) : Statue {
+    var statue = new Statue;
+    statue.gid = gid;
+    statue.name = name;
+    statue.label = label;
+    statue.material = material;
+    statue.width = width;
+    statue.height = height;
+    statue.depth = depth;
+    statue.subject = subject;
+    statue.conservationStatus = "good".asConservationStatus();
+    return statue;
+}
+
+/**
+ * Create new Mural
+ */
+operation createMural(gid : String, name : String, label : String, material : String,
+                      width : Real, height : Real, technique : String) : Mural {
+    var mural = new Mural;
+    mural.gid = gid;
+    mural.name = name;
+    mural.label = label;
+    mural.material = material;
+    mural.width = width;
+    mural.height = height;
+    mural.technique = technique;
+    mural.conservationStatus = "good".asConservationStatus();
+    return mural;
+}
+
+/**
+ * Create new Painting
+ */
+operation createPainting(gid : String, name : String, label : String, material : String,
+                         width : Real, height : Real, style : String) : Painting {
+    var painting = new Painting;
+    painting.gid = gid;
+    painting.name = name;
+    painting.label = label;
+    painting.material = material;
+    painting.width = width;
+    painting.height = height;
+    painting.style = style;
+    painting.conservationStatus = "good".asConservationStatus();
+    return painting;
+}
+
+/**
+ * Create new Inscription
+ */
+operation createInscription(gid : String, name : String, label : String, language : String,
+                            content : String) : Inscription {
+    var inscription = new Inscription;
+    inscription.gid = gid;
+    inscription.name = name;
+    inscription.label = label;
+    inscription.language = language;
+    inscription.content = content;
+    inscription.conservationStatus = "good".asConservationStatus();
+    return inscription;
+}
+
+/**
+ * Update conservation status
+ */
+operation updateConservationStatus(exhibitGid : String, status : String) {
+    var exhibit = getExhibitByGid(exhibitGid);
+    if (exhibit.isDefined()) {
+        exhibit.conservationStatus = status.asConservationStatus();
+    }
+}
+
+/**
+ * Set exhibit coordinates
+ */
+operation setExhibitCoordinates(exhibitGid : String, x : Real, y : Real, z : Real) {
+    var exhibit = getExhibitByGid(exhibitGid);
+    if (exhibit.isDefined()) {
+        if (exhibit.coordinates.isUndefined()) {
+            exhibit.coordinates = new Coordinates;
+        }
+        exhibit.coordinates.x = x;
+        exhibit.coordinates.y = y;
+        exhibit.coordinates.z = z;
+    }
+}
+
+/**
+ * Update exhibit information
+ */
+operation updateExhibit(gid : String, name : String, description : String, material : String, period : String) {
+    var exhibit = getExhibitByGid(gid);
+    if (exhibit.isDefined()) {
+        if (name.isDefined()) exhibit.name = name;
+        if (description.isDefined()) exhibit.description = description;
+        if (material.isDefined()) exhibit.material = material;
+        if (period.isDefined()) exhibit.period = period;
+    }
+}
+
+/**
+ * Set last inspection
+ */
+operation setExhibitInspection(exhibitGid : String, timestamp : Integer, notes : String) {
+    var exhibit = getExhibitByGid(exhibitGid);
+    if (exhibit.isDefined()) {
+        exhibit.lastInspectionDate = timestamp;
+        exhibit.inspectionNotes = notes;
+    }
+}
+
+/**
+ * Delete exhibit
+ */
+operation deleteExhibit(gid : String) {
+    var exhibit = getExhibitByGid(gid);
+    if (exhibit.isDefined()) {
+        delete exhibit;
+    }
+}
+
+/**
+ * Helper: Convert string to ConservationStatus enum
+ */
+operation String asConservationStatus() : Any {
+    // This will be handled by EMF enum conversion
+    return self;
+}

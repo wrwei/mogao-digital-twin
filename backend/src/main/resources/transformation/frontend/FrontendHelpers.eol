@@ -1,0 +1,319 @@
+/**
+ * Frontend Helper Functions for EGL Templates
+ * Utility functions for generating Vue.js components
+ */
+
+// ============================================
+// Label and Display Helpers
+// ============================================
+
+/**
+ * Get Chinese label for field name
+ */
+operation getFieldLabel(fieldName : String) : String {
+    var labels = Map {
+        "gid" = "全局ID",
+        "name" = "名称",
+        "description" = "描述",
+        "conservationStatus" = "保护状态",
+        "defectType" = "缺陷类型",
+        "severity" = "严重程度",
+        "material" = "材质",
+        "height" = "高度",
+        "width" = "宽度",
+        "depth" = "深度",
+        "deity" = "神像",
+        "figure" = "人物",
+        "theme" = "主题",
+        "technique" = "技法",
+        "colors" = "颜色",
+        "language" = "语言",
+        "text" = "文本",
+        "x" = "X坐标",
+        "y" = "Y坐标",
+        "z" = "Z坐标",
+        "value" = "数值",
+        "unit" = "单位",
+        "timestamp" = "时间戳",
+        "location" = "位置"
+    };
+
+    return labels.get(fieldName) ?: fieldName;
+}
+
+/**
+ * Get Chinese label for class name
+ */
+operation getChineseLabel(className : String) : String {
+    var labels = Map {
+        "Cave" = "洞窟",
+        "Defect" = "缺陷",
+        "Statue" = "雕像",
+        "Mural" = "壁画",
+        "Painting" = "绘画",
+        "Inscription" = "铭文",
+        "Temperature" = "温度",
+        "Humidity" = "湿度",
+        "LightIntensity" = "光照强度",
+        "Coordinates" = "坐标",
+        "Parameter" = "参数"
+    };
+
+    return labels.get(className) ?: className;
+}
+
+// ============================================
+// Type Detection Helpers
+// ============================================
+
+/**
+ * Check if attribute should be rendered as textarea
+ */
+operation isTextArea(attr : Any) : Boolean {
+    return attr.name == "description" or attr.name.endsWith("Text") or attr.name == "text";
+}
+
+/**
+ * Check if attribute is a select dropdown (enum)
+ */
+operation isSelect(attr : Any) : Boolean {
+    if (attr.eType.isDefined()) {
+        return attr.eType.eClass().name == "EEnum";
+    }
+    return false;
+}
+
+/**
+ * Check if attribute is a number type
+ */
+operation isNumber(attr : Any) : Boolean {
+    if (attr.eType.isDefined()) {
+        var typeName = attr.eType.name;
+        return typeName == "EInt" or typeName == "EDouble" or typeName == "EFloat" or typeName == "ELong";
+    }
+    return false;
+}
+
+/**
+ * Check if attribute is a boolean
+ */
+operation isBoolean(attr : Any) : Boolean {
+    if (attr.eType.isDefined()) {
+        return attr.eType.name == "EBoolean";
+    }
+    return false;
+}
+
+// ============================================
+// Value Helpers
+// ============================================
+
+/**
+ * Get default value for attribute type
+ */
+operation getDefaultValue(attr : Any) : String {
+    if (not attr.eType.isDefined()) {
+        return "null";
+    }
+
+    var typeName = attr.eType.name;
+
+    if (typeName == "EString") return "''";
+    if (typeName == "EInt" or typeName == "ELong") return "0";
+    if (typeName == "EDouble" or typeName == "EFloat") return "0.0";
+    if (typeName == "EBoolean") return "false";
+    if (attr.eType.eClass().name == "EEnum") return "''";
+
+    return "null";
+}
+
+/**
+ * Get JavaScript type name
+ */
+operation getJavaScriptType(attr : Any) : String {
+    if (not attr.eType.isDefined()) {
+        return "String";
+    }
+
+    var typeName = attr.eType.name;
+
+    if (typeName == "EString") return "String";
+    if (typeName == "EInt" or typeName == "ELong" or typeName == "EDouble" or typeName == "EFloat") return "Number";
+    if (typeName == "EBoolean") return "Boolean";
+    if (attr.eType.eClass().name == "EEnum") return "String";
+
+    return "Object";
+}
+
+/**
+ * Get enum options for select dropdown
+ */
+operation getEnumOptions(attr : Any) : Sequence {
+    if (isSelect(attr)) {
+        return attr.eType.eLiterals.collect(l | l.name);
+    }
+    return Sequence{};
+}
+
+// ============================================
+// Attribute Filtering
+// ============================================
+
+/**
+ * Get attributes suitable for display (exclude technical fields)
+ */
+operation getDisplayAttributes(attributes : Sequence) : Sequence {
+    return attributes.select(a |
+        a.name <> "gid" and
+        a.name <> "id" and
+        not a.derived
+    );
+}
+
+/**
+ * Get attributes for form fields (all except gid)
+ */
+operation getFormAttributes(attributes : Sequence) : Sequence {
+    return attributes.select(a | a.name <> "gid" and not a.derived);
+}
+
+/**
+ * Get key display attributes (first 3-4 most important)
+ */
+operation getKeyAttributes(attributes : Sequence) : Sequence {
+    var display = getDisplayAttributes(attributes);
+    if (display.size() <= 4) {
+        return display;
+    }
+    // Return name, description, and first 2 others
+    var result = Sequence{};
+    for (attr in display) {
+        if (attr.name == "name" or attr.name == "description") {
+            result.add(attr);
+        }
+    }
+    for (attr in display) {
+        if (attr.name <> "name" and attr.name <> "description" and result.size() < 4) {
+            result.add(attr);
+        }
+    }
+    return result;
+}
+
+// ============================================
+// Validation Helpers
+// ============================================
+
+/**
+ * Check if attribute is required
+ */
+operation isRequired(attr : Any) : Boolean {
+    return attr.lowerBound > 0;
+}
+
+/**
+ * Check if attribute has validation constraints
+ */
+operation hasValidation(attr : Any) : Boolean {
+    // Check for common validation scenarios
+    if (isNumber(attr)) return true;
+    if (attr.name == "email") return true;
+    if (attr.name == "url") return true;
+    return false;
+}
+
+/**
+ * Get validation function name
+ */
+operation getValidationFunction(attr : Any) : String {
+    if (attr.name == "email") return "isValidEmail";
+    if (attr.name == "url") return "isValidUrl";
+    if (isNumber(attr)) return "isNumber";
+    return "() => true";
+}
+
+/**
+ * Get validation error message
+ */
+operation getValidationMessage(attr : Any) : String {
+    if (attr.name == "email") return "请输入有效的邮箱地址";
+    if (attr.name == "url") return "请输入有效的URL";
+    if (isNumber(attr)) return "请输入有效的数字";
+    return "输入格式不正确";
+}
+
+/**
+ * Check if attribute has min constraint
+ */
+operation hasMin(attr : Any) : Boolean {
+    return isNumber(attr);
+}
+
+/**
+ * Get min value (placeholder)
+ */
+operation getMin(attr : Any) : String {
+    return "0";
+}
+
+/**
+ * Check if attribute has max constraint
+ */
+operation hasMax(attr : Any) : Boolean {
+    return false; // Default: no max
+}
+
+/**
+ * Get max value (placeholder)
+ */
+operation getMax(attr : Any) : String {
+    return "1000";
+}
+
+// ============================================
+// Class Helpers
+// ============================================
+
+/**
+ * Check if class has conservation status
+ */
+operation hasConservationStatus(eClass : Any) : Boolean {
+    return eClass.eAllAttributes.exists(a | a.name == "conservationStatus");
+}
+
+/**
+ * Get plural form of class name
+ */
+operation getPlural(className : String) : String {
+    if (className.endsWith("y")) {
+        return className.substring(0, className.length() - 1) + "ies";
+    }
+    if (className.endsWith("s")) {
+        return className + "es";
+    }
+    return className + "s";
+}
+
+/**
+ * Get lowercase first letter
+ */
+operation toLowerFirst(str : String) : String {
+    if (str.length() == 0) return str;
+    return str.substring(0, 1).toLowerCase() + str.substring(1);
+}
+
+// ============================================
+// Computed Attributes
+// ============================================
+
+/**
+ * Get attributes that need computed properties
+ */
+operation getComputedAttributes(attributes : Sequence) : Sequence {
+    // Return attributes that need formatting or transformation
+    return attributes.select(a |
+        isNumber(a) or
+        a.name.endsWith("Date") or
+        a.name == "timestamp"
+    );
+}

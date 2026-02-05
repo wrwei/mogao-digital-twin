@@ -1,0 +1,328 @@
+[%
+import "FrontendHelpers.eol";
+
+// Get all entity classes from metamodel
+var entityNames = Sequence{"Cave", "Defect", "Statue", "Mural", "Painting", "Inscription"};
+var entityClasses = Sequence{};
+for (classifier in ePackage.eClassifiers) {
+    if (entityNames.includes(classifier.name)) {
+        entityClasses.add(classifier);
+    }
+}
+%]/**
+ * Mogao Digital Twin - Vue 3 App
+ * Auto-generated from mogao_dt.ecore
+ * Main application with model-driven entity management
+ */
+
+const { createApp } = Vue;
+
+// ============================================
+// Generated Component Imports
+// ============================================
+[% for (entity in entityClasses) {
+    var entityName = entity.name;
+    var entityLower = toLowerFirst(entityName);
+%]
+// [%=entityName%] Components
+import [%=entityName%]Card from './components/[%=entityName%]Card.js';
+import [%=entityName%]Form from './components/[%=entityName%]Form.js';
+import [%=entityName%]List from './components/[%=entityName%]List.js';
+[% } %]
+
+// ============================================
+// Generated Composable Imports
+// ============================================
+[% for (entity in entityClasses) {
+    var entityName = entity.name;
+    var entityPlural = getPlural(toLowerFirst(entityName));
+%]
+import { use[%=entityName%]s } from './composables/use[%=entityName%]s.js';
+[% } %]
+
+// ============================================
+// Shared UI Components
+// ============================================
+const AppHeader = {
+    props: ['currentView'],
+    emits: ['change-view'],
+    template: `
+        <div class="app-header" style="background: var(--primary-color); color: white; padding: var(--spacing-md); display: flex; justify-content: space-between; align-items: center;">
+            <h1 style="margin: 0; font-size: 24px;">🏛️ 莫高窟数字孪生</h1>
+            <div style="display: flex; gap: var(--spacing-sm);">
+[% for (entity in entityClasses) {
+    var entityLower = toLowerFirst(entity.name);
+    var chineseLabel = getChineseLabel(entity.name);
+%]
+                <button @click="$emit('change-view', '[%=entityLower%]s')"
+                        class="btn btn-sm"
+                        :class="currentView === '[%=entityLower%]s' ? 'btn-secondary' : 'btn-outline'">
+                    [%=chineseLabel%]
+                </button>
+[% } %]
+            </div>
+        </div>
+    `
+};
+
+const LoadingSpinner = {
+    template: `
+        <div class="loading-overlay">
+            <div class="spinner"></div>
+            <p style="margin-top: var(--spacing-md); color: var(--text-secondary);">加载中...</p>
+        </div>
+    `
+};
+
+const ErrorMessage = {
+    props: ['message'],
+    emits: ['dismiss'],
+    template: `
+        <div style="background: var(--error-color); color: white; padding: var(--spacing-md); margin: var(--spacing-md); border-radius: var(--radius-md); display: flex; justify-content: space-between; align-items: center;">
+            <span>⚠️ {{ message }}</span>
+            <button @click="$emit('dismiss')" style="background: transparent; border: none; color: white; cursor: pointer; font-size: 20px;">&times;</button>
+        </div>
+    `
+};
+
+const ModalDialog = {
+    props: ['title', 'show'],
+    emits: ['close'],
+    template: `
+        <div v-if="show" class="modal-overlay" @click.self="$emit('close')">
+            <div class="modal" style="min-width: 500px;">
+                <div class="modal-header">
+                    <h3 class="modal-title">{{ title }}</h3>
+                    <button class="modal-close" @click="$emit('close')">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <slot></slot>
+                </div>
+            </div>
+        </div>
+    `
+};
+
+// ============================================
+// Generated Entity View Components
+// ============================================
+[% for (entity in entityClasses) {
+    var entityName = entity.name;
+    var entityLower = toLowerFirst(entityName);
+    var entityPlural = getPlural(entityLower);
+    var chineseLabel = getChineseLabel(entityName);
+%]
+
+const [%=entityName%]View = {
+    components: {
+        [%=entityName%]List,
+        [%=entityName%]Form,
+        [%=entityName%]Card,
+    },
+    setup() {
+        const composable = use[%=entityName%]s();
+        return {
+            ...composable,
+        };
+    },
+    data() {
+        return {
+            showForm: false,
+            editMode: false,
+            editingItem: null,
+        };
+    },
+    methods: {
+        handleCreate() {
+            this.editMode = false;
+            this.editingItem = null;
+            this.showForm = true;
+        },
+        handleEdit(item) {
+            this.editMode = true;
+            this.editingItem = item;
+            this.showForm = true;
+        },
+        async handleDelete(item) {
+            if (confirm(`确定要删除这个[%=chineseLabel%]吗？`)) {
+                try {
+                    await this.delete[%=entityName%](item.gid);
+                    this.$emit('show-message', '删除成功', 'success');
+                } catch (err) {
+                    this.$emit('show-message', '删除失败: ' + err.message, 'error');
+                }
+            }
+        },
+        async handleFormSubmit(data) {
+            try {
+                if (this.editMode) {
+                    await this.update[%=entityName%](this.editingItem.gid, data);
+                    this.$emit('show-message', '更新成功', 'success');
+                } else {
+                    await this.create[%=entityName%](data);
+                    this.$emit('show-message', '创建成功', 'success');
+                }
+                this.showForm = false;
+                await this.fetch[%=entityName%]s();
+            } catch (err) {
+                this.$emit('show-message', '操作失败: ' + err.message, 'error');
+            }
+        },
+        handleFormCancel() {
+            this.showForm = false;
+            this.editingItem = null;
+        },
+        handleSelect(item) {
+            this.select[%=entityName%](item);
+            this.$emit('item-selected', item);
+        }
+    },
+    mounted() {
+        this.fetch[%=entityName%]s();
+    },
+    template: `
+        <div class="entity-view">
+            <modal-dialog :show="showForm" :title="editMode ? '编辑[%=chineseLabel%]' : '创建[%=chineseLabel%]'" @close="handleFormCancel">[%
+                out.print("\n                <" + entityLower + "-form");
+                out.print("\n                    :" + entityLower + "=\"editingItem\"");
+                out.print("\n                    :mode=\"editMode ? 'edit' : 'create'\"");
+                out.print("\n                    @created=\"handleFormSubmit\"");
+                out.print("\n                    @updated=\"handleFormSubmit\"");
+                out.print("\n                    @cancel=\"handleFormCancel\"");
+                out.print("\n                    @error=\"(msg) => $emit('show-message', msg, 'error')\"");
+                out.print("\n                ></" + entityLower + "-form>");
+                %]
+            </modal-dialog>
+[%
+            out.print("\n            <" + entityLower + "-list");
+            out.print("\n                :" + entityPlural + "=\"" + entityPlural + "\"");
+            out.print("\n                :loading=\"loading\"");
+            out.print("\n                @select=\"handleSelect\"");
+            out.print("\n                @edit=\"handleEdit\"");
+            out.print("\n                @delete=\"handleDelete\"");
+            out.print("\n                @create=\"handleCreate\"");
+            out.print("\n            ></" + entityLower + "-list>");
+            %]
+        </div>
+    `
+};
+[% } %]
+
+// ============================================
+// Main App Component
+// ============================================
+const app = createApp({
+    components: {
+        AppHeader,
+        LoadingSpinner,
+        ErrorMessage,
+        ModalDialog,
+[% for (entity in entityClasses) {
+    var entityName = entity.name;
+%]
+        [%=entityName%]View,
+[% } %]
+    },
+    data() {
+        return {
+            // Application state
+            currentView: '[%=toLowerFirst(entityClasses.first().name)%]s',
+            loading: false,
+            error: null,
+            message: null,
+            messageType: 'info',
+
+            // Backend connection status
+            backendOnline: false,
+        };
+    },
+
+    methods: {
+        changeView(view) {
+            console.log('Changing view to:', view);
+            this.currentView = view;
+        },
+
+        showMessage(message, type = 'info') {
+            this.message = message;
+            this.messageType = type;
+            setTimeout(() => {
+                this.message = null;
+            }, 5000);
+        },
+
+        dismissError() {
+            this.error = null;
+            this.message = null;
+        },
+
+        async checkBackendConnection() {
+            try {
+                const response = await window.api.health.check();
+                this.backendOnline = response.data.status !== 'offline';
+                console.log('Backend status:', this.backendOnline ? '✅ Online' : '❌ Offline');
+            } catch (error) {
+                this.backendOnline = false;
+                console.warn('Backend connection check failed:', error.message);
+            }
+        },
+    },
+
+    mounted() {
+        console.log('🏛️ Mogao Digital Twin - Vue App Mounted');
+        console.log('📍 Current working directory:', window.location.href);
+        console.log('🔌 Backend API:', window.API_BASE_URL || 'http://localhost:8080');
+
+        // Check backend connection
+        this.checkBackendConnection();
+
+        // Set up periodic backend health check
+        setInterval(() => {
+            this.checkBackendConnection();
+        }, 30000); // Check every 30 seconds
+
+        console.log('📊 Initial view:', this.currentView);
+    },
+
+    template: `
+        <div id="app-container">
+            <app-header
+                :current-view="currentView"
+                @change-view="changeView"
+            ></app-header>
+
+            <error-message
+                v-if="error || message"
+                :message="error || message"
+                @dismiss="dismissError"
+            ></error-message>
+
+            <div class="main-content">
+                <loading-spinner v-if="loading"></loading-spinner>
+
+                <div v-else class="content-area">
+[% for (entity in entityClasses) {
+    var entityName = entity.name;
+    var entityLower = toLowerFirst(entityName);
+    var entityPlural = getPlural(entityLower);
+    out.print("\n                    <" + entityLower + "-view");
+    out.print("\n                        v-if=\"currentView === '" + entityPlural + "'\"");
+    out.print("\n                        @show-message=\"showMessage\"");
+    out.print("\n                        @item-selected=\"(item) => console.log('" + entityName + " selected:', item)\"");
+    out.print("\n                    ></" + entityLower + "-view>");
+} %]
+                </div>
+            </div>
+
+            <div class="status-bar" :class="backendOnline ? 'status-online' : 'status-offline'">
+                <span>{{ backendOnline ? '✅ 后端在线' : '❌ 后端离线' }}</span>
+            </div>
+        </div>
+    `
+});
+
+// Mount the app
+app.mount('#app');
+
+console.log('✅ Vue app initialized successfully');
+console.log('📦 Registered components:', Object.keys(app._context.components));

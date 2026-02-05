@@ -1,0 +1,176 @@
+@namespace(uri="http://digital.twin.mogao/1.0", prefix="dtm")
+package dtm;
+
+abstract class DTElement {
+	attr String gid;
+}
+
+abstract class UtilityElement extends DTElement {
+	
+}
+
+class Coordinates extends UtilityElement{
+	attr Float x;
+	attr Float y;
+	attr Float z;
+	attr Float roll;
+	attr Float pitch;
+	attr Float yaw;
+}
+
+// Parameter can represent either a calculated value (using expression) or a direct measurement (using value)
+// expression: optional formula/calculation (e.g., "(temp1 + temp2) / 2")
+// value: the numeric result or direct measurement
+class Parameter extends UtilityElement {
+	attr String expression;
+	attr Double value;
+	attr Unit[1] unit;
+}
+
+abstract class ModelElement extends DTElement{
+	attr String name;
+	attr String description;
+	
+}
+
+abstract class Object extends ModelElement{
+	attr String reference;
+	val Coordinates coordinates;
+}
+
+
+abstract class Package extends ModelElement {
+	val Object[*] objects;
+}
+
+class DTPackage extends Package{
+	val Package[*] importPackages;
+}
+
+
+abstract class HeritageArtifact extends Object {
+	attr String label;
+	attr String creationPeriod; // e.g., "Tang Dynasty (618-907 AD)"
+	attr Long lastInspectionDate; // Unix timestamp in milliseconds
+	attr String inspectionNotes;
+	val EnvironmentCondition[*] environmentConditions;
+	val Defect[*] defects;
+}
+
+class Cave extends HeritageArtifact{
+	val Exhibit[*] exhibits;
+}
+
+abstract class Exhibit extends HeritageArtifact {
+	attr String material;
+	attr String period;
+	attr ConservationStatus conservationStatus;
+}
+
+class Statue extends Exhibit {
+	attr Double width; // in mm
+	attr Double depth; // in mm
+	attr Double height; // in mm
+	attr String subject; // e.g., Buddha, Bodhisattva
+}
+
+class Mural extends Exhibit {
+	attr Double width; // in mm
+	attr Double height; // in mm
+	attr String technique; // e.g., fresco, tempera
+}
+
+class Painting extends Exhibit {
+	attr Double width; // in mm
+	attr Double height; // in mm
+	attr String style;
+}
+
+class Inscription extends Exhibit {
+	attr String language;
+	attr String content;
+}
+
+class Defect extends Object {
+	attr DefectType defectType;
+	attr DefectSeverity severity;
+	attr Long detectionDate; // Unix timestamp in milliseconds
+	attr String description;
+	attr Double affectedArea; // in square mm
+	attr String treatmentHistory;
+	attr Boolean requiresImmediateAction;
+}
+
+abstract class EnvironmentCondition extends Object {
+	attr Long timestamp; // Unix timestamp in milliseconds when reading was taken
+}
+
+//温度
+class Temperature extends EnvironmentCondition {
+	//单位: Kelvin
+	val Parameter reading;
+}
+
+//湿度
+class Humidity extends EnvironmentCondition {
+	//单位: RH (Relative Humidity) - in percentage
+	val Parameter reading;
+}
+
+//光照强度
+class LightIntensity extends EnvironmentCondition {
+	//单位: lux
+	val Parameter reading;
+}
+
+
+enum Unit{
+	null;
+	mm; //millimeter
+	K; //Kelvin
+	RH; //relative humidity
+	lux; //lux for light intensity
+}
+
+enum ConservationStatus {
+	excellent;
+	good;
+	fair;
+	poor;
+	critical;
+}
+
+enum DefectType {
+	// Physical/Structural
+	cracking;
+	flaking;
+	blistering;
+	detachment;
+	materialLoss;
+	disruption;
+	alveolization;
+	// Chemical
+	saltEfflorescence;
+	colorAlteration;
+	acidAttack;
+	paintLoss;
+	// Biological
+	microbialGrowth;
+	blackSpots;
+	lichenGrowth;
+	insectDamage;
+	// Environmental
+	waterSeepage;
+	sootDeposition;
+	erosion;
+	// Other
+	structuralCollapse;
+	graffiti;
+}
+
+enum DefectSeverity {
+	minor;
+	moderate;
+	severe;
+	critical;
+}

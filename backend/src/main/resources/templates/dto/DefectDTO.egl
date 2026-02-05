@@ -1,0 +1,102 @@
+package digital.twin.mogao.dto;
+
+/**
+ * Defect Data Transfer Object
+ * Auto-generated from mogao_dt.ecore model
+ */
+public class DefectDTO {
+
+    private String gid;
+    private String reference;
+    private CoordinatesDTO coordinates;
+
+    // Defect specific fields
+    private String defectType;
+    private String severity;
+    private Long detectionDate;
+    private String description;
+    private Double affectedArea;
+    private String treatmentHistory;
+    private Boolean requiresImmediateAction;
+
+    // Getters and Setters
+    public String getGid() {
+        return gid;
+    }
+
+    public void setGid(String gid) {
+        this.gid = gid;
+    }
+
+    public String getReference() {
+        return reference;
+    }
+
+    public void setReference(String reference) {
+        this.reference = reference;
+    }
+
+    public CoordinatesDTO getCoordinates() {
+        return coordinates;
+    }
+
+    public void setCoordinates(CoordinatesDTO coordinates) {
+        this.coordinates = coordinates;
+    }
+
+    public String getDefectType() {
+        return defectType;
+    }
+
+    public void setDefectType(String defectType) {
+        this.defectType = defectType;
+    }
+
+    public String getSeverity() {
+        return severity;
+    }
+
+    public void setSeverity(String severity) {
+        this.severity = severity;
+    }
+
+    public Long getDetectionDate() {
+        return detectionDate;
+    }
+
+    public void setDetectionDate(Long detectionDate) {
+        this.detectionDate = detectionDate;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public Double getAffectedArea() {
+        return affectedArea;
+    }
+
+    public void setAffectedArea(Double affectedArea) {
+        this.affectedArea = affectedArea;
+    }
+
+    public String getTreatmentHistory() {
+        return treatmentHistory;
+    }
+
+    public void setTreatmentHistory(String treatmentHistory) {
+        this.treatmentHistory = treatmentHistory;
+    }
+
+    public Boolean getRequiresImmediateAction() {
+        return requiresImmediateAction;
+    }
+
+    public void setRequiresImmediateAction(Boolean requiresImmediateAction) {
+        this.requiresImmediateAction = requiresImmediateAction;
+    }
+}

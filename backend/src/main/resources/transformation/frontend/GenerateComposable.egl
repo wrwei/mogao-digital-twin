@@ -1,0 +1,184 @@
+[%
+import "FrontendHelpers.eol";
+
+var className = eClass.name;
+var classNameLower = toLowerFirst(className);
+var classNamePlural = getPlural(classNameLower);
+var chineseLabel = getChineseLabel(className);
+%]
+/**
+ * [%=className%] Composable
+ * Auto-generated from mogao_dt.ecore
+ * Vue composable for [%=chineseLabel%] data management
+ */
+
+/**
+ * Composable for managing [%=chineseLabel%] data
+ * @returns {Object} Reactive [%=chineseLabel%] data and methods
+ */
+export function use[%=className%]s() {
+    // Import Vue ref if using modules
+    const { ref, computed } = window.Vue || Vue;
+
+    // Reactive state
+    const [%=classNamePlural%] = ref([]);
+    const loading = ref(false);
+    const error = ref(null);
+    const selected[%=className%] = ref(null);
+
+    /**
+     * Fetch all [%=classNamePlural%]
+     */
+    const fetch[%=className%]s = async () => {
+        loading.value = true;
+        error.value = null;
+        try {
+            console.log('[use[%=className%]s] Fetching all [%=classNamePlural%]...');
+            const response = await window.api.[%=classNamePlural%].getAll();
+            [%=classNamePlural%].value = response.data || [];
+            console.log('[use[%=className%]s] Fetched', [%=classNamePlural%].value.length, '[%=classNamePlural%]');
+        } catch (err) {
+            error.value = err.response?.data?.message || err.message || 'Failed to fetch [%=classNamePlural%]';
+            console.error('[use[%=className%]s] Fetch error:', err);
+            throw err;
+        } finally {
+            loading.value = false;
+        }
+    };
+
+    /**
+     * Get [%=className%] by GID
+     * @param {string} gid - Global ID
+     */
+    const get[%=className%]ByGid = async (gid) => {
+        loading.value = true;
+        error.value = null;
+        try {
+            console.log('[use[%=className%]s] Fetching [%=className%] with GID:', gid);
+            const response = await window.api.[%=classNamePlural%].getByGid(gid);
+            selected[%=className%].value = response.data;
+            return response.data;
+        } catch (err) {
+            error.value = err.response?.data?.message || err.message || 'Failed to fetch [%=className%]';
+            console.error('[use[%=className%]s] Get by GID error:', err);
+            throw err;
+        } finally {
+            loading.value = false;
+        }
+    };
+
+    /**
+     * Create new [%=className%]
+     * @param {Object} data - [%=className%] data
+     */
+    const create[%=className%] = async (data) => {
+        loading.value = true;
+        error.value = null;
+        try {
+            console.log('[use[%=className%]s] Creating [%=className%]:', data);
+            const response = await window.api.[%=classNamePlural%].create(data);
+            [%=classNamePlural%].value.push(response.data);
+            console.log('[use[%=className%]s] Created [%=className%]:', response.data);
+            return response.data;
+        } catch (err) {
+            error.value = err.response?.data?.message || err.message || 'Failed to create [%=className%]';
+            console.error('[use[%=className%]s] Create error:', err);
+            throw err;
+        } finally {
+            loading.value = false;
+        }
+    };
+
+    /**
+     * Update existing [%=className%]
+     * @param {string} gid - Global ID
+     * @param {Object} data - Updated data
+     */
+    const update[%=className%] = async (gid, data) => {
+        loading.value = true;
+        error.value = null;
+        try {
+            console.log('[use[%=className%]s] Updating [%=className%]:', gid, data);
+            await window.api.[%=classNamePlural%].update(gid, data);
+            const index = [%=classNamePlural%].value.findIndex(item => item.gid === gid);
+            if (index !== -1) {
+                [%=classNamePlural%].value[index] = { ...[%=classNamePlural%].value[index], ...data };
+            }
+            console.log('[use[%=className%]s] Updated [%=className%]');
+        } catch (err) {
+            error.value = err.response?.data?.message || err.message || 'Failed to update [%=className%]';
+            console.error('[use[%=className%]s] Update error:', err);
+            throw err;
+        } finally {
+            loading.value = false;
+        }
+    };
+
+    /**
+     * Delete [%=className%]
+     * @param {string} gid - Global ID
+     */
+    const delete[%=className%] = async (gid) => {
+        loading.value = true;
+        error.value = null;
+        try {
+            console.log('[use[%=className%]s] Deleting [%=className%]:', gid);
+            await window.api.[%=classNamePlural%].delete(gid);
+            [%=classNamePlural%].value = [%=classNamePlural%].value.filter(item => item.gid !== gid);
+            if (selected[%=className%].value?.gid === gid) {
+                selected[%=className%].value = null;
+            }
+            console.log('[use[%=className%]s] Deleted [%=className%]');
+        } catch (err) {
+            error.value = err.response?.data?.message || err.message || 'Failed to delete [%=className%]';
+            console.error('[use[%=className%]s] Delete error:', err);
+            throw err;
+        } finally {
+            loading.value = false;
+        }
+    };
+
+    /**
+     * Clear error
+     */
+    const clearError = () => {
+        error.value = null;
+    };
+
+    /**
+     * Select [%=className%]
+     * @param {Object} [%=classNameLower%] - [%=className%] to select
+     */
+    const select[%=className%] = ([%=classNameLower%]) => {
+        selected[%=className%].value = [%=classNameLower%];
+    };
+
+    // Computed properties
+    const has[%=className%]s = computed(() => [%=classNamePlural%].value.length > 0);
+    const [%=classNameLower%]Count = computed(() => [%=classNamePlural%].value.length);
+
+    // Return reactive state and methods
+    return {
+        // State
+        [%=classNamePlural%],
+        loading,
+        error,
+        selected[%=className%],
+        has[%=className%]s,
+        [%=classNameLower%]Count,
+
+        // Methods
+        fetch[%=className%]s,
+        get[%=className%]ByGid,
+        create[%=className%],
+        update[%=className%],
+        delete[%=className%],
+        select[%=className%],
+        clearError
+    };
+}
+
+// Export for global use
+if (typeof window !== 'undefined') {
+    window.use[%=className%]s = use[%=className%]s;
+}

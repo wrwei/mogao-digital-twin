@@ -1,0 +1,73 @@
+package digital.twin.mogao.dto;
+
+/**
+ * Coordinates Data Transfer Object
+ * Auto-generated from mogao_dt.ecore model
+ */
+public class CoordinatesDTO {
+
+    private String gid;
+    private Float x;
+    private Float y;
+    private Float z;
+    private Float roll;
+    private Float pitch;
+    private Float yaw;
+
+    // Getters and Setters
+    public String getGid() {
+        return gid;
+    }
+
+    public void setGid(String gid) {
+        this.gid = gid;
+    }
+
+    public Float getX() {
+        return x;
+    }
+
+    public void setX(Float x) {
+        this.x = x;
+    }
+
+    public Float getY() {
+        return y;
+    }
+
+    public void setY(Float y) {
+        this.y = y;
+    }
+
+    public Float getZ() {
+        return z;
+    }
+
+    public void setZ(Float z) {
+        this.z = z;
+    }
+
+    public Float getRoll() {
+        return roll;
+    }
+
+    public void setRoll(Float roll) {
+        this.roll = roll;
+    }
+
+    public Float getPitch() {
+        return pitch;
+    }
+
+    public void setPitch(Float pitch) {
+        this.pitch = pitch;
+    }
+
+    public Float getYaw() {
+        return yaw;
+    }
+
+    public void setYaw(Float yaw) {
+        this.yaw = yaw;
+    }
+}

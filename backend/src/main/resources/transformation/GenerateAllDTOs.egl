@@ -1,0 +1,40 @@
+[%
+// Main EGL template to generate all DTOs from the metamodel
+// This template loads the Ecore metamodel and generates DTOs for all concrete classes
+
+// Load the metamodel (mogao_dt.ecore)
+var metamodel = M.allInstances().select(e | e.isTypeOf(EPackage)).first();
+
+out.println("Generating DTOs for package: " + metamodel.name);
+
+// Get all concrete classes (non-abstract)
+var concreteClasses = metamodel.eAllContents.select(c | c.isTypeOf(EClass) and not c.abstract);
+
+// Package name for DTOs
+var packageName = "digital.twin.mogao.dto";
+
+// Generate a DTO for each concrete class
+for (eClass in concreteClasses) {
+    out.println("Generating DTO for: " + eClass.name);
+
+    // Use the GenerateDTO template for each class
+    var template = TemplateFactory.load("transformation/GenerateDTO.egl");
+    template.populate("eClass", eClass);
+    template.populate("packageName", packageName);
+
+    var generatedCode = template.process();
+
+    // Write to file
+    var fileName = "generated/" + eClass.name + "DTO.java";
+    var file = new Native("java.io.File")(fileName);
+    file.getParentFile().mkdirs();
+
+    var writer = new Native("java.io.FileWriter")(file);
+    writer.write(generatedCode);
+    writer.close();
+
+    out.println("  Generated: " + fileName);
+}
+
+out.println("DTO generation complete!");
+%]

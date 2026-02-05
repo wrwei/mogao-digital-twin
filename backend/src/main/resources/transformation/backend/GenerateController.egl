@@ -1,0 +1,99 @@
+[%
+// EGL template to generate a Micronaut Controller from an EClass
+// Parameters:
+//   - eClass: The EClass to generate Controller for
+//   - packageName: The package name for the Controller
+
+var className = eClass.name + "Controller";
+var serviceClassName = eClass.name + "Service";
+var dtoClassName = eClass.name + "DTO";
+var varName = eClass.name.firstToLowerCase();
+var basePath = "/" + eClass.name.toLowerCase() + "s";
+%]
+package [%=packageName%];
+
+import digital.twin.mogao.dto.[%=dtoClassName%];
+import digital.twin.mogao.service.[%=serviceClassName%];
+import io.micronaut.http.HttpResponse;
+import io.micronaut.http.annotation.*;
+import io.micronaut.http.HttpStatus;
+import jakarta.inject.Inject;
+
+import java.util.List;
+
+/**
+ * [%=eClass.name%] REST Controller
+ * Auto-generated from mogao_dt.ecore model
+ */
+@Controller("[%=basePath%]")
+public class [%=className%] {
+
+    @Inject
+    private [%=serviceClassName%] [%=varName%]Service;
+
+    /**
+     * Get all [%=eClass.name%] objects
+     *
+     * @return List of [%=eClass.name%] DTOs
+     */
+    @Get
+    public HttpResponse<List<[%=dtoClassName%]>> getAll[%=eClass.name%]s() {
+        List<[%=dtoClassName%]> result = [%=varName%]Service.getAll[%=eClass.name%]s();
+        return HttpResponse.ok(result);
+    }
+
+    /**
+     * Get [%=eClass.name%] by GID
+     *
+     * @param gid The GID of the [%=eClass.name%]
+     * @return [%=eClass.name%] DTO
+     */
+    @Get("/{gid}")
+    public HttpResponse<[%=dtoClassName%]> get[%=eClass.name%]ByGid(@PathVariable String gid) {
+        [%=dtoClassName%] result = [%=varName%]Service.get[%=eClass.name%]ByGid(gid);
+        if (result == null) {
+            return HttpResponse.notFound();
+        }
+        return HttpResponse.ok(result);
+    }
+
+    /**
+     * Create a new [%=eClass.name%]
+     *
+     * @param dto The [%=eClass.name%] DTO to create
+     * @return Created [%=eClass.name%] DTO
+     */
+    @Post
+    @Status(HttpStatus.CREATED)
+    public HttpResponse<[%=dtoClassName%]> create[%=eClass.name%](@Body [%=dtoClassName%] dto) {
+        [%=dtoClassName%] created = [%=varName%]Service.create[%=eClass.name%](dto);
+        return HttpResponse.created(created);
+    }
+
+    /**
+     * Update an existing [%=eClass.name%]
+     *
+     * @param gid The GID of the [%=eClass.name%] to update
+     * @param dto The updated [%=eClass.name%] DTO
+     * @return No content on success
+     */
+    @Put("/{gid}")
+    @Status(HttpStatus.NO_CONTENT)
+    public HttpResponse<Void> update[%=eClass.name%](@PathVariable String gid, @Body [%=dtoClassName%] dto) {
+        [%=varName%]Service.update[%=eClass.name%](gid, dto);
+        return HttpResponse.noContent();
+    }
+
+    /**
+     * Delete a [%=eClass.name%]
+     *
+     * @param gid The GID of the [%=eClass.name%] to delete
+     * @return No content on success
+     */
+    @Delete("/{gid}")
+    @Status(HttpStatus.NO_CONTENT)
+    public HttpResponse<Void> delete[%=eClass.name%](@PathVariable String gid) {
+        [%=varName%]Service.delete[%=eClass.name%](gid);
+        return HttpResponse.noContent();
+    }
+}

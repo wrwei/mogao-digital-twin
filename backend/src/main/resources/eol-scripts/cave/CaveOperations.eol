@@ -1,0 +1,172 @@
+// EOL operations for Cave model objects
+
+/**
+ * Get all Cave objects from the model
+ */
+operation getAllCaves() : Sequence {
+    return Cave.all;
+}
+
+/**
+ * Get Cave by GID
+ */
+operation getCaveByGid(gid : String) : Cave {
+    return Cave.all.selectOne(c | c.gid = gid);
+}
+
+/**
+ * Get Cave by name
+ */
+operation getCaveByName(name : String) : Cave {
+    return Cave.all.selectOne(c | c.name = name);
+}
+
+/**
+ * Create new Cave
+ */
+operation createCave(gid : String, name : String, label : String) : Cave {
+    var cave = new Cave;
+    cave.gid = gid;
+    cave.name = name;
+    cave.label = label;
+    return cave;
+}
+
+/**
+ * Get all exhibits in a cave
+ */
+operation getExhibitsInCave(caveGid : String) : Sequence {
+    var cave = getCaveByGid(caveGid);
+    if (cave.isDefined()) {
+        return cave.exhibits;
+    }
+    return Sequence{};
+}
+
+/**
+ * Get all defects in a cave
+ */
+operation getDefectsInCave(caveGid : String) : Sequence {
+    var cave = getCaveByGid(caveGid);
+    if (cave.isDefined()) {
+        return cave.defects;
+    }
+    return Sequence{};
+}
+
+/**
+ * Get defects by severity in a cave
+ */
+operation getDefectsBySeverity(caveGid : String, severity : String) : Sequence {
+    var cave = getCaveByGid(caveGid);
+    if (cave.isDefined()) {
+        return cave.defects.select(d | d.severity.toString() = severity);
+    }
+    return Sequence{};
+}
+
+/**
+ * Get critical defects in a cave (requires immediate action)
+ */
+operation getCriticalDefects(caveGid : String) : Sequence {
+    var cave = getCaveByGid(caveGid);
+    if (cave.isDefined()) {
+        return cave.defects.select(d | d.requiresImmediateAction = true);
+    }
+    return Sequence{};
+}
+
+/**
+ * Get environment conditions in a cave
+ */
+operation getEnvironmentConditions(caveGid : String) : Sequence {
+    var cave = getCaveByGid(caveGid);
+    if (cave.isDefined()) {
+        return cave.environmentConditions;
+    }
+    return Sequence{};
+}
+
+/**
+ * Get latest temperature reading for a cave
+ */
+operation getLatestTemperature(caveGid : String) : Any {
+    var cave = getCaveByGid(caveGid);
+    if (cave.isDefined()) {
+        var temps = cave.environmentConditions.select(ec | ec.isTypeOf(Temperature));
+        if (temps.notEmpty()) {
+            return temps.sortBy(t | t.timestamp).last();
+        }
+    }
+    return null;
+}
+
+/**
+ * Get latest humidity reading for a cave
+ */
+operation getLatestHumidity(caveGid : String) : Any {
+    var cave = getCaveByGid(caveGid);
+    if (cave.isDefined()) {
+        var humidities = cave.environmentConditions.select(ec | ec.isTypeOf(Humidity));
+        if (humidities.notEmpty()) {
+            return humidities.sortBy(h | h.timestamp).last();
+        }
+    }
+    return null;
+}
+
+/**
+ * Get latest light intensity reading for a cave
+ */
+operation getLatestLightIntensity(caveGid : String) : Any {
+    var cave = getCaveByGid(caveGid);
+    if (cave.isDefined()) {
+        var lights = cave.environmentConditions.select(ec | ec.isTypeOf(LightIntensity));
+        if (lights.notEmpty()) {
+            return lights.sortBy(l | l.timestamp).last();
+        }
+    }
+    return null;
+}
+
+/**
+ * Update cave information
+ */
+operation updateCave(gid : String, name : String, description : String, label : String) {
+    var cave = getCaveByGid(gid);
+    if (cave.isDefined()) {
+        if (name.isDefined()) cave.name = name;
+        if (description.isDefined()) cave.description = description;
+        if (label.isDefined()) cave.label = label;
+    }
+}
+
+/**
+ * Set last inspection date
+ */
+operation setLastInspectionDate(caveGid : String, timestamp : Integer) {
+    var cave = getCaveByGid(caveGid);
+    if (cave.isDefined()) {
+        cave.lastInspectionDate = timestamp;
+    }
+}
+
+/**
+ * Set inspection notes
+ */
+operation setInspectionNotes(caveGid : String, notes : String) {
+    var cave = getCaveByGid(caveGid);
+    if (cave.isDefined()) {
+        cave.inspectionNotes = notes;
+    }
+}
+
+/**
+ * Delete cave
+ */
+operation deleteCave(gid : String) {
+    var cave = getCaveByGid(gid);
+    if (cave.isDefined()) {
+        delete cave;
+    }
+}

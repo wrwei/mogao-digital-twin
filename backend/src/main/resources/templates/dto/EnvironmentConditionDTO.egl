@@ -1,0 +1,86 @@
+package digital.twin.mogao.dto;
+
+/**
+ * Environment Condition Data Transfer Object
+ * Auto-generated from mogao_dt.ecore model
+ */
+public class EnvironmentConditionDTO {
+
+    private String gid;
+    private String reference;
+    private CoordinatesDTO coordinates;
+    private Long timestamp;
+
+    // Type discriminator
+    private String conditionType; // temperature, humidity, lightIntensity
+
+    // Reading value and unit
+    private Double value;
+    private String unit;
+    private String expression; // optional calculation formula
+
+    // Getters and Setters
+    public String getGid() {
+        return gid;
+    }
+
+    public void setGid(String gid) {
+        this.gid = gid;
+    }
+
+    public String getReference() {
+        return reference;
+    }
+
+    public void setReference(String reference) {
+        this.reference = reference;
+    }
+
+    public CoordinatesDTO getCoordinates() {
+        return coordinates;
+    }
+
+    public void setCoordinates(CoordinatesDTO coordinates) {
+        this.coordinates = coordinates;
+    }
+
+    public Long getTimestamp() {
+        return timestamp;
+    }
+
+    public void setTimestamp(Long timestamp) {
+        this.timestamp = timestamp;
+    }
+
+    public String getConditionType() {
+        return conditionType;
+    }
+
+    public void setConditionType(String conditionType) {
+        this.conditionType = conditionType;
+    }
+
+    public Double getValue() {
+        return value;
+    }
+
+    public void setValue(Double value) {
+        this.value = value;
+    }
+
+    public String getUnit() {
+        return unit;
+    }
+
+    public void setUnit(String unit) {
+        this.unit = unit;
+    }
+
+    public String getExpression() {
+        return expression;
+    }
+
+    public void setExpression(String expression) {
+        this.expression = expression;
+    }
+}

@@ -1,0 +1,176 @@
+// Common helper operations for the Mogao Digital Twin model
+
+/**
+ * Get the root DTPackage
+ */
+operation getRootPackage() : DTPackage {
+    return DTPackage.all.first();
+}
+
+/**
+ * Get all objects in the model
+ */
+operation getAllObjects() : Sequence {
+    return Object.all;
+}
+
+/**
+ * Find object by GID (generic)
+ */
+operation findByGid(gid : String) : Any {
+    return Object.all.selectOne(o | o.gid = gid);
+}
+
+/**
+ * Generate unique GID
+ */
+operation generateGid(prefix : String) : String {
+    var timestamp = System.currentTimeMillis();
+    var random = new Native("java.util.Random");
+    return prefix + "-" + timestamp + "-" + random.nextInt(10000);
+}
+
+/**
+ * Create coordinates object
+ */
+operation createCoordinates(x : Real, y : Real, z : Real) : Coordinates {
+    var coords = new Coordinates;
+    coords.gid = generateGid("coord");
+    coords.x = x;
+    coords.y = y;
+    coords.z = z;
+    coords.roll = 0.0;
+    coords.pitch = 0.0;
+    coords.yaw = 0.0;
+    return coords;
+}
+
+/**
+ * Create Parameter object
+ */
+operation createParameter(value : Real, unit : String, expression : String) : Parameter {
+    var param = new Parameter;
+    param.gid = generateGid("param");
+    param.value = value;
+    param.unit = unit.asUnit();
+    if (expression.isDefined()) {
+        param.expression = expression;
+    }
+    return param;
+}
+
+/**
+ * Get current timestamp (Unix milliseconds)
+ */
+operation getCurrentTimestamp() : Integer {
+    return System.currentTimeMillis();
+}
+
+/**
+ * Calculate distance between two coordinates
+ */
+operation calculateDistance(coord1 : Coordinates, coord2 : Coordinates) : Real {
+    if (coord1.isUndefined() or coord2.isUndefined()) {
+        return 0.0;
+    }
+
+    var dx = coord2.x - coord1.x;
+    var dy = coord2.y - coord1.y;
+    var dz = coord2.z - coord1.z;
+
+    return (dx*dx + dy*dy + dz*dz).sqrt();
+}
+
+/**
+ * Get all defects in the entire model
+ */
+operation getAllDefectsInModel() : Sequence {
+    return Defect.all;
+}
+
+/**
+ * Get defect statistics
+ */
+operation getDefectStatistics() : Map {
+    var stats = Map{};
+
+    stats.put("total", Defect.all.size());
+    stats.put("critical", Defect.all.select(d | d.severity.toString() = "critical").size());
+    stats.put("severe", Defect.all.select(d | d.severity.toString() = "severe").size());
+    stats.put("moderate", Defect.all.select(d | d.severity.toString() = "moderate").size());
+    stats.put("minor", Defect.all.select(d | d.severity.toString() = "minor").size());
+    stats.put("requiresAction", Defect.all.select(d | d.requiresImmediateAction = true).size());
+
+    return stats;
+}
+
+/**
+ * Get cave statistics
+ */
+operation getCaveStatistics() : Map {
+    var stats = Map{};
+
+    stats.put("totalCaves", Cave.all.size());
+    stats.put("totalExhibits", Exhibit.all.size());
+    stats.put("statues", Statue.all.size());
+    stats.put("murals", Mural.all.size());
+    stats.put("paintings", Painting.all.size());
+    stats.put("inscriptions", Inscription.all.size());
+
+    return stats;
+}
+
+/**
+ * Get conservation status summary
+ */
+operation getConservationSummary() : Map {
+    var summary = Map{};
+
+    summary.put("excellent", Exhibit.all.select(e | e.conservationStatus.toString() = "excellent").size());
+    summary.put("good", Exhibit.all.select(e | e.conservationStatus.toString() = "good").size());
+    summary.put("fair", Exhibit.all.select(e | e.conservationStatus.toString() = "fair").size());
+    summary.put("poor", Exhibit.all.select(e | e.conservationStatus.toString() = "poor").size());
+    summary.put("critical", Exhibit.all.select(e | e.conservationStatus.toString() = "critical").size());
+
+    return summary;
+}
+
+/**
+ * Helper: Convert string to Unit enum
+ */
+operation String asUnit() : Any {
+    // This will be handled by EMF enum conversion
+    return self;
+}
+
+/**
+ * Validate model integrity
+ */
+operation validateModel() : Sequence {
+    var issues = Sequence{};
+
+    // Check for objects without GID
+    for (obj in Object.all) {
+        if (obj.gid.isUndefined() or obj.gid = "") {
+            issues.add("Object without GID: " + obj);
+        }
+    }
+
+    // Check for duplicate GIDs
+    var gids = Object.all.collect(o | o.gid);
+    for (gid in gids) {
+        var count = gids.select(g | g = gid).size();
+        if (count > 1) {
+            issues.add("Duplicate GID found: " + gid);
+        }
+    }
+
+    // Check for defects without coordinates
+    for (defect in Defect.all) {
+        if (defect.coordinates.isUndefined()) {
+            issues.add("Defect without coordinates: " + defect.gid);
+        }
+    }
+
+    return issues;
+}

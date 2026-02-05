@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?nsuri http://digital.twin.mogao/1.0?>
+<_>
+  <!-- Example Mogao Digital Twin Model Instance -->
+
+  <dtPackage name="MogaoCaves" description="Digital Twin Model of Mogao Caves">
+
+    <!-- Cave 001 - Example cave with various exhibits and defects -->
+    <objects xsi:type="Cave"
+             gid="cave-001"
+             name="Cave 001"
+             label="Mogao Cave 001"
+             description="A Tang Dynasty cave with various murals and statues"
+             creationPeriod="Tang Dynasty (618-907 AD)">
+
+      <coordinates gid="coord-cave-001"
+                   x="0.0" y="0.0" z="0.0"
+                   roll="0.0" pitch="0.0" yaw="0.0"/>
+
+      <!-- Exhibits in Cave 001 -->
+      <exhibits xsi:type="Mural"
+                gid="mural-001"
+                name="North Wall Mural"
+                label="Buddha Life Story Mural"
+                material="Mineral pigments on clay"
+                period="Tang Dynasty"
+                conservationStatus="fair"
+                width="3000.0"
+                height="2500.0"
+                technique="fresco">
+
+        <coordinates gid="coord-mural-001"
+                     x="5.0" y="0.0" z="2.0"
+                     roll="0.0" pitch="90.0" yaw="0.0"/>
+
+        <!-- Defects on this mural -->
+        <defects gid="defect-001"
+                 defectType="flaking"
+                 severity="moderate"
+                 detectionDate="1704067200000"
+                 description="Pigment flaking on upper left section"
+                 affectedArea="150.5"
+                 treatmentHistory="Stabilized in 2023"
+                 requiresImmediateAction="false">
+          <coordinates gid="coord-defect-001"
+                       x="5.2" y="0.1" z="2.8"/>
+        </defects>
+
+        <defects gid="defect-002"
+                 defectType="cracking"
+                 severity="severe"
+                 detectionDate="1704153600000"
+                 description="Horizontal crack across center"
+                 affectedArea="450.0"
+                 treatmentHistory="Under monitoring"
+                 requiresImmediateAction="true">
+          <coordinates gid="coord-defect-002"
+                       x="5.1" y="0.0" z="2.2"/>
+        </defects>
+      </exhibits>
+
+      <exhibits xsi:type="Statue"
+                gid="statue-001"
+                name="Central Buddha"
+                label="Seated Buddha Statue"
+                material="Clay and stucco"
+                period="Tang Dynasty"
+                conservationStatus="good"
+                width="800.0"
+                depth="600.0"
+                height="1500.0"
+                subject="Buddha Shakyamuni">
+
+        <coordinates gid="coord-statue-001"
+                     x="0.0" y="0.0" z="0.5"/>
+
+        <defects gid="defect-003"
+                 defectType="materialLoss"
+                 severity="minor"
+                 detectionDate="1704240000000"
+                 description="Small chip on left hand"
+                 affectedArea="25.0"
+                 requiresImmediateAction="false">
+          <coordinates gid="coord-defect-003"
+                       x="-0.3" y="0.2" z="0.8"/>
+        </defects>
+      </exhibits>
+
+      <exhibits xsi:type="Inscription"
+                gid="inscription-001"
+                name="Donor Inscription"
+                label="Patronage Record"
+                material="Ink on plaster"
+                period="Tang Dynasty"
+                conservationStatus="excellent"
+                language="Classical Chinese"
+                content="Donated by the Li family in the 5th year of Zhenguan">
+
+        <coordinates gid="coord-inscription-001"
+                     x="-5.0" y="0.2" z="1.0"/>
+      </exhibits>
+
+      <!-- Environment conditions in Cave 001 -->
+      <environmentConditions xsi:type="Temperature"
+                             gid="temp-001"
+                             timestamp="1704326400000">
+        <coordinates gid="coord-temp-001"
+                     x="0.0" y="0.0" z="1.5"/>
+        <reading gid="param-temp-001"
+                 value="293.15"
+                 unit="K"/>
+      </environmentConditions>
+
+      <environmentConditions xsi:type="Humidity"
+                             gid="humid-001"
+                             timestamp="1704326400000">
+        <coordinates gid="coord-humid-001"
+                     x="0.0" y="0.0" z="1.5"/>
+        <reading gid="param-humid-001"
+                 value="55.0"
+                 unit="RH"/>
+      </environmentConditions>
+
+      <environmentConditions xsi:type="LightIntensity"
+                             gid="light-001"
+                             timestamp="1704326400000">
+        <coordinates gid="coord-light-001"
+                     x="0.0" y="0.0" z="1.5"/>
+        <reading gid="param-light-001"
+                 value="150.0"
+                 unit="lux"/>
+      </environmentConditions>
+
+    </objects>
+
+    <!-- Cave 002 - Another example cave -->
+    <objects xsi:type="Cave"
+             gid="cave-002"
+             name="Cave 002"
+             label="Mogao Cave 002"
+             description="A Song Dynasty cave"
+             creationPeriod="Song Dynasty (960-1279 AD)">
+
+      <coordinates gid="coord-cave-002"
+                   x="10.0" y="0.0" z="0.0"/>
+
+      <exhibits xsi:type="Painting"
+                gid="painting-001"
+                name="Silk Banner"
+                label="Avalokiteshvara Painting"
+                material="Ink and color on silk"
+                period="Song Dynasty"
+                conservationStatus="poor"
+                width="500.0"
+                height="800.0"
+                style="Traditional Chinese">
+
+        <coordinates gid="coord-painting-001"
+                     x="10.0" y="0.5" z="1.5"/>
+
+        <defects gid="defect-004"
+                 defectType="colorAlteration"
+                 severity="severe"
+                 detectionDate="1704412800000"
+                 description="Significant fading of original colors"
+                 affectedArea="320.0"
+                 treatmentHistory="None"
+                 requiresImmediateAction="true">
+          <coordinates gid="coord-defect-004"
+                       x="10.0" y="0.5" z="1.5"/>
+        </defects>
+      </exhibits>
+
+    </objects>
+
+  </dtPackage>
+
+</_>
