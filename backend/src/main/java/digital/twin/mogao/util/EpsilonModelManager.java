@@ -1,10 +1,15 @@
 package digital.twin.mogao.util;
 
+import jakarta.inject.Singleton;
 import org.eclipse.epsilon.eol.EolModule;
 import org.eclipse.epsilon.egl.EglTemplateFactory;
 import org.eclipse.epsilon.emc.emf.EmfModel;
 import org.eclipse.emf.common.util.URI;
+import org.eclipse.emf.ecore.EPackage;
 import org.eclipse.emf.ecore.resource.Resource;
+import org.eclipse.emf.ecore.resource.ResourceSet;
+import org.eclipse.emf.ecore.resource.impl.ResourceSetImpl;
+import org.eclipse.emf.ecore.xmi.impl.EcoreResourceFactoryImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,6 +24,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * Epsilon Model Manager for Mogao Digital Twin
  * Handles loading/saving EMF models and executing EOL/EGL scripts
  */
+@Singleton
 public class EpsilonModelManager {
 
     private static final Logger LOG = LoggerFactory.getLogger(EpsilonModelManager.class);
@@ -26,6 +32,7 @@ public class EpsilonModelManager {
     // Model file paths
     private static final String MODEL_PATH = "models/instances/mogao.model";
     private static final String METAMODEL_PATH = "metamodel/mogao_dt.ecore";
+    private static final String INIT_SCRIPT_PATH = "eol-scripts/common/InitializeModel.eol";
 
     // Read-write lock for thread safety
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
@@ -38,29 +45,51 @@ public class EpsilonModelManager {
         try {
             LOG.info("Loading EMF model: {}", MODEL_PATH);
 
+            // Register Ecore resource factory for .ecore files
+            Resource.Factory.Registry.INSTANCE.getExtensionToFactoryMap()
+                .putIfAbsent("ecore", new EcoreResourceFactoryImpl());
+
+            // Load and register the metamodel
+            URL metamodelUrl = getClass().getClassLoader().getResource(METAMODEL_PATH);
+            if (metamodelUrl == null) {
+                throw new RuntimeException("Metamodel file not found: " + METAMODEL_PATH);
+            }
+
+            ResourceSet resourceSet = new ResourceSetImpl();
+            Resource metamodelResource = resourceSet.getResource(
+                URI.createURI(metamodelUrl.toString()), true);
+
+            if (!metamodelResource.getContents().isEmpty()) {
+                EPackage ePackage = (EPackage) metamodelResource.getContents().get(0);
+                // Register the package in the global registry
+                EPackage.Registry.INSTANCE.put(ePackage.getNsURI(), ePackage);
+                LOG.info("Registered metamodel package: {} with URI: {}",
+                    ePackage.getName(), ePackage.getNsURI());
+            }
+
+            // Create and configure EmfModel
             EmfModel model = new EmfModel();
             model.setName("M");
             model.setReadOnLoad(true);
             model.setStoredOnDisposal(false);
 
-            // Set metamodel
-            URL metamodelUrl = getClass().getClassLoader().getResource(METAMODEL_PATH);
-            if (metamodelUrl == null) {
-                throw new RuntimeException("Metamodel file not found: " + METAMODEL_PATH);
-            }
-            model.setMetamodelFileUri(URI.createURI(metamodelUrl.toString()));
+            // Set metamodel and model files
+            File metamodelFile = new File(metamodelUrl.toURI());
+            model.setMetamodelFile(metamodelFile.getAbsolutePath());
 
-            // Set model instance
             URL modelUrl = getClass().getClassLoader().getResource(MODEL_PATH);
             if (modelUrl == null) {
                 throw new RuntimeException("Model file not found: " + MODEL_PATH);
             }
-            model.setModelFileUri(URI.createURI(modelUrl.toString()));
+            File modelFile = new File(modelUrl.toURI());
+            model.setModelFile(modelFile.getAbsolutePath());
 
             // Load model
             model.load();
 
-            LOG.info("Model loaded successfully");
+            LOG.info("Model loaded successfully with {} root elements",
+                model.getResource() != null ? model.getResource().getContents().size() : 0);
+
             return model;
 
         } catch (Exception e) {
@@ -68,6 +97,46 @@ public class EpsilonModelManager {
             throw e;
         } finally {
             lock.readLock().unlock();
+        }
+    }
+
+    /**
+     * Initialize model with demo data if empty
+     */
+    private void initializeModelIfEmpty(EmfModel model) throws Exception {
+        try {
+            // Check if model has any Cave objects
+            EolModule checkModule = new EolModule();
+            checkModule.parse("return Cave.all.size();");
+            checkModule.getContext().getModelRepository().addModel(model);
+            Object result = checkModule.execute();
+            checkModule.getContext().getModelRepository().dispose();
+
+            int caveCount = result instanceof Integer ? (Integer) result : 0;
+
+            if (caveCount == 0) {
+                LOG.info("Model is empty, initializing with demo data...");
+
+                // Execute initialization script
+                EolModule initModule = new EolModule();
+                URL scriptUrl = getClass().getClassLoader().getResource(INIT_SCRIPT_PATH);
+                if (scriptUrl != null) {
+                    File scriptFile = new File(scriptUrl.toURI());
+                    initModule.parse(scriptFile);
+                    initModule.getContext().getModelRepository().addModel(model);
+                    initModule.execute();
+                    initModule.getContext().getModelRepository().dispose();
+
+                    // Save the initialized model
+                    saveModel(model);
+                    LOG.info("Model initialized successfully");
+                } else {
+                    LOG.warn("Initialization script not found: {}", INIT_SCRIPT_PATH);
+                }
+            }
+        } catch (Exception e) {
+            LOG.warn("Failed to initialize model: {}", e.getMessage());
+            // Don't throw - allow empty model to be used
         }
     }
 

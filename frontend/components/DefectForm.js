@@ -3,8 +3,14 @@
  * Auto-generated from mogao_dt.ecore
  * Create/Edit form for 缺陷
  */
+import { useI18n } from '../i18n.js';
+
 export default {
     name: 'DefectForm',
+    setup() {
+        const { t } = useI18n();
+        return { t };
+    },
     props: {
         defect: {
             type: Object,
@@ -20,19 +26,21 @@ export default {
     data() {
         return {
             form: {
-                name: this.defect?.name || '',
-                description: this.defect?.description || '',
-                reference: this.defect?.reference || '',
-                defectType: this.defect?.defectType || '',
-                severity: this.defect?.severity || '',
-                detectionDate: this.defect?.detectionDate || null,
-                affectedArea: this.defect?.affectedArea || null,
-                treatmentHistory: this.defect?.treatmentHistory || '',
-                requiresImmediateAction: this.defect?.requiresImmediateAction || null
+                name: this.defect?.name || '',                description: this.defect?.description || '',                defectType: this.defect?.defectType || '',                severity: this.defect?.severity || '',                detectionDate: this.defect?.detectionDate || null,                affectedArea: this.defect?.affectedArea || null,                treatmentHistory: this.defect?.treatmentHistory || '',                requiresImmediateAction: this.defect?.requiresImmediateAction || null,                reference: this.defect?.reference || {
+                    gid: '',
+                    modelLocation: '',
+                    metadataLocation: '',
+                    textureLocation: ''
+                }
             },
             errors: {},
             loading: false,
-            touched: {}
+            touched: {},
+            files: {
+                reference_modelLocation: null,
+                reference_metadataLocation: null,
+                reference_textureLocation: null
+            }
         };
     },
     watch: {
@@ -49,34 +57,48 @@ export default {
         loadFormData(data) {
             this.form.name = data.name || '';
             this.form.description = data.description || '';
-            this.form.reference = data.reference || '';
             this.form.defectType = data.defectType || '';
             this.form.severity = data.severity || '';
             this.form.detectionDate = data.detectionDate || null;
             this.form.affectedArea = data.affectedArea || null;
             this.form.treatmentHistory = data.treatmentHistory || '';
             this.form.requiresImmediateAction = data.requiresImmediateAction || null;
+            if (data.reference) {
+                this.form.reference = { ...data.reference };
+            }
         },
 
         async handleSubmit() {
             // Mark all fields as touched
             this.touched.name = true;
             this.touched.description = true;
-            this.touched.reference = true;
             this.touched.defectType = true;
             this.touched.severity = true;
             this.touched.detectionDate = true;
             this.touched.affectedArea = true;
             this.touched.treatmentHistory = true;
             this.touched.requiresImmediateAction = true;
+            this.touched['reference.gid'] = true;
+            this.touched['reference.modelLocation'] = true;
+            this.touched['reference.metadataLocation'] = true;
+            this.touched['reference.textureLocation'] = true;
 
             if (!this.validate()) {
-                this.$emit('error', '请填写所有必填字段');
+                this.$emit('error', this.t('validation.required', { field: '' }));
                 return;
             }
 
             this.loading = true;
             try {
+                // Upload files first and get server paths
+                const uploadedPaths = await this.uploadFiles();
+
+                // Replace file names with server paths in form
+                for (const [key, path] of Object.entries(uploadedPaths)) {
+                    const [refName, attrName] = key.split('_');
+                    this.form[refName][attrName] = path;
+                }
+
                 if (this.mode === 'create') {
                     const response = await api.defects.create(this.form);
                     this.$emit('created', response.data);
@@ -88,7 +110,7 @@ export default {
                 this.resetForm();
             } catch (error) {
                 console.error('Form submission error:', error);
-                this.$emit('error', error.response?.data?.message || error.message || '保存失败');
+                this.$emit('error', error.response?.data?.message || error.message || this.t('actions.saveError', { entity: this.t('entities.defect') }));
             } finally {
                 this.loading = false;
             }
@@ -101,8 +123,6 @@ export default {
             // Validate name
 
             // Validate description
-
-            // Validate reference
 
             // Validate defectType
 
@@ -123,13 +143,18 @@ export default {
         resetForm() {
             this.form.name = '';
             this.form.description = '';
-            this.form.reference = '';
             this.form.defectType = '';
             this.form.severity = '';
             this.form.detectionDate = null;
             this.form.affectedArea = null;
             this.form.treatmentHistory = '';
             this.form.requiresImmediateAction = null;
+            this.form.reference = {
+                gid: '',
+                modelLocation: '',
+                metadataLocation: '',
+                textureLocation: ''
+            };
             this.errors = {};
             this.touched = {};
         },
@@ -141,13 +166,52 @@ export default {
 
         markTouched(field) {
             this.touched[field] = true;
+        },
+
+        handleFileSelect(event, refName, attrName) {
+            const file = event.target.files[0];
+            if (file) {
+                // Store the File object for upload
+                this.files[`${refName}_${attrName}`] = file;
+                // Display the filename
+                this.form[refName][attrName] = file.name;
+                this.markTouched(`${refName}.${attrName}`);
+            }
+        },
+
+        async uploadFiles() {
+            const uploadedPaths = {};
+
+            for (const [key, file] of Object.entries(this.files)) {
+                if (file) {
+                    const [refName, attrName] = key.split('_');
+                    const category = attrName.replace('Location', '').toLowerCase();
+
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    formData.append('category', category);
+
+                    try {
+                        const response = await api.post('/api/upload', formData, {
+                            headers: { 'Content-Type': 'multipart/form-data' }
+                        });
+
+                        uploadedPaths[key] = response.data.path;
+                    } catch (error) {
+                        console.error(`Failed to upload ${file.name}:`, error);
+                        throw new Error(`Failed to upload ${file.name}`);
+                    }
+                }
+            }
+
+            return uploadedPaths;
         }
     },
     template: `
         <form @submit.prevent="handleSubmit" class="form defect-form">
-            <h2>{{ mode === 'create' ? '创建' : '编辑' }}缺陷</h2>
+            <h2>{{ mode === 'create' ? t('common.create') : t('common.edit') }} {{ t('entities.defect') }}</h2>
 
-            <div class="form-group">
+            <div class="form-group" v-if="mode === 'edit' || true">
                 <label class="form-label" for="name">
                     名称
                 </label>
@@ -159,7 +223,7 @@ export default {
                     @blur="markTouched('name')"
                     class="form-input"
                     :class="{ 'form-input-error': errors.name && touched.name }"
-                    placeholder="请输入名称"
+                    :placeholder="t('fields.name')"
                 />
 
                 <span v-if="errors.name && touched.name" class="form-error">
@@ -167,7 +231,7 @@ export default {
                 </span>
             </div>
 
-            <div class="form-group">
+            <div class="form-group" v-if="mode === 'edit' || true">
                 <label class="form-label" for="description">
                     描述
                 </label>
@@ -178,7 +242,7 @@ export default {
                     @blur="markTouched('description')"
                     class="form-textarea"
                     :class="{ 'form-textarea-error': errors.description && touched.description }"
-                    placeholder="请输入描述"
+                    :placeholder="t('fields.description')"
                     rows="4"
                 ></textarea>
 
@@ -188,27 +252,7 @@ export default {
                 </span>
             </div>
 
-            <div class="form-group">
-                <label class="form-label" for="reference">
-                    reference
-                </label>
-
-                <input
-                    type="text"
-                    id="reference"
-                    v-model="form.reference"
-                    @blur="markTouched('reference')"
-                    class="form-input"
-                    :class="{ 'form-input-error': errors.reference && touched.reference }"
-                    placeholder="请输入reference"
-                />
-
-                <span v-if="errors.reference && touched.reference" class="form-error">
-                    {{ errors.reference }}
-                </span>
-            </div>
-
-            <div class="form-group">
+            <div class="form-group" v-if="mode === 'edit' || false">
                 <label class="form-label" for="defectType">
                     缺陷类型
                 </label>
@@ -220,7 +264,7 @@ export default {
                     class="form-select"
                     :class="{ 'form-select-error': errors.defectType && touched.defectType }"
                 >
-                    <option value="">请选择</option>
+                    <option value="">{{ t('common.loading') }}</option>
                     <option value="cracking">cracking</option>
                     <option value="flaking">flaking</option>
                     <option value="blistering">blistering</option>
@@ -249,7 +293,7 @@ export default {
                 </span>
             </div>
 
-            <div class="form-group">
+            <div class="form-group" v-if="mode === 'edit' || false">
                 <label class="form-label" for="severity">
                     严重程度
                 </label>
@@ -261,7 +305,7 @@ export default {
                     class="form-select"
                     :class="{ 'form-select-error': errors.severity && touched.severity }"
                 >
-                    <option value="">请选择</option>
+                    <option value="">{{ t('common.loading') }}</option>
                     <option value="minor">minor</option>
                     <option value="moderate">moderate</option>
                     <option value="severe">severe</option>
@@ -274,7 +318,7 @@ export default {
                 </span>
             </div>
 
-            <div class="form-group">
+            <div class="form-group" v-if="mode === 'edit' || false">
                 <label class="form-label" for="detectionDate">
                     detectionDate
                 </label>
@@ -286,7 +330,7 @@ export default {
                     @blur="markTouched('detectionDate')"
                     class="form-input"
                     :class="{ 'form-input-error': errors.detectionDate && touched.detectionDate }"
-                    placeholder="请输入detectionDate"
+                    :placeholder="t('fields.detectionDate')"
                 />
 
                 <span v-if="errors.detectionDate && touched.detectionDate" class="form-error">
@@ -294,7 +338,7 @@ export default {
                 </span>
             </div>
 
-            <div class="form-group">
+            <div class="form-group" v-if="mode === 'edit' || false">
                 <label class="form-label" for="affectedArea">
                     affectedArea
                 </label>
@@ -306,7 +350,7 @@ export default {
                     @blur="markTouched('affectedArea')"
                     class="form-input"
                     :class="{ 'form-input-error': errors.affectedArea && touched.affectedArea }"
-                    placeholder="请输入affectedArea"
+                    :placeholder="t('fields.affectedArea')"
                 />
 
                 <span v-if="errors.affectedArea && touched.affectedArea" class="form-error">
@@ -314,7 +358,7 @@ export default {
                 </span>
             </div>
 
-            <div class="form-group">
+            <div class="form-group" v-if="mode === 'edit' || false">
                 <label class="form-label" for="treatmentHistory">
                     treatmentHistory
                 </label>
@@ -326,7 +370,7 @@ export default {
                     @blur="markTouched('treatmentHistory')"
                     class="form-input"
                     :class="{ 'form-input-error': errors.treatmentHistory && touched.treatmentHistory }"
-                    placeholder="请输入treatmentHistory"
+                    :placeholder="t('fields.treatmentHistory')"
                 />
 
                 <span v-if="errors.treatmentHistory && touched.treatmentHistory" class="form-error">
@@ -334,7 +378,7 @@ export default {
                 </span>
             </div>
 
-            <div class="form-group">
+            <div class="form-group" v-if="mode === 'edit' || false">
                 <label class="form-label" for="requiresImmediateAction">
                     requiresImmediateAction
                 </label>
@@ -346,7 +390,7 @@ export default {
                     @blur="markTouched('requiresImmediateAction')"
                     class="form-input"
                     :class="{ 'form-input-error': errors.requiresImmediateAction && touched.requiresImmediateAction }"
-                    placeholder="请输入requiresImmediateAction"
+                    :placeholder="t('fields.requiresImmediateAction')"
                 />
 
                 <span v-if="errors.requiresImmediateAction && touched.requiresImmediateAction" class="form-error">
@@ -354,13 +398,92 @@ export default {
                 </span>
             </div>
 
+
+            <fieldset class="form-fieldset" v-if="mode === 'edit'">
+                <legend class="form-legend">资产引用</legend>
+                <div class="form-group">
+                    <label class="form-label" for="reference_gid">
+                        全局ID
+                    </label>
+                    <input
+                        type="text"
+                        id="reference_gid"
+                        v-model="form.reference.gid"
+                        @blur="markTouched('reference.gid')"
+                        class="form-input"
+                        :class="{ 'form-input-error': errors['reference.gid'] && touched['reference.gid'] }"
+                        :placeholder="t('fields.gid')"
+                    />
+                    <span v-if="errors['reference.gid'] && touched['reference.gid']" class="form-error">
+                        {{ errors['reference.gid'] }}
+                    </span>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="reference_modelLocation">
+                        3D模型路径
+                    </label>
+                    <input
+                        type="file"
+                        id="reference_modelLocation"
+                        @change="handleFileSelect($event, 'reference', 'modelLocation')"
+                        @blur="markTouched('reference.modelLocation')"
+                        class="form-input form-input-file"
+                        :class="{ 'form-input-error': errors['reference.modelLocation'] && touched['reference.modelLocation'] }"
+accept=".obj,.fbx,.gltf,.glb"                    />
+                    <small v-if="form.reference.modelLocation" class="form-help">
+                        {{ t('common.selected') }}: {{ form.reference.modelLocation }}
+                    </small>
+                    <span v-if="errors['reference.modelLocation'] && touched['reference.modelLocation']" class="form-error">
+                        {{ errors['reference.modelLocation'] }}
+                    </span>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="reference_metadataLocation">
+                        元数据路径
+                    </label>
+                    <input
+                        type="file"
+                        id="reference_metadataLocation"
+                        @change="handleFileSelect($event, 'reference', 'metadataLocation')"
+                        @blur="markTouched('reference.metadataLocation')"
+                        class="form-input form-input-file"
+                        :class="{ 'form-input-error': errors['reference.metadataLocation'] && touched['reference.metadataLocation'] }"
+accept=".json,.xml,.txt"                    />
+                    <small v-if="form.reference.metadataLocation" class="form-help">
+                        {{ t('common.selected') }}: {{ form.reference.metadataLocation }}
+                    </small>
+                    <span v-if="errors['reference.metadataLocation'] && touched['reference.metadataLocation']" class="form-error">
+                        {{ errors['reference.metadataLocation'] }}
+                    </span>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="reference_textureLocation">
+                        纹理路径
+                    </label>
+                    <input
+                        type="file"
+                        id="reference_textureLocation"
+                        @change="handleFileSelect($event, 'reference', 'textureLocation')"
+                        @blur="markTouched('reference.textureLocation')"
+                        class="form-input form-input-file"
+                        :class="{ 'form-input-error': errors['reference.textureLocation'] && touched['reference.textureLocation'] }"
+accept=".jpg,.jpeg,.png,.bmp"                    />
+                    <small v-if="form.reference.textureLocation" class="form-help">
+                        {{ t('common.selected') }}: {{ form.reference.textureLocation }}
+                    </small>
+                    <span v-if="errors['reference.textureLocation'] && touched['reference.textureLocation']" class="form-error">
+                        {{ errors['reference.textureLocation'] }}
+                    </span>
+                </div>
+            </fieldset>
+
             <div class="form-actions">
                 <button type="button" class="btn btn-outline" @click="handleCancel" :disabled="loading">
-                    取消
+                    {{ t('common.cancel') }}
                 </button>
                 <button type="submit" class="btn btn-primary" :disabled="loading">
-                    <span v-if="loading">保存中...</span>
-                    <span v-else>{{ mode === 'create' ? '创建' : '更新' }}</span>
+                    <span v-if="loading">{{ t('common.loading') }}</span>
+                    <span v-else>{{ mode === 'create' ? t('common.create') : t('common.save') }}</span>
                 </button>
             </div>
         </form>

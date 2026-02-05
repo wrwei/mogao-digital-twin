@@ -4,9 +4,14 @@
  * Displays list of 洞窟 with search and filter
  */
 import CaveCard from './CaveCard.js';
+import { useI18n } from '../i18n.js';
 
 export default {
     name: 'CaveList',
+    setup() {
+        const { t } = useI18n();
+        return { t };
+    },
     components: {
         CaveCard
     },
@@ -60,9 +65,9 @@ export default {
         <div class="cave-list">
             <div class="list-header" style="padding: var(--spacing-md); border-bottom: 1px solid var(--border);">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-md);">
-                    <h2 style="margin: 0;">洞窟列表</h2>
+                    <h2 style="margin: 0;">{{ t('entities.caves') }}</h2>
                     <button class="btn btn-primary" @click="$emit('create')">
-                        ➕ 添加洞窟
+                        ➕ {{ t('actions.createNew', { entity: t('entities.cave') }) }}
                     </button>
                 </div>
 
@@ -72,25 +77,28 @@ export default {
                         type="text"
                         v-model="searchQuery"
                         class="search-input"
-                        placeholder="搜索洞窟..."
+                        :placeholder="t('common.search') + ' ' + t('entities.cave')"
                     />
                 </div>
             </div>
 
             <div class="list-body" style="padding: var(--spacing-md);">
-                <loading-spinner v-if="loading"></loading-spinner>
+                <div v-if="loading" class="loading-overlay">
+                    <div class="spinner"></div>
+                    <p style="margin-top: var(--spacing-md); color: var(--text-secondary);">{{ t('common.loading') }}</p>
+                </div>
 
                 <div v-else-if="isEmpty" class="empty-state">
                     <div class="empty-state-icon">📭</div>
-                    <div class="empty-state-text">暂无洞窟数据</div>
+                    <div class="empty-state-text">{{ t('common.noData') }}</div>
                     <button class="btn btn-primary" @click="$emit('create')">
-                        创建第一个洞窟
+                        {{ t('actions.createNew', { entity: t('entities.cave') }) }}
                     </button>
                 </div>
 
                 <div v-else-if="filteredCaves.length === 0" class="empty-state">
                     <div class="empty-state-icon">🔍</div>
-                    <div class="empty-state-text">未找到匹配的洞窟</div>
+                    <div class="empty-state-text">{{ t('common.noData') }}</div>
                 </div>
 
                 <div v-else class="list-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--spacing-md);">
@@ -105,8 +113,8 @@ export default {
             </div>
 
             <div class="list-footer" style="padding: var(--spacing-md); border-top: 1px solid var(--border); text-align: center; color: var(--text-secondary);">
-                共 {{ filteredCaves.length }} 个洞窟
-                <span v-if="searchQuery">（从 {{ caves.length }} 个中筛选）</span>
+                {{ filteredCaves.length }} {{ t('entities.cave') }}
+                <span v-if="searchQuery">({{ caves.length }} {{ t('common.filter') }})</span>
             </div>
         </div>
     `

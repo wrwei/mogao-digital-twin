@@ -1,0 +1,79 @@
+// EOL operations for Mural model objects
+// Auto-generated from metamodel
+
+/**
+ * Get all Mural objects from the model
+ */
+operation getAllMurals() : Sequence {
+    return Mural.all;
+}
+
+/**
+ * Get Mural by GID
+ */
+operation getMuralByGid(gid : String) : Mural {
+    return Mural.all.selectOne(obj | obj.gid = gid);
+}
+
+/**
+ * Get Mural by name
+ */
+operation getMuralByName(name : String) : Mural {
+    return Mural.all.selectOne(obj | obj.name = name);
+}
+
+/**
+ * Create new Mural
+ */
+operation createMural(gid : String, name : String, label : String) : Mural {
+    var obj = new Mural;
+    obj.gid = gid;
+    obj.name = name;
+    if (label.isDefined()) {
+        obj.label = label;
+    }
+    return obj;
+}
+
+/**
+ * Update Mural
+ */
+operation updateMural(gid : String, name : String, description : String) {
+    var obj = getMuralByGid(gid);
+    if (obj.isDefined()) {
+        if (name.isDefined()) obj.name = name;
+        if (description.isDefined()) obj.description = description;
+    }
+}
+
+/**
+ * Update Mural reference
+ */
+operation updateMuralReference(gid : String, modelLocation : String, metadataLocation : String, textureLocation : String) {
+    var obj = getMuralByGid(gid);
+    if (obj.isDefined()) {
+        if (obj.reference.isUndefined()) {
+            obj.reference = new AssetReference;
+        }
+        if (modelLocation.isDefined()) obj.reference.modelLocation = modelLocation;
+        if (metadataLocation.isDefined()) obj.reference.metadataLocation = metadataLocation;
+        if (textureLocation.isDefined()) obj.reference.textureLocation = textureLocation;
+    }
+}
+
+/**
+ * Delete Mural
+ */
+operation deleteMural(gid : String) {
+    var obj = getMuralByGid(gid);
+    if (obj.isDefined()) {
+        delete obj;
+    }
+}
+
+/**
+ * Get count of Mural objects
+ */
+operation getMuralCount() : Integer {
+    return Mural.all.size();
+}

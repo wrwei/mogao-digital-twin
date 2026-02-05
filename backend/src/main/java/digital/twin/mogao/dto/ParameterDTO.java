@@ -10,7 +10,7 @@ public class ParameterDTO {
 
     private String gid;
     private String expression;
-    private String value;
+    private Double value;
     private String unit;
 
 
@@ -31,11 +31,11 @@ public class ParameterDTO {
         this.expression = expression;
     }
 
-    public String getValue() {
+    public Double getValue() {
         return value;
     }
 
-    public void setValue(String value) {
+    public void setValue(Double value) {
         this.value = value;
     }
 

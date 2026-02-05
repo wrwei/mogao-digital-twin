@@ -1,0 +1,79 @@
+// EOL operations for Inscription model objects
+// Auto-generated from metamodel
+
+/**
+ * Get all Inscription objects from the model
+ */
+operation getAllInscriptions() : Sequence {
+    return Inscription.all;
+}
+
+/**
+ * Get Inscription by GID
+ */
+operation getInscriptionByGid(gid : String) : Inscription {
+    return Inscription.all.selectOne(obj | obj.gid = gid);
+}
+
+/**
+ * Get Inscription by name
+ */
+operation getInscriptionByName(name : String) : Inscription {
+    return Inscription.all.selectOne(obj | obj.name = name);
+}
+
+/**
+ * Create new Inscription
+ */
+operation createInscription(gid : String, name : String, label : String) : Inscription {
+    var obj = new Inscription;
+    obj.gid = gid;
+    obj.name = name;
+    if (label.isDefined()) {
+        obj.label = label;
+    }
+    return obj;
+}
+
+/**
+ * Update Inscription
+ */
+operation updateInscription(gid : String, name : String, description : String) {
+    var obj = getInscriptionByGid(gid);
+    if (obj.isDefined()) {
+        if (name.isDefined()) obj.name = name;
+        if (description.isDefined()) obj.description = description;
+    }
+}
+
+/**
+ * Update Inscription reference
+ */
+operation updateInscriptionReference(gid : String, modelLocation : String, metadataLocation : String, textureLocation : String) {
+    var obj = getInscriptionByGid(gid);
+    if (obj.isDefined()) {
+        if (obj.reference.isUndefined()) {
+            obj.reference = new AssetReference;
+        }
+        if (modelLocation.isDefined()) obj.reference.modelLocation = modelLocation;
+        if (metadataLocation.isDefined()) obj.reference.metadataLocation = metadataLocation;
+        if (textureLocation.isDefined()) obj.reference.textureLocation = textureLocation;
+    }
+}
+
+/**
+ * Delete Inscription
+ */
+operation deleteInscription(gid : String) {
+    var obj = getInscriptionByGid(gid);
+    if (obj.isDefined()) {
+        delete obj;
+    }
+}
+
+/**
+ * Get count of Inscription objects
+ */
+operation getInscriptionCount() : Integer {
+    return Inscription.all.size();
+}

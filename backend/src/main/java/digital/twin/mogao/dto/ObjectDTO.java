@@ -11,8 +11,8 @@ public class ObjectDTO {
     private String gid;
     private String name;
     private String description;
-    private String reference;
 
+    private AssetReferenceDTO reference;
     private CoordinatesDTO coordinates;
 
     // Getters and Setters
@@ -40,11 +40,11 @@ public class ObjectDTO {
         this.description = description;
     }
 
-    public String getReference() {
+    public AssetReferenceDTO getReference() {
         return reference;
     }
 
-    public void setReference(String reference) {
+    public void setReference(AssetReferenceDTO reference) {
         this.reference = reference;
     }
 

@@ -18,6 +18,11 @@ for (classifier in ePackage.eClassifiers) {
 const { createApp } = Vue;
 
 // ============================================
+// Import i18n
+// ============================================
+import { useI18n } from './i18n.js';
+
+// ============================================
 // Generated Component Imports
 // ============================================
 [% for (entity in entityClasses) {
@@ -44,20 +49,38 @@ import { use[%=entityName%]s } from './composables/use[%=entityName%]s.js';
 // Shared UI Components
 // ============================================
 const AppHeader = {
-    props: ['currentView'],
-    emits: ['change-view'],
+    props: ['currentView', 'locale'],
+    emits: ['change-view', 'change-locale'],
+    setup() {
+        const { t } = useI18n();
+        return { t };
+    },
     template: `
-        <div class="app-header" style="background: var(--primary-color); color: white; padding: var(--spacing-md); display: flex; justify-content: space-between; align-items: center;">
-            <h1 style="margin: 0; font-size: 24px;">🏛️ 莫高窟数字孪生</h1>
-            <div style="display: flex; gap: var(--spacing-sm);">
+        <div class="app-header" style="background: var(--primary-color); color: white; padding: var(--spacing-md);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-sm);">
+                <h1 style="margin: 0; font-size: 24px;">🏛️ {{ locale === 'zh' ? '莫高窟数字孪生' : 'Mogao Digital Twin' }}</h1>
+                <div style="display: flex; gap: var(--spacing-sm);">
+                    <button @click="$emit('change-locale', 'zh')"
+                            class="btn btn-sm"
+                            :class="locale === 'zh' ? 'btn-secondary' : 'btn-outline'">
+                        🇨🇳 中文
+                    </button>
+                    <button @click="$emit('change-locale', 'en')"
+                            class="btn btn-sm"
+                            :class="locale === 'en' ? 'btn-secondary' : 'btn-outline'">
+                        🇬🇧 English
+                    </button>
+                </div>
+            </div>
+            <div style="display: flex; gap: var(--spacing-sm); flex-wrap: wrap;">
 [% for (entity in entityClasses) {
     var entityLower = toLowerFirst(entity.name);
-    var chineseLabel = getChineseLabel(entity.name);
+    var entityPlural = getPlural(entityLower);
 %]
-                <button @click="$emit('change-view', '[%=entityLower%]s')"
+                <button @click="$emit('change-view', '[%=entityPlural%]')"
                         class="btn btn-sm"
-                        :class="currentView === '[%=entityLower%]s' ? 'btn-secondary' : 'btn-outline'">
-                    [%=chineseLabel%]
+                        :class="currentView === '[%=entityPlural%]' ? 'btn-secondary' : 'btn-outline'">
+                    {{ t('entities.[%=entityPlural%]') }}
                 </button>
 [% } %]
             </div>
@@ -66,10 +89,14 @@ const AppHeader = {
 };
 
 const LoadingSpinner = {
+    setup() {
+        const { t } = useI18n();
+        return { t };
+    },
     template: `
         <div class="loading-overlay">
             <div class="spinner"></div>
-            <p style="margin-top: var(--spacing-md); color: var(--text-secondary);">加载中...</p>
+            <p style="margin-top: var(--spacing-md); color: var(--text-secondary);">{{ t('common.loading') }}</p>
         </div>
     `
 };
@@ -118,11 +145,14 @@ const [%=entityName%]View = {
         [%=entityName%]List,
         [%=entityName%]Form,
         [%=entityName%]Card,
+        ModalDialog,
     },
     setup() {
         const composable = use[%=entityName%]s();
+        const { t } = useI18n();
         return {
             ...composable,
+            t,
         };
     },
     data() {
@@ -144,12 +174,12 @@ const [%=entityName%]View = {
             this.showForm = true;
         },
         async handleDelete(item) {
-            if (confirm(`确定要删除这个[%=chineseLabel%]吗？`)) {
+            if (confirm(this.t('actions.deleteConfirm', { entity: this.t('entities.[%=entityLower%]') }))) {
                 try {
                     await this.delete[%=entityName%](item.gid);
-                    this.$emit('show-message', '删除成功', 'success');
+                    this.$emit('show-message', this.t('actions.deleteSuccess', { entity: this.t('entities.[%=entityLower%]') }), 'success');
                 } catch (err) {
-                    this.$emit('show-message', '删除失败: ' + err.message, 'error');
+                    this.$emit('show-message', this.t('actions.deleteError', { entity: this.t('entities.[%=entityLower%]') }) + ': ' + err.message, 'error');
                 }
             }
         },
@@ -157,15 +187,15 @@ const [%=entityName%]View = {
             try {
                 if (this.editMode) {
                     await this.update[%=entityName%](this.editingItem.gid, data);
-                    this.$emit('show-message', '更新成功', 'success');
+                    this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.[%=entityLower%]') }), 'success');
                 } else {
                     await this.create[%=entityName%](data);
-                    this.$emit('show-message', '创建成功', 'success');
+                    this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.[%=entityLower%]') }), 'success');
                 }
                 this.showForm = false;
                 await this.fetch[%=entityName%]s();
             } catch (err) {
-                this.$emit('show-message', '操作失败: ' + err.message, 'error');
+                this.$emit('show-message', this.t('actions.saveError', { entity: this.t('entities.[%=entityLower%]') }) + ': ' + err.message, 'error');
             }
         },
         handleFormCancel() {
@@ -182,7 +212,7 @@ const [%=entityName%]View = {
     },
     template: `
         <div class="entity-view">
-            <modal-dialog :show="showForm" :title="editMode ? '编辑[%=chineseLabel%]' : '创建[%=chineseLabel%]'" @close="handleFormCancel">[%
+            <modal-dialog :show="showForm" :title="editMode ? t('common.edit') + ' ' + t('entities.[%=entityLower%]') : t('actions.createNew', { entity: t('entities.[%=entityLower%]') })" @close="handleFormCancel">[%
                 out.print("\n                <" + entityLower + "-form");
                 out.print("\n                    :" + entityLower + "=\"editingItem\"");
                 out.print("\n                    :mode=\"editMode ? 'edit' : 'create'\"");
@@ -223,10 +253,14 @@ const app = createApp({
         [%=entityName%]View,
 [% } %]
     },
+    setup() {
+        const { locale, t, setLocale } = useI18n();
+        return { locale, t, setLocale };
+    },
     data() {
         return {
             // Application state
-            currentView: '[%=toLowerFirst(entityClasses.first().name)%]s',
+            currentView: '[%=getPlural(toLowerFirst(entityClasses.first().name))%]',
             loading: false,
             error: null,
             message: null,
@@ -241,6 +275,11 @@ const app = createApp({
         changeView(view) {
             console.log('Changing view to:', view);
             this.currentView = view;
+        },
+
+        changeLocale(newLocale) {
+            console.log('Changing locale to:', newLocale);
+            this.setLocale(newLocale);
         },
 
         showMessage(message, type = 'info') {
@@ -288,7 +327,9 @@ const app = createApp({
         <div id="app-container">
             <app-header
                 :current-view="currentView"
+                :locale="locale"
                 @change-view="changeView"
+                @change-locale="changeLocale"
             ></app-header>
 
             <error-message
@@ -315,7 +356,7 @@ const app = createApp({
             </div>
 
             <div class="status-bar" :class="backendOnline ? 'status-online' : 'status-offline'">
-                <span>{{ backendOnline ? '✅ 后端在线' : '❌ 后端离线' }}</span>
+                <span>{{ backendOnline ? (locale === 'zh' ? '✅ 后端在线' : '✅ Backend Online') : (locale === 'zh' ? '❌ 后端离线' : '❌ Backend Offline') }}</span>
             </div>
         </div>
     `

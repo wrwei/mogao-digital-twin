@@ -1,0 +1,79 @@
+// EOL operations for Painting model objects
+// Auto-generated from metamodel
+
+/**
+ * Get all Painting objects from the model
+ */
+operation getAllPaintings() : Sequence {
+    return Painting.all;
+}
+
+/**
+ * Get Painting by GID
+ */
+operation getPaintingByGid(gid : String) : Painting {
+    return Painting.all.selectOne(obj | obj.gid = gid);
+}
+
+/**
+ * Get Painting by name
+ */
+operation getPaintingByName(name : String) : Painting {
+    return Painting.all.selectOne(obj | obj.name = name);
+}
+
+/**
+ * Create new Painting
+ */
+operation createPainting(gid : String, name : String, label : String) : Painting {
+    var obj = new Painting;
+    obj.gid = gid;
+    obj.name = name;
+    if (label.isDefined()) {
+        obj.label = label;
+    }
+    return obj;
+}
+
+/**
+ * Update Painting
+ */
+operation updatePainting(gid : String, name : String, description : String) {
+    var obj = getPaintingByGid(gid);
+    if (obj.isDefined()) {
+        if (name.isDefined()) obj.name = name;
+        if (description.isDefined()) obj.description = description;
+    }
+}
+
+/**
+ * Update Painting reference
+ */
+operation updatePaintingReference(gid : String, modelLocation : String, metadataLocation : String, textureLocation : String) {
+    var obj = getPaintingByGid(gid);
+    if (obj.isDefined()) {
+        if (obj.reference.isUndefined()) {
+            obj.reference = new AssetReference;
+        }
+        if (modelLocation.isDefined()) obj.reference.modelLocation = modelLocation;
+        if (metadataLocation.isDefined()) obj.reference.metadataLocation = metadataLocation;
+        if (textureLocation.isDefined()) obj.reference.textureLocation = textureLocation;
+    }
+}
+
+/**
+ * Delete Painting
+ */
+operation deletePainting(gid : String) {
+    var obj = getPaintingByGid(gid);
+    if (obj.isDefined()) {
+        delete obj;
+    }
+}
+
+/**
+ * Get count of Painting objects
+ */
+operation getPaintingCount() : Integer {
+    return Painting.all.size();
+}

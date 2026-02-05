@@ -1,0 +1,325 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?nsuri http://digital.twin.mogao/1.0?>
+<_>
+  <!-- Mogao Caves Digital Twin - Demo Model -->
+  <!-- This is the singleton model instance used by both frontend and backend -->
+
+  <dtPackage name="MogaoCaves" description="Digital Twin Model of Mogao Caves Heritage Site">
+
+    <!-- ========================================== -->
+    <!-- Cave 001 - Tang Dynasty Cave -->
+    <!-- ========================================== -->
+    <objects xsi:type="Cave"
+             gid="cave-001"
+             name="Cave 001"
+             label="Mogao Cave 001 - Tang Dynasty Masterpiece"
+             description="A Tang Dynasty cave featuring exceptional murals, statues, and inscriptions. Notable for its well-preserved color pigments and detailed Buddhist iconography."
+             creationPeriod="Tang Dynasty (618-907 AD)"
+             lastInspectionDate="1704067200000"
+             inspectionNotes="Annual inspection completed. Minor environmental monitoring adjustments needed."
+             conservationStatus="good">
+
+      <coordinates gid="coord-cave-001"
+                   x="0.0" y="0.0" z="0.0"
+                   roll="0.0" pitch="0.0" yaw="0.0"/>
+
+      <!-- North Wall Mural -->
+      <exhibits xsi:type="Mural"
+                gid="mural-001"
+                name="North Wall Mural"
+                label="Buddha Life Story Mural - Jataka Tales"
+                description="Extensive narrative mural depicting scenes from Buddha's previous lives (Jataka tales). Features vibrant mineral pigments including azurite, malachite, and cinnabar."
+                material="Mineral pigments on clay plaster"
+                period="Tang Dynasty (7th century)"
+                conservationStatus="fair"
+                width="3000.0"
+                height="2500.0"
+                technique="Fresco with dry pigment details"
+                lastInspectionDate="1704240000000"
+                inspectionNotes="Pigment stabilization treatment recommended for upper sections. Monitor humidity levels closely.">
+
+        <coordinates gid="coord-mural-001"
+                     x="5.0" y="0.0" z="2.0"
+                     roll="0.0" pitch="90.0" yaw="0.0"/>
+
+        <!-- Defect: Pigment flaking -->
+        <defects gid="defect-001"
+                 name="Pigment Flaking - Upper Left"
+                 description="Progressive pigment flaking affecting approximately 150 square centimeters in the upper left section. Likely caused by salt crystallization and humidity fluctuations."
+                 defectType="flaking"
+                 severity="moderate"
+                 detectionDate="1704067200000"
+                 affectedArea="150.5"
+                 treatmentHistory="Initial stabilization performed in 2023 using acrylic consolidant. Monitoring ongoing."
+                 requiresImmediateAction="false">
+          <coordinates gid="coord-defect-001"
+                       x="5.2" y="0.1" z="2.8"/>
+        </defects>
+
+        <!-- Defect: Structural crack -->
+        <defects gid="defect-002"
+                 name="Horizontal Structural Crack"
+                 description="Horizontal crack extending approximately 1.2 meters across the center of the composition. Structural monitoring indicates stable but requires intervention."
+                 defectType="cracking"
+                 severity="severe"
+                 detectionDate="1704153600000"
+                 affectedArea="450.0"
+                 treatmentHistory="Under continuous monitoring with fiber optic sensors. Crack width measured monthly."
+                 requiresImmediateAction="true">
+          <coordinates gid="coord-defect-002"
+                       x="5.1" y="0.0" z="2.2"/>
+        </defects>
+
+        <!-- Environment monitoring for this mural -->
+        <environmentConditions xsi:type="Temperature"
+                               gid="temp-mural-001"
+                               timestamp="1704326400000">
+          <coordinates gid="coord-temp-mural-001"
+                       x="5.0" y="0.1" z="2.0"/>
+          <reading gid="param-temp-mural-001"
+                   value="293.15"
+                   unit="K"/>
+        </environmentConditions>
+      </exhibits>
+
+      <!-- Central Buddha Statue with 3D Model -->
+      <exhibits xsi:type="Statue"
+                gid="statue-001"
+                name="Central Buddha"
+                label="Seated Buddha Shakyamuni"
+                description="Monumental seated Buddha in dhyana mudra (meditation posture). Created from clay core with stucco surface, originally gilded. Represents the historical Buddha in enlightened state."
+                material="Clay core with painted stucco surface"
+                period="Tang Dynasty (8th century)"
+                conservationStatus="good"
+                width="800.0"
+                depth="600.0"
+                height="1500.0"
+                subject="Buddha Shakyamuni in meditation"
+                lastInspectionDate="1704326400000"
+                inspectionNotes="Excellent condition. Minor surface cleaning performed. 3D photogrammetry scan completed for digital preservation.">
+
+        <!-- 3D Model Reference -->
+        <reference gid="ref-statue-001"
+                   modelLocation="/exhibit_models/kneeling-attendant-bodhisattva/source/obj/obj/1924_70_Bodhisattva-1mil.obj"
+                   metadataLocation="/exhibit_models/kneeling-attendant-bodhisattva/source/obj/obj/1924_70_Bodhisattva-1mil.mtl"
+                   textureLocation="/exhibit_models/kneeling-attendant-bodhisattva/textures/1924_70_Bodhisattva-1mil.jpeg"/>
+
+        <coordinates gid="coord-statue-001"
+                     x="0.0" y="0.0" z="0.5"/>
+
+        <!-- Minor defect on statue -->
+        <defects gid="defect-003"
+                 name="Material Loss - Left Hand"
+                 description="Small chip measuring 25 square cm on the left hand, likely from historical handling or environmental stress. Does not affect structural integrity."
+                 defectType="materialLoss"
+                 severity="minor"
+                 detectionDate="1704240000000"
+                 affectedArea="25.0"
+                 treatmentHistory="Documented and photographed. No active treatment required."
+                 requiresImmediateAction="false">
+          <coordinates gid="coord-defect-003"
+                       x="-0.3" y="0.2" z="0.8"/>
+        </defects>
+      </exhibits>
+
+      <!-- Donor Inscription -->
+      <exhibits xsi:type="Inscription"
+                gid="inscription-001"
+                name="Donor Inscription"
+                label="Patronage Record - Li Family"
+                description="Important historical inscription recording the patronage of the Li family during the Tang Dynasty. Provides dating evidence and social context for the cave's creation."
+                material="Ink on lime plaster"
+                period="Tang Dynasty - Zhenguan Era"
+                conservationStatus="excellent"
+                language="Classical Chinese"
+                content="Donated by the Li family in the 5th year of Zhenguan (631 CE). May merit bring peace to our ancestors and blessings to future generations."
+                lastInspectionDate="1704412800000"
+                inspectionNotes="Inscription remains highly legible. No conservation intervention needed at this time.">
+
+        <coordinates gid="coord-inscription-001"
+                     x="-5.0" y="0.2" z="1.0"/>
+      </exhibits>
+
+      <!-- Cave Environment Monitoring -->
+      <environmentConditions xsi:type="Temperature"
+                             gid="temp-001"
+                             name="Cave Temperature Sensor"
+                             description="Central temperature monitoring station"
+                             timestamp="1704326400000">
+        <coordinates gid="coord-temp-001"
+                     x="0.0" y="0.0" z="1.5"/>
+        <reading gid="param-temp-001"
+                 value="293.15"
+                 unit="K"
+                 expression="20°C - Optimal range"/>
+      </environmentConditions>
+
+      <environmentConditions xsi:type="Humidity"
+                             gid="humid-001"
+                             name="Cave Humidity Sensor"
+                             description="Central relative humidity monitoring station"
+                             timestamp="1704326400000">
+        <coordinates gid="coord-humid-001"
+                     x="0.0" y="0.0" z="1.5"/>
+        <reading gid="param-humid-001"
+                 value="55.0"
+                 unit="RH"
+                 expression="55% RH - Within acceptable range"/>
+      </environmentConditions>
+
+      <environmentConditions xsi:type="LightIntensity"
+                             gid="light-001"
+                             name="Cave Light Intensity Sensor"
+                             description="Ambient light monitoring for visitor lighting control"
+                             timestamp="1704326400000">
+        <coordinates gid="coord-light-001"
+                     x="0.0" y="0.0" z="1.5"/>
+        <reading gid="param-light-001"
+                 value="150.0"
+                 unit="lux"
+                 expression="150 lux - Conservation-safe lighting"/>
+      </environmentConditions>
+
+    </objects>
+
+    <!-- ========================================== -->
+    <!-- Cave 002 - Song Dynasty Cave -->
+    <!-- ========================================== -->
+    <objects xsi:type="Cave"
+             gid="cave-002"
+             name="Cave 002"
+             label="Mogao Cave 002 - Song Dynasty Silk Paintings"
+             description="Song Dynasty cave featuring rare silk banner paintings and updated iconographic styles. Represents the later artistic traditions at Mogao."
+             creationPeriod="Song Dynasty (960-1279 AD)"
+             lastInspectionDate="1704499200000"
+             inspectionNotes="Urgent conservation needed for silk painting. Environmental controls upgraded."
+             conservationStatus="fair">
+
+      <coordinates gid="coord-cave-002"
+                   x="10.0" y="0.0" z="0.0"/>
+
+      <!-- Silk Banner Painting -->
+      <exhibits xsi:type="Painting"
+                gid="painting-001"
+                name="Silk Banner"
+                label="Avalokiteshvara Banner Painting"
+                description="Rare Song Dynasty silk painting depicting Avalokiteshvara (Guanyin) Bodhisattva. Original colors severely faded due to age and environmental exposure."
+                material="Ink and color on silk"
+                period="Song Dynasty (11th century)"
+                conservationStatus="poor"
+                width="500.0"
+                height="800.0"
+                style="Traditional Chinese Court Style"
+                lastInspectionDate="1704412800000"
+                inspectionNotes="Critical condition. Color analysis completed. Proposal for stabilization treatment submitted to conservation committee.">
+
+        <coordinates gid="coord-painting-001"
+                     x="10.0" y="0.5" z="1.5"/>
+
+        <!-- Severe defect requiring immediate action -->
+        <defects gid="defect-004"
+                 name="Severe Color Alteration"
+                 description="Significant fading and color alteration affecting approximately 80% of the painting surface. Original pigments degraded due to light exposure and oxidation over centuries."
+                 defectType="colorAlteration"
+                 severity="critical"
+                 detectionDate="1704412800000"
+                 affectedArea="320.0"
+                 treatmentHistory="Documented in 2019. Spectroscopic analysis completed in 2023. Treatment plan in development."
+                 requiresImmediateAction="true">
+          <coordinates gid="coord-defect-004"
+                       x="10.0" y="0.5" z="1.5"/>
+        </defects>
+
+        <!-- Environment monitoring -->
+        <environmentConditions xsi:type="LightIntensity"
+                               gid="light-painting-001"
+                               timestamp="1704326400000">
+          <coordinates gid="coord-light-painting-001"
+                       x="10.0" y="0.5" z="1.5"/>
+          <reading gid="param-light-painting-001"
+                   value="50.0"
+                   unit="lux"
+                   expression="50 lux - Reduced for silk preservation"/>
+        </environmentConditions>
+      </exhibits>
+
+      <!-- Cave environment -->
+      <environmentConditions xsi:type="Temperature"
+                             gid="temp-002"
+                             timestamp="1704326400000">
+        <coordinates gid="coord-temp-002"
+                     x="10.0" y="0.0" z="1.0"/>
+        <reading gid="param-temp-002"
+                 value="291.15"
+                 unit="K"/>
+      </environmentConditions>
+
+      <environmentConditions xsi:type="Humidity"
+                             gid="humid-002"
+                             timestamp="1704326400000">
+        <coordinates gid="coord-humid-002"
+                     x="10.0" y="0.0" z="1.0"/>
+        <reading gid="param-humid-002"
+                 value="48.0"
+                 unit="RH"/>
+      </environmentConditions>
+
+    </objects>
+
+    <!-- ========================================== -->
+    <!-- Cave 003 - Northern Wei Dynasty Cave -->
+    <!-- ========================================== -->
+    <objects xsi:type="Cave"
+             gid="cave-003"
+             name="Cave 003"
+             label="Mogao Cave 003 - Early Northern Wei"
+             description="One of the earliest caves at Mogao, featuring archaic artistic styles and simpler iconography from the Northern Wei period."
+             creationPeriod="Northern Wei Dynasty (386-534 AD)"
+             lastInspectionDate="1704585600000"
+             inspectionNotes="Stable condition. Continued monitoring of wall paintings recommended."
+             conservationStatus="excellent">
+
+      <coordinates gid="coord-cave-003"
+                   x="20.0" y="0.0" z="0.0"/>
+
+      <!-- Standing Bodhisattva Statue -->
+      <exhibits xsi:type="Statue"
+                gid="statue-002"
+                name="Standing Bodhisattva"
+                label="Attendant Bodhisattva in Tribhanga Pose"
+                description="Elegant standing bodhisattva figure displaying the characteristic tribhanga (three-bend) pose. Notable for its graceful proportions and serene expression."
+                material="Painted clay and stucco"
+                period="Northern Wei Dynasty (5th century)"
+                conservationStatus="excellent"
+                width="400.0"
+                depth="300.0"
+                height="1200.0"
+                subject="Attendant Bodhisattva">
+
+        <coordinates gid="coord-statue-002"
+                     x="20.0" y="-2.0" z="0.3"/>
+      </exhibits>
+
+      <!-- West Wall Mural -->
+      <exhibits xsi:type="Mural"
+                gid="mural-002"
+                name="West Wall Mural"
+                label="Paradise Scene - Western Pure Land"
+                description="Depiction of Amitabha Buddha's Western Paradise, showing architectural elements and celestial beings in a symmetrical composition typical of Northern Wei style."
+                material="Mineral pigments on earthen plaster"
+                period="Northern Wei Dynasty"
+                conservationStatus="good"
+                width="2500.0"
+                height="2000.0"
+                technique="Fresco">
+
+        <coordinates gid="coord-mural-002"
+                     x="16.0" y="0.0" z="1.5"
+                     pitch="90.0"/>
+      </exhibits>
+
+    </objects>
+
+  </dtPackage>
+
+</_>

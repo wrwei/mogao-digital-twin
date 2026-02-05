@@ -1,0 +1,41 @@
+micronaut:
+  application:
+    name: mogaoDigitalTwin
+  server:
+    port: 8080
+    max-request-size: 500MB
+    multipart:
+      enabled: true
+      max-file-size: 500MB
+    cors:
+      enabled: true
+      configurations:
+        web:
+          allowedOrigins:
+            - http://localhost:8000
+            - http://localhost:8080
+            - http://127.0.0.1:8000
+            - http://127.0.0.1:8080
+          allowedMethods:
+            - GET
+            - POST
+            - PUT
+            - DELETE
+            - OPTIONS
+          allowedHeaders:
+            - Content-Type
+            - Authorization
+  router:
+    static-resources:
+      default:
+        enabled: true
+        mapping: /**
+        paths: classpath:public
+      exhibit-models:
+        enabled: true
+        mapping: /exhibit_models/**
+        paths: classpath:exhibit_models
+
+jackson:
+  serialization:
+    indentOutput: true

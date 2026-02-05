@@ -34,8 +34,14 @@ abstract class ModelElement extends DTElement{
 }
 
 abstract class Object extends ModelElement{
-	attr String reference;
+    val AssetReference reference;  // Now a composite object!
 	val Coordinates coordinates;
+}
+
+class AssetReference extends UtilityElement {
+    attr String modelLocation;      // Path to 3D model (.obj, .gltf, .glb)
+    attr String metadataLocation;   // Path to metadata files (.mtl, .mat)
+    attr String textureLocation;    // Path to texture image (.jpg, .png, .dds)
 }
 
 
@@ -95,7 +101,6 @@ class Defect extends Object {
 	attr DefectType defectType;
 	attr DefectSeverity severity;
 	attr Long detectionDate; // Unix timestamp in milliseconds
-	attr String description;
 	attr Double affectedArea; // in square mm
 	attr String treatmentHistory;
 	attr Boolean requiresImmediateAction;

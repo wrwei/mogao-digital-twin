@@ -38,9 +38,14 @@ public class DefectService {
             Object result = modelManager.executeEolOperation(SCRIPT_PATH, "getAllDefects");
 
             // Convert model objects to DTOs
-            // TODO: Implement conversion logic
+            if (result instanceof java.util.Collection) {
+                java.util.Collection<?> collection = (java.util.Collection<?>) result;
+                return collection.stream()
+                    .map(this::convertToDTO)
+                    .collect(Collectors.toList());
+            }
 
-            return null; // Placeholder
+            return java.util.Collections.emptyList();
 
         } catch (Exception e) {
             LOG.error("Failed to get Defect objects", e);
@@ -58,9 +63,11 @@ public class DefectService {
             Object result = modelManager.executeEolOperation(SCRIPT_PATH, "getDefectByGid", gid);
 
             // Convert model object to DTO
-            // TODO: Implement conversion logic
+            if (result != null) {
+                return convertToDTO(result);
+            }
 
-            return null; // Placeholder
+            return null;
 
         } catch (Exception e) {
             LOG.error("Failed to get Defect with GID: {}", gid, e);
@@ -93,8 +100,23 @@ public class DefectService {
         try {
             LOG.info("Updating Defect with GID: {}", gid);
 
-            // Update operation with DTO data
-            // TODO: Implement update logic
+            // Update basic fields using EOL operation
+            modelManager.executeEolOperation(SCRIPT_PATH, "updateDefect",
+                gid, dto.getName(), dto.getDescription());
+
+            // Update AssetReference if present
+            if (dto.getReference() != null) {
+                digital.twin.mogao.dto.AssetReferenceDTO refDTO = dto.getReference();
+                modelManager.executeEolOperation(SCRIPT_PATH, "updateDefectReference",
+                    gid,
+                    refDTO.getModelLocation(),
+                    refDTO.getMetadataLocation(),
+                    refDTO.getTextureLocation());
+            }
+
+            // Model is automatically saved by executeEolOperation for update operations
+
+            LOG.info("Defect updated successfully: {}", gid);
 
         } catch (Exception e) {
             LOG.error("Failed to update Defect", e);
@@ -114,6 +136,73 @@ public class DefectService {
         } catch (Exception e) {
             LOG.error("Failed to delete Defect", e);
             throw new RuntimeException("Failed to delete Defect: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Convert EMF EObject to DTO
+     */
+    private DefectDTO convertToDTO(Object obj) {
+        if (obj == null) return null;
+
+        try {
+            org.eclipse.emf.ecore.EObject eObject = (org.eclipse.emf.ecore.EObject) obj;
+            DefectDTO dto = new DefectDTO();
+
+            dto.setGid((String) eObject.eGet(eObject.eClass().getEStructuralFeature("gid")));
+            dto.setName((String) eObject.eGet(eObject.eClass().getEStructuralFeature("name")));
+            dto.setDescription((String) eObject.eGet(eObject.eClass().getEStructuralFeature("description")));
+            Object defectTypeVal = eObject.eGet(eObject.eClass().getEStructuralFeature("defectType"));
+            if (defectTypeVal != null) {
+                dto.setDefectType(defectTypeVal.toString());
+            }
+            Object severityVal = eObject.eGet(eObject.eClass().getEStructuralFeature("severity"));
+            if (severityVal != null) {
+                dto.setSeverity(severityVal.toString());
+            }
+            Object detectionDateVal = eObject.eGet(eObject.eClass().getEStructuralFeature("detectionDate"));
+            if (detectionDateVal != null) {
+                dto.setDetectionDate(((Number) detectionDateVal).longValue());
+            }
+            Object affectedAreaVal = eObject.eGet(eObject.eClass().getEStructuralFeature("affectedArea"));
+            if (affectedAreaVal != null) {
+                dto.setAffectedArea(((Number) affectedAreaVal).doubleValue());
+            }
+            dto.setTreatmentHistory((String) eObject.eGet(eObject.eClass().getEStructuralFeature("treatmentHistory")));
+            Object requiresImmediateActionVal = eObject.eGet(eObject.eClass().getEStructuralFeature("requiresImmediateAction"));
+            if (requiresImmediateActionVal != null) {
+                dto.setRequiresImmediateAction((Boolean) requiresImmediateActionVal);
+            }
+
+            // Handle composite reference: reference
+            Object referenceObj = eObject.eGet(eObject.eClass().getEStructuralFeature("reference"));
+            if (referenceObj != null) {
+                org.eclipse.emf.ecore.EObject referenceEObj = (org.eclipse.emf.ecore.EObject) referenceObj;
+                digital.twin.mogao.dto.AssetReferenceDTO referenceDTO = new digital.twin.mogao.dto.AssetReferenceDTO();
+
+                referenceDTO.setGid((String) referenceEObj.eGet(referenceEObj.eClass().getEStructuralFeature("gid")));
+                referenceDTO.setModelLocation((String) referenceEObj.eGet(referenceEObj.eClass().getEStructuralFeature("modelLocation")));
+                referenceDTO.setMetadataLocation((String) referenceEObj.eGet(referenceEObj.eClass().getEStructuralFeature("metadataLocation")));
+                referenceDTO.setTextureLocation((String) referenceEObj.eGet(referenceEObj.eClass().getEStructuralFeature("textureLocation")));
+
+                dto.setReference(referenceDTO);
+            }
+            // Handle composite reference: coordinates
+            Object coordinatesObj = eObject.eGet(eObject.eClass().getEStructuralFeature("coordinates"));
+            if (coordinatesObj != null) {
+                org.eclipse.emf.ecore.EObject coordinatesEObj = (org.eclipse.emf.ecore.EObject) coordinatesObj;
+                digital.twin.mogao.dto.CoordinatesDTO coordinatesDTO = new digital.twin.mogao.dto.CoordinatesDTO();
+
+                coordinatesDTO.setGid((String) coordinatesEObj.eGet(coordinatesEObj.eClass().getEStructuralFeature("gid")));
+
+                dto.setCoordinates(coordinatesDTO);
+            }
+
+            return dto;
+
+        } catch (Exception e) {
+            LOG.error("Failed to convert EObject to DTO", e);
+            throw new RuntimeException("Conversion failed: " + e.getMessage(), e);
         }
     }
 }

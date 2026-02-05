@@ -31,8 +31,8 @@ if exist "..\frontend\app.js" (
 )
 
 echo.
-echo Compiling project...
-call mvn clean compile
+echo Compiling project (initial)...
+call mvn compile -q
 
 if %ERRORLEVEL% NEQ 0 (
     echo Build failed!
@@ -42,7 +42,7 @@ if %ERRORLEVEL% NEQ 0 (
 
 echo.
 echo Running code generator...
-call mvn exec:java
+call mvn exec:java@codegen
 
 if %ERRORLEVEL% NEQ 0 (
     echo Code generation failed!

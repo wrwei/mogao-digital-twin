@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>i18n Multilingual Demo - Mogao Digital Twin</title>
+
+    <!-- Vue 3 -->
+    <script src="https://unpkg.com/vue@3.4.21/dist/vue.global.js"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .demo-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            padding: 40px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 32px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+
+        .language-switcher {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .lang-button {
+            padding: 10px 20px;
+            border: 2px solid #667eea;
+            background: white;
+            color: #667eea;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+
+        .lang-button:hover {
+            background: #f0f0ff;
+        }
+
+        .lang-button.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .demo-section {
+            margin-bottom: 30px;
+            padding: 25px;
+            border: 2px solid #eee;
+            border-radius: 8px;
+        }
+
+        .section-title {
+            font-size: 20px;
+            color: #444;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        .demo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .demo-item {
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border-left: 4px solid #667eea;
+        }
+
+        .demo-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+
+        .demo-value {
+            font-size: 16px;
+            color: #333;
+            font-weight: 600;
+        }
+
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 20px;
+            margin-top: 30px;
+            border-radius: 4px;
+        }
+
+        .info-box h3 {
+            color: #1976d2;
+            margin-bottom: 10px;
+        }
+
+        .info-box p {
+            color: #555;
+            line-height: 1.6;
+        }
+
+        .code-block {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="demo-container">
+            <h1>🌐 {{ t('common.info') }}</h1>
+            <p class="subtitle">Mogao Digital Twin - Auto-generated Multilingual Support</p>
+
+            <!-- Language Switcher -->
+            <div class="language-switcher">
+                <strong style="margin-right: 10px; line-height: 40px;">Select Language / 选择语言:</strong>
+                <button
+                    class="lang-button"
+                    :class="{ active: locale === 'en' }"
+                    @click="setLocale('en')">
+                    🇬🇧 English
+                </button>
+                <button
+                    class="lang-button"
+                    :class="{ active: locale === 'zh' }"
+                    @click="setLocale('zh')">
+                    🇨🇳 中文
+                </button>
+            </div>
+
+            <!-- Common UI Translations -->
+            <div class="demo-section">
+                <h2 class="section-title">{{ t('common.common') || 'Common UI' }} (common.*)</h2>
+                <div class="demo-grid">
+                    <div class="demo-item">
+                        <div class="demo-label">common.create</div>
+                        <div class="demo-value">{{ t('common.create') }}</div>
+                    </div>
+                    <div class="demo-item">
+                        <div class="demo-label">common.edit</div>
+                        <div class="demo-value">{{ t('common.edit') }}</div>
+                    </div>
+                    <div class="demo-item">
+                        <div class="demo-label">common.delete</div>
+                        <div class="demo-value">{{ t('common.delete') }}</div>
+                    </div>
+                    <div class="demo-item">
+                        <div class="demo-label">common.save</div>
+                        <div class="demo-value">{{ t('common.save') }}</div>
+                    </div>
+                    <div class="demo-item">
+                        <div class="demo-label">common.loading</div>
+                        <div class="demo-value">{{ t('common.loading') }}</div>
+                    </div>
+                    <div class="demo-item">
+                        <div class="demo-label">common.success</div>
+                        <div class="demo-value">{{ t('common.success') }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Entity Names -->
+            <div class="demo-section">
+                <h2 class="section-title">{{ locale === 'zh' ? '实体名称' : 'Entity Names' }} (entities.*)</h2>
+                <div class="demo-grid">
+                    <div class="demo-item">
+                        <div class="demo-label">entities.cave</div>
+                        <div class="demo-value">{{ t('entities.cave') }}</div>
+                    </div>
+                    <div class="demo-item">
+                        <div class="demo-label">entities.statue</div>
+                        <div class="demo-value">{{ t('entities.statue') }}</div>
+                    </div>
+                    <div class="demo-item">
+                        <div class="demo-label">entities.mural</div>
+                        <div class="demo-value">{{ t('entities.mural') }}</div>
+                    </div>
+                    <div class="demo-item">
+                        <div class="demo-label">entities.defect</div>
+                        <div class="demo-value">{{ t('entities.defect') }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Field Labels -->
+            <div class="demo-section">
+                <h2 class="section-title">{{ locale === 'zh' ? '字段标签' : 'Field Labels' }} (fields.*)</h2>
+                <div class="demo-grid">
+                    <div class="demo-item">
+                        <div class="demo-label">fields.name</div>
+                        <div class="demo-value">{{ t('fields.name') }}</div>
+                    </div>
+                    <div class="demo-item">
+                        <div class="demo-label">fields.description</div>
+                        <div class="demo-value">{{ t('fields.description') }}</div>
+                    </div>
+                    <div class="demo-item">
+                        <div class="demo-label">fields.material</div>
+                        <div class="demo-value">{{ t('fields.material') }}</div>
+                    </div>
+                    <div class="demo-item">
+                        <div class="demo-label">fields.conservationStatus</div>
+                        <div class="demo-value">{{ t('fields.conservationStatus') }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Conservation Status -->
+            <div class="demo-section">
+                <h2 class="section-title">{{ locale === 'zh' ? '保护状态' : 'Conservation Status' }} (conservationStatus.*)</h2>
+                <div class="demo-grid">
+                    <div class="demo-item">
+                        <div class="demo-label">excellent</div>
+                        <div class="demo-value">{{ t('conservationStatus.excellent') }}</div>
+                    </div>
+                    <div class="demo-item">
+                        <div class="demo-label">good</div>
+                        <div class="demo-value">{{ t('conservationStatus.good') }}</div>
+                    </div>
+                    <div class="demo-item">
+                        <div class="demo-label">fair</div>
+                        <div class="demo-value">{{ t('conservationStatus.fair') }}</div>
+                    </div>
+                    <div class="demo-item">
+                        <div class="demo-label">poor</div>
+                        <div class="demo-value">{{ t('conservationStatus.poor') }}</div>
+                    </div>
+                    <div class="demo-item">
+                        <div class="demo-label">critical</div>
+                        <div class="demo-value">{{ t('conservationStatus.critical') }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3D Viewer Strings -->
+            <div class="demo-section">
+                <h2 class="section-title">{{ locale === 'zh' ? '3D查看器' : '3D Viewer' }} (viewer.*)</h2>
+                <div class="demo-grid">
+                    <div class="demo-item">
+                        <div class="demo-label">viewer.title</div>
+                        <div class="demo-value">{{ t('viewer.title') }}</div>
+                    </div>
+                    <div class="demo-item">
+                        <div class="demo-label">viewer.loading</div>
+                        <div class="demo-value">{{ t('viewer.loading') }}</div>
+                    </div>
+                    <div class="demo-item">
+                        <div class="demo-label">viewer.autoRotate</div>
+                        <div class="demo-value">{{ t('viewer.autoRotate') }}</div>
+                    </div>
+                    <div class="demo-item">
+                        <div class="demo-label">viewer.controls</div>
+                        <div class="demo-value">{{ t('viewer.controls') }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dynamic Translation Example -->
+            <div class="demo-section">
+                <h2 class="section-title">{{ locale === 'zh' ? '动态翻译示例' : 'Dynamic Translation Example' }}</h2>
+                <div class="code-block">
+                    {{ t('actions.createNew', { entity: t('entities.statue') }) }}
+                </div>
+                <div class="code-block">
+                    {{ t('actions.saveSuccess', { entity: t('entities.cave') }) }}
+                </div>
+                <div class="code-block">
+                    {{ t('validation.required', { field: t('fields.name') }) }}
+                </div>
+            </div>
+
+            <!-- Info Box -->
+            <div class="info-box">
+                <h3>✨ {{ locale === 'zh' ? '完全自动生成' : 'Fully Auto-Generated' }}</h3>
+                <p v-if="locale === 'zh'">
+                    此i18n文件完全由模型驱动架构(MDE)自动生成！
+                    从mogao_dt.ecore元模型生成，支持中文和英文。
+                    语言偏好自动保存到localStorage。
+                </p>
+                <p v-else>
+                    This i18n file is fully auto-generated by the Model-Driven Engineering (MDE) architecture!
+                    Generated from the mogao_dt.ecore metamodel with support for Chinese and English.
+                    Language preference automatically saved to localStorage.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import i18n -->
+    <script type="module">
+        import { useI18n } from './i18n.js';
+
+        const { createApp, ref } = Vue;
+
+        createApp({
+            setup() {
+                const { locale, t, setLocale } = useI18n();
+
+                return {
+                    locale,
+                    t,
+                    setLocale
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

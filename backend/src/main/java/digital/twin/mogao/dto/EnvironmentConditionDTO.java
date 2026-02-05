@@ -11,9 +11,9 @@ public class EnvironmentConditionDTO {
     private String gid;
     private String name;
     private String description;
-    private String reference;
-    private String timestamp;
+    private Long timestamp;
 
+    private AssetReferenceDTO reference;
     private CoordinatesDTO coordinates;
 
     // Getters and Setters
@@ -41,20 +41,20 @@ public class EnvironmentConditionDTO {
         this.description = description;
     }
 
-    public String getReference() {
-        return reference;
-    }
-
-    public void setReference(String reference) {
-        this.reference = reference;
-    }
-
-    public String getTimestamp() {
+    public Long getTimestamp() {
         return timestamp;
     }
 
-    public void setTimestamp(String timestamp) {
+    public void setTimestamp(Long timestamp) {
         this.timestamp = timestamp;
+    }
+
+    public AssetReferenceDTO getReference() {
+        return reference;
+    }
+
+    public void setReference(AssetReferenceDTO reference) {
+        this.reference = reference;
     }
 
     public CoordinatesDTO getCoordinates() {

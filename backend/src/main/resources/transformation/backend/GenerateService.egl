@@ -48,9 +48,14 @@ public class [%=className%] {
             Object result = modelManager.executeEolOperation(SCRIPT_PATH, "getAll[%=eClass.name%]s");
 
             // Convert model objects to DTOs
-            // TODO: Implement conversion logic
+            if (result instanceof java.util.Collection) {
+                java.util.Collection<?> collection = (java.util.Collection<?>) result;
+                return collection.stream()
+                    .map(this::convertToDTO)
+                    .collect(Collectors.toList());
+            }
 
-            return null; // Placeholder
+            return java.util.Collections.emptyList();
 
         } catch (Exception e) {
             LOG.error("Failed to get [%=eClass.name%] objects", e);
@@ -68,9 +73,11 @@ public class [%=className%] {
             Object result = modelManager.executeEolOperation(SCRIPT_PATH, "get[%=eClass.name%]ByGid", gid);
 
             // Convert model object to DTO
-            // TODO: Implement conversion logic
+            if (result != null) {
+                return convertToDTO(result);
+            }
 
-            return null; // Placeholder
+            return null;
 
         } catch (Exception e) {
             LOG.error("Failed to get [%=eClass.name%] with GID: {}", gid, e);
@@ -103,8 +110,28 @@ public class [%=className%] {
         try {
             LOG.info("Updating [%=eClass.name%] with GID: {}", gid);
 
-            // Update operation with DTO data
-            // TODO: Implement update logic
+            // Update basic fields using EOL operation
+            modelManager.executeEolOperation(SCRIPT_PATH, "update[%=eClass.name%]",
+                gid, dto.getName(), dto.getDescription());
+
+[% // Check if class has AssetReference and add update call %]
+[% for (ref in eClass.eAllReferences) { %]
+[% if (ref.containment and ref.upperBound == 1 and ref.eType.name == "AssetReference") { %]
+            // Update AssetReference if present
+            if (dto.get[%=ref.name.firstToUpperCase()%]() != null) {
+                digital.twin.mogao.dto.AssetReferenceDTO refDTO = dto.get[%=ref.name.firstToUpperCase()%]();
+                modelManager.executeEolOperation(SCRIPT_PATH, "update[%=eClass.name%][%=ref.name.firstToUpperCase()%]",
+                    gid,
+                    refDTO.getModelLocation(),
+                    refDTO.getMetadataLocation(),
+                    refDTO.getTextureLocation());
+            }
+[% } %]
+[% } %]
+
+            // Model is automatically saved by executeEolOperation for update operations
+
+            LOG.info("[%=eClass.name%] updated successfully: {}", gid);
 
         } catch (Exception e) {
             LOG.error("Failed to update [%=eClass.name%]", e);
@@ -124,6 +151,83 @@ public class [%=className%] {
         } catch (Exception e) {
             LOG.error("Failed to delete [%=eClass.name%]", e);
             throw new RuntimeException("Failed to delete [%=eClass.name%]: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Convert EMF EObject to DTO
+     */
+    private [%=dtoClassName%] convertToDTO(Object obj) {
+        if (obj == null) return null;
+
+        try {
+            org.eclipse.emf.ecore.EObject eObject = (org.eclipse.emf.ecore.EObject) obj;
+            [%=dtoClassName%] dto = new [%=dtoClassName%]();
+
+[% for (attr in eClass.eAllAttributes) { %]
+[% if (attr.eType.name == "EString") { %]
+            dto.set[%=attr.name.firstToUpperCase()%]((String) eObject.eGet(eObject.eClass().getEStructuralFeature("[%=attr.name%]")));
+[% } else if (attr.eType.name == "EInt" or attr.eType.name == "EIntegerObject") { %]
+            Object [%=attr.name%]Val = eObject.eGet(eObject.eClass().getEStructuralFeature("[%=attr.name%]"));
+            if ([%=attr.name%]Val != null) {
+                dto.set[%=attr.name.firstToUpperCase()%](((Number) [%=attr.name%]Val).intValue());
+            }
+[% } else if (attr.eType.name == "EDouble" or attr.eType.name == "EDoubleObject") { %]
+            Object [%=attr.name%]Val = eObject.eGet(eObject.eClass().getEStructuralFeature("[%=attr.name%]"));
+            if ([%=attr.name%]Val != null) {
+                dto.set[%=attr.name.firstToUpperCase()%](((Number) [%=attr.name%]Val).doubleValue());
+            }
+[% } else if (attr.eType.name == "ELong" or attr.eType.name == "ELongObject") { %]
+            Object [%=attr.name%]Val = eObject.eGet(eObject.eClass().getEStructuralFeature("[%=attr.name%]"));
+            if ([%=attr.name%]Val != null) {
+                dto.set[%=attr.name.firstToUpperCase()%](((Number) [%=attr.name%]Val).longValue());
+            }
+[% } else if (attr.eType.name == "EBoolean" or attr.eType.name == "EBooleanObject") { %]
+            Object [%=attr.name%]Val = eObject.eGet(eObject.eClass().getEStructuralFeature("[%=attr.name%]"));
+            if ([%=attr.name%]Val != null) {
+                dto.set[%=attr.name.firstToUpperCase()%]((Boolean) [%=attr.name%]Val);
+            }
+[% } else if (attr.eType.instanceClassName.isDefined() and attr.eType.instanceClassName.startsWith("java.time.")) { %]
+            Object [%=attr.name%]Val = eObject.eGet(eObject.eClass().getEStructuralFeature("[%=attr.name%]"));
+            if ([%=attr.name%]Val != null) {
+                dto.set[%=attr.name.firstToUpperCase()%](([%=attr.eType.instanceClassName%]) [%=attr.name%]Val);
+            }
+[% } else if (attr.eType.ePackage.isDefined() and attr.eType.ePackage.nsURI == "http://digital.twin.mogao/1.0") { %]
+            Object [%=attr.name%]Val = eObject.eGet(eObject.eClass().getEStructuralFeature("[%=attr.name%]"));
+            if ([%=attr.name%]Val != null) {
+                dto.set[%=attr.name.firstToUpperCase()%]([%=attr.name%]Val.toString());
+            }
+[% } else { %]
+            // TODO: Handle type [%=attr.eType.name%] for attribute [%=attr.name%]
+[% } %]
+[% } %]
+
+[% // Handle composite references (like AssetReference) - only single-valued ones %]
+[% for (ref in eClass.eAllReferences) { %]
+[% if (ref.containment and ref.upperBound == 1) { %]
+            // Handle composite reference: [%=ref.name%]
+            Object [%=ref.name%]Obj = eObject.eGet(eObject.eClass().getEStructuralFeature("[%=ref.name%]"));
+            if ([%=ref.name%]Obj != null) {
+                org.eclipse.emf.ecore.EObject [%=ref.name%]EObj = (org.eclipse.emf.ecore.EObject) [%=ref.name%]Obj;
+                digital.twin.mogao.dto.[%=ref.eType.name%]DTO [%=ref.name%]DTO = new digital.twin.mogao.dto.[%=ref.eType.name%]DTO();
+
+[% var nestedAttrs = ref.eType.eAllAttributes; %]
+[% for (nestedAttr in nestedAttrs) { %]
+[% if (nestedAttr.eType.name == "EString") { %]
+                [%=ref.name%]DTO.set[%=nestedAttr.name.firstToUpperCase()%]((String) [%=ref.name%]EObj.eGet([%=ref.name%]EObj.eClass().getEStructuralFeature("[%=nestedAttr.name%]")));
+[% } %]
+[% } %]
+
+                dto.set[%=ref.name.firstToUpperCase()%]([%=ref.name%]DTO);
+            }
+[% } %]
+[% } %]
+
+            return dto;
+
+        } catch (Exception e) {
+            LOG.error("Failed to convert EObject to DTO", e);
+            throw new RuntimeException("Conversion failed: " + e.getMessage(), e);
         }
     }
 }

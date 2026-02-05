@@ -5,6 +5,8 @@ var className = eClass.name;
 var classNameLower = toLowerFirst(className);
 var attributes = eClass.eAllAttributes;
 var displayAttrs = getKeyAttributes(attributes);
+var references = eClass.eAllReferences;
+var hasAssetRef = references.exists(r | isAssetReference(r));
 var chineseLabel = getChineseLabel(className);
 %]
 /**
@@ -12,6 +14,8 @@ var chineseLabel = getChineseLabel(className);
  * Auto-generated from mogao_dt.ecore
  * Displays [%=chineseLabel%] information in card format
  */
+import { useI18n } from '../i18n.js';
+
 export default {
     name: '[%=className%]Card',
     props: {
@@ -21,13 +25,17 @@ export default {
         }
     },
     emits: ['select', 'edit', 'delete'],
+    setup() {
+        const { t } = useI18n();
+        return { t };
+    },
     template: `
         <div class="card [%=classNameLower%]-card" @click="$emit('select', [%=classNameLower%])">
             <div class="card-header">
                 <h3 class="card-title">{{ [%=classNameLower%].name || '[%=chineseLabel%]' }}</h3>
                 [% if (hasConservationStatus(eClass)) { %]
                 <span class="badge" :class="'badge-' + ([%=classNameLower%].conservationStatus || 'unknown').toLowerCase()">
-                    {{ [%=classNameLower%].conservationStatus || '未知' }}
+                    {{ [%=classNameLower%].conservationStatus ? t('conservationStatus.' + [%=classNameLower%].conservationStatus.toLowerCase()) : t('conservationStatus.unknown') }}
                 </span>
                 [% } %]
             </div>
@@ -40,13 +48,26 @@ export default {
                 </div>
                 [% } %]
                 [% } %]
+                [% if (hasAssetRef) { %]
+                <div v-if="[%=classNameLower%].reference" class="card-section">
+                    <div class="field-label">{{ t('detail.assetReference') }}</div>
+                    <div class="card-field" v-if="[%=classNameLower%].reference.modelLocation">
+                        <span class="field-label">{{ t('detail.modelPath') }}:</span>
+                        <span class="field-value">{{ [%=classNameLower%].reference.modelLocation }}</span>
+                    </div>
+                    <div class="card-field" v-if="[%=classNameLower%].reference.textureLocation">
+                        <span class="field-label">{{ t('detail.texturePath') }}:</span>
+                        <span class="field-value">{{ [%=classNameLower%].reference.textureLocation }}</span>
+                    </div>
+                </div>
+                [% } %]
             </div>
             <div class="card-footer">
-                <button class="btn btn-sm btn-primary" @click.stop="$emit('edit', [%=classNameLower%])" title="编辑">
-                    ✏️ 编辑
+                <button class="btn btn-sm btn-primary" @click.stop="$emit('edit', [%=classNameLower%])" :title="t('common.edit')">
+                    ✏️ {{ t('common.edit') }}
                 </button>
-                <button class="btn btn-sm btn-error" @click.stop="$emit('delete', [%=classNameLower%])" title="删除">
-                    🗑️ 删除
+                <button class="btn btn-sm btn-error" @click.stop="$emit('delete', [%=classNameLower%])" :title="t('common.delete')">
+                    🗑️ {{ t('common.delete') }}
                 </button>
             </div>
         </div>

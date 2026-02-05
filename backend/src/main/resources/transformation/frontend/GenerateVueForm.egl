@@ -6,6 +6,8 @@ var classNameLower = toLowerFirst(className);
 var classNamePlural = getPlural(classNameLower);
 var attributes = eClass.eAllAttributes;
 var formAttrs = getFormAttributes(attributes);
+var references = eClass.eAllReferences;
+var formRefs = getFormReferences(references);
 var chineseLabel = getChineseLabel(className);
 %]
 /**
@@ -13,8 +15,14 @@ var chineseLabel = getChineseLabel(className);
  * Auto-generated from mogao_dt.ecore
  * Create/Edit form for [%=chineseLabel%]
  */
+import { useI18n } from '../i18n.js';
+
 export default {
     name: '[%=className%]Form',
+    setup() {
+        const { t } = useI18n();
+        return { t };
+    },
     props: {
         [%=classNameLower%]: {
             type: Object,
@@ -31,12 +39,29 @@ export default {
         return {
             form: {
                 [% for (attr in formAttrs) { %]
-                [%=attr.name%]: this.[%=classNameLower%]?.[%=attr.name%] || [%=getDefaultValue(attr)%][%= (loopCount < formAttrs.size()) ? "," : "" %]
+                [%=attr.name%]: this.[%=classNameLower%]?.[%=attr.name%] || [%=getDefaultValue(attr)%],[%  } %]
+                [% for (ref in formRefs) { %]
+                [%=ref.name%]: this.[%=classNameLower%]?.[%=ref.name%] || {
+                    [% var nestedAttrs = getNestedAttributes(ref); %]
+                    [% for (nestedAttr in nestedAttrs) { %]
+                    [%=nestedAttr.name%]: [%=getDefaultValue(nestedAttr)%][%= (loopCount < nestedAttrs.size()) ? "," : "" %]
+                    [% } %]
+                }[%= (loopCount < formRefs.size()) ? "," : "" %]
                 [% } %]
             },
             errors: {},
             loading: false,
-            touched: {}
+            touched: {},
+            files: {
+                [% for (ref in formRefs) { %]
+                [% var nestedAttrs = getNestedAttributes(ref); %]
+                [% for (nestedAttr in nestedAttrs) { %]
+                [% if (nestedAttr.name.endsWith("Location")) { %]
+                [%=ref.name%]_[%=nestedAttr.name%]: null[%= (loopCount < nestedAttrs.size() or loopCount < formRefs.size()) ? "," : "" %]
+                [% } %]
+                [% } %]
+                [% } %]
+            }
         };
     },
     watch: {
@@ -54,6 +79,11 @@ export default {
             [% for (attr in formAttrs) { %]
             this.form.[%=attr.name%] = data.[%=attr.name%] || [%=getDefaultValue(attr)%];
             [% } %]
+            [% for (ref in formRefs) { %]
+            if (data.[%=ref.name%]) {
+                this.form.[%=ref.name%] = { ...data.[%=ref.name%] };
+            }
+            [% } %]
         },
 
         async handleSubmit() {
@@ -61,14 +91,29 @@ export default {
             [% for (attr in formAttrs) { %]
             this.touched.[%=attr.name%] = true;
             [% } %]
+            [% for (ref in formRefs) { %]
+            [% var nestedAttrs = getNestedAttributes(ref); %]
+            [% for (nestedAttr in nestedAttrs) { %]
+            this.touched['[%=ref.name%].[%=nestedAttr.name%]'] = true;
+            [% } %]
+            [% } %]
 
             if (!this.validate()) {
-                this.$emit('error', '请填写所有必填字段');
+                this.$emit('error', this.t('validation.required', { field: '' }));
                 return;
             }
 
             this.loading = true;
             try {
+                // Upload files first and get server paths
+                const uploadedPaths = await this.uploadFiles();
+
+                // Replace file names with server paths in form
+                for (const [key, path] of Object.entries(uploadedPaths)) {
+                    const [refName, attrName] = key.split('_');
+                    this.form[refName][attrName] = path;
+                }
+
                 if (this.mode === 'create') {
                     const response = await api.[%=classNamePlural%].create(this.form);
                     this.$emit('created', response.data);
@@ -80,7 +125,7 @@ export default {
                 this.resetForm();
             } catch (error) {
                 console.error('Form submission error:', error);
-                this.$emit('error', error.response?.data?.message || error.message || '保存失败');
+                this.$emit('error', error.response?.data?.message || error.message || this.t('actions.saveError', { entity: this.t('entities.[%=classNameLower%]') }));
             } finally {
                 this.loading = false;
             }
@@ -94,7 +139,7 @@ export default {
             // Validate [%=attr.name%]
             [% if (isRequired(attr)) { %]
             if (!this.form.[%=attr.name%] || this.form.[%=attr.name%].toString().trim() === '') {
-                this.errors.[%=attr.name%] = '[%=getFieldLabel(attr.name)%]是必填项';
+                this.errors.[%=attr.name%] = this.t('validation.required', { field: this.t('fields.[%=attr.name%]') });
                 isValid = false;
             }
             [% } %]
@@ -135,6 +180,14 @@ export default {
             [% for (attr in formAttrs) { %]
             this.form.[%=attr.name%] = [%=getDefaultValue(attr)%];
             [% } %]
+            [% for (ref in formRefs) { %]
+            this.form.[%=ref.name%] = {
+                [% var nestedAttrs = getNestedAttributes(ref); %]
+                [% for (nestedAttr in nestedAttrs) { %]
+                [%=nestedAttr.name%]: [%=getDefaultValue(nestedAttr)%][%= (loopCount < nestedAttrs.size()) ? "," : "" %]
+                [% } %]
+            };
+            [% } %]
             this.errors = {};
             this.touched = {};
         },
@@ -146,14 +199,53 @@ export default {
 
         markTouched(field) {
             this.touched[field] = true;
+        },
+
+        handleFileSelect(event, refName, attrName) {
+            const file = event.target.files[0];
+            if (file) {
+                // Store the File object for upload
+                this.files[`${refName}_${attrName}`] = file;
+                // Display the filename
+                this.form[refName][attrName] = file.name;
+                this.markTouched(`${refName}.${attrName}`);
+            }
+        },
+
+        async uploadFiles() {
+            const uploadedPaths = {};
+
+            for (const [key, file] of Object.entries(this.files)) {
+                if (file) {
+                    const [refName, attrName] = key.split('_');
+                    const category = attrName.replace('Location', '').toLowerCase();
+
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    formData.append('category', category);
+
+                    try {
+                        const response = await api.post('/api/upload', formData, {
+                            headers: { 'Content-Type': 'multipart/form-data' }
+                        });
+
+                        uploadedPaths[key] = response.data.path;
+                    } catch (error) {
+                        console.error(`Failed to upload ${file.name}:`, error);
+                        throw new Error(`Failed to upload ${file.name}`);
+                    }
+                }
+            }
+
+            return uploadedPaths;
         }
     },
     template: `
         <form @submit.prevent="handleSubmit" class="form [%=classNameLower%]-form">
-            <h2>{{ mode === 'create' ? '创建' : '编辑' }}[%=chineseLabel%]</h2>
+            <h2>{{ mode === 'create' ? t('common.create') : t('common.edit') }} {{ t('entities.[%=classNameLower%]') }}</h2>
 
             [% for (attr in formAttrs) { %]
-            <div class="form-group">
+            <div class="form-group" v-if="mode === 'edit' || [%=isEssentialForCreation(attr) ? "true" : "false"%]">
                 <label class="form-label[% if (isRequired(attr)) { %] form-label-required[% } %]" for="[%=attr.name%]">
                     [%=getFieldLabel(attr.name)%]
                 </label>
@@ -165,7 +257,7 @@ export default {
                     @blur="markTouched('[%=attr.name%]')"
                     class="form-textarea"
                     :class="{ 'form-textarea-error': errors.[%=attr.name%] && touched.[%=attr.name%] }"
-                    placeholder="请输入[%=getFieldLabel(attr.name)%]"
+                    :placeholder="t('fields.[%=attr.name%]')"
                     rows="4"
                     [% if (isRequired(attr)) { %]required[% } %]
                 ></textarea>
@@ -179,7 +271,7 @@ export default {
                     :class="{ 'form-select-error': errors.[%=attr.name%] && touched.[%=attr.name%] }"
                     [% if (isRequired(attr)) { %]required[% } %]
                 >
-                    <option value="">请选择</option>
+                    <option value="">{{ t('common.loading') }}</option>
                     [% for (option in getEnumOptions(attr)) { %]
                     <option value="[%=option%]">[%=option%]</option>
                     [% } %]
@@ -204,7 +296,7 @@ export default {
                     @blur="markTouched('[%=attr.name%]')"
                     class="form-input"
                     :class="{ 'form-input-error': errors.[%=attr.name%] && touched.[%=attr.name%] }"
-                    placeholder="请输入[%=getFieldLabel(attr.name)%]"
+                    :placeholder="t('fields.[%=attr.name%]')"
                     [% if (hasMin(attr)) { %]min="[%=getMin(attr)%]"[% } %]
                     [% if (hasMax(attr)) { %]max="[%=getMax(attr)%]"[% } %]
                     [% if (isRequired(attr)) { %]required[% } %]
@@ -219,7 +311,7 @@ export default {
                     @blur="markTouched('[%=attr.name%]')"
                     class="form-input"
                     :class="{ 'form-input-error': errors.[%=attr.name%] && touched.[%=attr.name%] }"
-                    placeholder="请输入[%=getFieldLabel(attr.name)%]"
+                    :placeholder="t('fields.[%=attr.name%]')"
                     [% if (isRequired(attr)) { %]required[% } %]
                 />
                 [% } %]
@@ -230,13 +322,60 @@ export default {
             </div>
 
             [% } %]
+
+            [% // Generate nested form fields for composite references %]
+            [% for (ref in formRefs) { %]
+            [% var nestedAttrs = getNestedAttributes(ref); %]
+            [% if (nestedAttrs.size() > 0) { %]
+            <fieldset class="form-fieldset" v-if="mode === 'edit'">
+                <legend class="form-legend">[%=getFieldLabel(ref.name)%]</legend>
+                [% for (nestedAttr in nestedAttrs) { %]
+                <div class="form-group">
+                    <label class="form-label" for="[%=ref.name%]_[%=nestedAttr.name%]">
+                        [%=getNestedFieldLabel(ref.name, nestedAttr.name)%]
+                    </label>
+                    [% if (nestedAttr.name.endsWith("Location")) { %]
+                    <input
+                        type="file"
+                        id="[%=ref.name%]_[%=nestedAttr.name%]"
+                        @change="handleFileSelect($event, '[%=ref.name%]', '[%=nestedAttr.name%]')"
+                        @blur="markTouched('[%=ref.name%].[%=nestedAttr.name%]')"
+                        class="form-input form-input-file"
+                        :class="{ 'form-input-error': errors['[%=ref.name%].[%=nestedAttr.name%]'] && touched['[%=ref.name%].[%=nestedAttr.name%]'] }"
+                        [% if (nestedAttr.name == "modelLocation") { %]accept=".obj,.fbx,.gltf,.glb"[% } %]
+                        [% if (nestedAttr.name == "textureLocation") { %]accept=".jpg,.jpeg,.png,.bmp"[% } %]
+                        [% if (nestedAttr.name == "metadataLocation") { %]accept=".json,.xml,.txt"[% } %]
+                    />
+                    <small v-if="form.[%=ref.name%].[%=nestedAttr.name%]" class="form-help">
+                        {{ t('common.selected') }}: {{ form.[%=ref.name%].[%=nestedAttr.name%] }}
+                    </small>
+                    [% } else { %]
+                    <input
+                        type="text"
+                        id="[%=ref.name%]_[%=nestedAttr.name%]"
+                        v-model="form.[%=ref.name%].[%=nestedAttr.name%]"
+                        @blur="markTouched('[%=ref.name%].[%=nestedAttr.name%]')"
+                        class="form-input"
+                        :class="{ 'form-input-error': errors['[%=ref.name%].[%=nestedAttr.name%]'] && touched['[%=ref.name%].[%=nestedAttr.name%]'] }"
+                        :placeholder="t('fields.[%=nestedAttr.name%]')"
+                    />
+                    [% } %]
+                    <span v-if="errors['[%=ref.name%].[%=nestedAttr.name%]'] && touched['[%=ref.name%].[%=nestedAttr.name%]']" class="form-error">
+                        {{ errors['[%=ref.name%].[%=nestedAttr.name%]'] }}
+                    </span>
+                </div>
+                [% } %]
+            </fieldset>
+
+            [% } %]
+            [% } %]
             <div class="form-actions">
                 <button type="button" class="btn btn-outline" @click="handleCancel" :disabled="loading">
-                    取消
+                    {{ t('common.cancel') }}
                 </button>
                 <button type="submit" class="btn btn-primary" :disabled="loading">
-                    <span v-if="loading">保存中...</span>
-                    <span v-else>{{ mode === 'create' ? '创建' : '更新' }}</span>
+                    <span v-if="loading">{{ t('common.loading') }}</span>
+                    <span v-else>{{ mode === 'create' ? t('common.create') : t('common.save') }}</span>
                 </button>
             </div>
         </form>

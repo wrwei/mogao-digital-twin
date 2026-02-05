@@ -1,0 +1,153 @@
+[%
+import "FrontendHelpers.eol";
+
+var className = eClass.name;
+var classNameLower = toLowerFirst(className);
+var attributes = eClass.eAllAttributes;
+var displayAttrs = attributes.select(a | a.name <> "gid");
+var references = eClass.eAllReferences;
+var hasAssetRef = references.exists(r | isAssetReference(r));
+var chineseLabel = getChineseLabel(className);
+%]
+/**
+ * [%=className%] Detail View Component
+ * Auto-generated from mogao_dt.ecore
+ * Full detail view for [%=chineseLabel%] with 3D viewer support
+ */
+[% if (hasAssetRef) { %]
+import ModelViewer from './ModelViewer.js';
+[% } %]
+import { useI18n } from '../i18n.js';
+
+export default {
+    name: '[%=className%]DetailView',
+    setup() {
+        const { t } = useI18n();
+        return { t };
+    },
+[% if (hasAssetRef) { %]
+    components: {
+        ModelViewer
+    },
+[% } %]
+    props: {
+        [%=classNameLower%]: {
+            type: Object,
+            required: true
+        }
+    },
+    emits: ['close', 'edit', 'delete'],
+    data() {
+        return {
+            autoRotate: false
+        };
+    },
+    computed: {
+        displayName() {
+            return this.[%=classNameLower%].name || this.[%=classNameLower%].gid || '[%=chineseLabel%]';
+        }
+    },
+    template: `
+        <div class="detail-view">
+            <div class="detail-header">
+                <div class="detail-title-section">
+                    <h1 class="detail-title">{{ displayName }}</h1>
+                    [% if (hasAttribute(eClass, "conservationStatus")) { %]
+                    <span class="badge" :class="'badge-' + ([%=classNameLower%].conservationStatus || 'unknown').toLowerCase()">
+                        {{ [%=classNameLower%].conservationStatus ? t('conservationStatus.' + [%=classNameLower%].conservationStatus.toLowerCase()) : t('conservationStatus.unknown') }}
+                    </span>
+                    [% } %]
+                </div>
+                <div class="detail-actions">
+                    <button @click="$emit('edit', [%=classNameLower%])" class="btn btn-primary" :title="t('common.edit')">
+                        ✏️ {{ t('common.edit') }}
+                    </button>
+                    <button @click="$emit('delete', [%=classNameLower%])" class="btn btn-error" :title="t('common.delete')">
+                        🗑️ {{ t('common.delete') }}
+                    </button>
+                    <button @click="$emit('close')" class="btn btn-outline" :title="t('common.close')">
+                        ✕ {{ t('common.close') }}
+                    </button>
+                </div>
+            </div>
+
+            <div class="detail-content">
+                [% if (hasAssetRef) { %]
+                <!-- 3D Model Viewer Section -->
+                <div v-if="[%=classNameLower%].reference && [%=classNameLower%].reference.modelLocation" class="detail-section model-section">
+                    <h2 class="section-title">{{ t('viewer.title') }}</h2>
+                    <model-viewer
+                        :asset-reference="[%=classNameLower%].reference"
+                        :width="800"
+                        :height="500"
+                        :auto-rotate="autoRotate"
+                    ></model-viewer>
+                    <div class="model-controls">
+                        <label class="checkbox-label">
+                            <input type="checkbox" v-model="autoRotate">
+                            {{ t('viewer.autoRotate') }}
+                        </label>
+                    </div>
+                </div>
+
+                [% } %]
+                <!-- Basic Information Section -->
+                <div class="detail-section info-section">
+                    <h2 class="section-title">{{ t('detail.basicInfo') }}</h2>
+                    <dl class="detail-list">
+                        [% for (attr in displayAttrs) { %]
+                        <div class="detail-item">
+                            <dt class="detail-label">[%=getFieldLabel(attr.name)%]</dt>
+                            <dd class="detail-value">
+                                [% if (isBoolean(attr)) { %]
+                                {{ [%=classNameLower%].[%=attr.name%] ? t('common.yes') : t('common.no') }}
+                                [% } else if (isNumber(attr)) { %]
+                                {{ [%=classNameLower%].[%=attr.name%] != null ? [%=classNameLower%].[%=attr.name%].toLocaleString() : 'N/A' }}
+                                [% } else { %]
+                                {{ [%=classNameLower%].[%=attr.name%] || 'N/A' }}
+                                [% } %]
+                            </dd>
+                        </div>
+                        [% } %]
+                    </dl>
+                </div>
+
+                [% if (hasAssetRef) { %]
+                <!-- Asset Reference Information -->
+                <div v-if="[%=classNameLower%].reference" class="detail-section asset-section">
+                    <h2 class="section-title">{{ t('detail.assetReference') }}</h2>
+                    <dl class="detail-list">
+                        <div class="detail-item" v-if="[%=classNameLower%].reference.modelLocation">
+                            <dt class="detail-label">{{ t('detail.modelPath') }}</dt>
+                            <dd class="detail-value detail-path">{{ [%=classNameLower%].reference.modelLocation }}</dd>
+                        </div>
+                        <div class="detail-item" v-if="[%=classNameLower%].reference.metadataLocation">
+                            <dt class="detail-label">{{ t('detail.metadataPath') }}</dt>
+                            <dd class="detail-value detail-path">{{ [%=classNameLower%].reference.metadataLocation }}</dd>
+                        </div>
+                        <div class="detail-item" v-if="[%=classNameLower%].reference.textureLocation">
+                            <dt class="detail-label">{{ t('detail.texturePath') }}</dt>
+                            <dd class="detail-value detail-path">{{ [%=classNameLower%].reference.textureLocation }}</dd>
+                        </div>
+                    </dl>
+                </div>
+
+                [% } %]
+                [% // Add sections for nested references if they exist %]
+                [% var nestedRefs = references.select(r | not isAssetReference(r) and not r.name.startsWith("environment") and not r.name.startsWith("defect")); %]
+                [% if (nestedRefs.size() > 0) { %]
+                [% for (ref in nestedRefs) { %]
+                <!-- [%=ref.name%] Section -->
+                <div v-if="[%=classNameLower%].[%=ref.name%]" class="detail-section">
+                    <h2 class="section-title">[%=getFieldLabel(ref.name)%]</h2>
+                    <div class="nested-content">
+                        <pre>{{ [%=classNameLower%].[%=ref.name%] }}</pre>
+                    </div>
+                </div>
+
+                [% } %]
+                [% } %]
+            </div>
+        </div>
+    `
+};
