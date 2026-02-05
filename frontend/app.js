@@ -18,6 +18,7 @@ import { useI18n } from './i18n.js';
 import CaveCard from './components/CaveCard.js';
 import CaveForm from './components/CaveForm.js';
 import CaveList from './components/CaveList.js';
+import CaveDetailView from './components/CaveDetailView.js';
 // Statue Components
 import StatueCard from './components/StatueCard.js';
 import StatueForm from './components/StatueForm.js';
@@ -27,18 +28,22 @@ import StatueDetailView from './components/StatueDetailView.js';
 import MuralCard from './components/MuralCard.js';
 import MuralForm from './components/MuralForm.js';
 import MuralList from './components/MuralList.js';
+import MuralDetailView from './components/MuralDetailView.js';
 // Painting Components
 import PaintingCard from './components/PaintingCard.js';
 import PaintingForm from './components/PaintingForm.js';
 import PaintingList from './components/PaintingList.js';
+import PaintingDetailView from './components/PaintingDetailView.js';
 // Inscription Components
 import InscriptionCard from './components/InscriptionCard.js';
 import InscriptionForm from './components/InscriptionForm.js';
 import InscriptionList from './components/InscriptionList.js';
+import InscriptionDetailView from './components/InscriptionDetailView.js';
 // Defect Components
 import DefectCard from './components/DefectCard.js';
 import DefectForm from './components/DefectForm.js';
 import DefectList from './components/DefectList.js';
+import DefectDetailView from './components/DefectDetailView.js';
 
 // ============================================
 // Generated Composable Imports
@@ -138,11 +143,11 @@ const ErrorMessage = {
 };
 
 const ModalDialog = {
-    props: ['title', 'show'],
+    props: ['title', 'show', 'wide'],
     emits: ['close'],
     template: `
         <div v-if="show" class="modal-overlay" @click.self="$emit('close')">
-            <div class="modal" style="min-width: 500px; max-width: 95vw; width: auto;">
+            <div class="modal" :style="wide ? 'min-width: 500px; max-width: 95vw; width: auto;' : 'min-width: 500px;'">
                 <div class="modal-header">
                     <h3 class="modal-title">{{ title }}</h3>
                     <button class="modal-close" @click="$emit('close')">&times;</button>
@@ -164,6 +169,7 @@ const CaveView = {
         CaveList,
         CaveForm,
         CaveCard,
+        CaveDetailView,
         ModalDialog,
     },
     setup() {
@@ -179,6 +185,8 @@ const CaveView = {
             showForm: false,
             editMode: false,
             editingItem: null,
+            showDetail: false,
+            detailItem: null,
         };
     },
     methods: {
@@ -224,6 +232,14 @@ const CaveView = {
         handleSelect(item) {
             this.selectCave(item);
             this.$emit('item-selected', item);
+        },
+        handleViewDetail(item) {
+            this.detailItem = item;
+            this.showDetail = true;
+        },
+        handleCloseDetail() {
+            this.showDetail = false;
+            this.detailItem = null;
         }
     },
     mounted() {
@@ -241,6 +257,12 @@ const CaveView = {
                     @error="(msg) => $emit('show-message', msg, 'error')"
                 ></cave-form>            </modal-dialog>
 
+            <modal-dialog :show="showDetail" :title="t('common.detail') + ' - ' + (detailItem ? detailItem.name || detailItem.title || detailItem.gid : '')" @close="handleCloseDetail" :wide="true">
+                <cave-detail-view
+                    v-if="detailItem"
+                    :cave="detailItem"
+                ></cave-detail-view>            </modal-dialog>
+
             <cave-list
                 :caves="caves"
                 :loading="loading"
@@ -248,6 +270,7 @@ const CaveView = {
                 @edit="handleEdit"
                 @delete="handleDelete"
                 @create="handleCreate"
+                @view-detail="handleViewDetail"
             ></cave-list>        </div>
     `
 };
@@ -293,7 +316,6 @@ const StatueView = {
                 try {
                     await this.deleteStatue(item.gid);
                     this.$emit('show-message', this.t('actions.deleteSuccess', { entity: this.t('entities.statue') }), 'success');
-                    this.showDetail = false;
                 } catch (err) {
                     this.$emit('show-message', this.t('actions.deleteError', { entity: this.t('entities.statue') }) + ': ' + err.message, 'error');
                 }
@@ -319,22 +341,16 @@ const StatueView = {
             this.editingItem = null;
         },
         handleSelect(item) {
-            this.detailItem = item;
-            this.showDetail = true;
             this.selectStatue(item);
             this.$emit('item-selected', item);
+        },
+        handleViewDetail(item) {
+            this.detailItem = item;
+            this.showDetail = true;
         },
         handleCloseDetail() {
             this.showDetail = false;
             this.detailItem = null;
-        },
-        handleDetailEdit(item) {
-            this.showDetail = false;
-            this.handleEdit(item);
-        },
-        async handleDetailDelete(item) {
-            this.showDetail = false;
-            await this.handleDelete(item);
         }
     },
     mounted() {
@@ -350,18 +366,13 @@ const StatueView = {
                     @updated="handleFormSubmit"
                     @cancel="handleFormCancel"
                     @error="(msg) => $emit('show-message', msg, 'error')"
-                ></statue-form>
-            </modal-dialog>
+                ></statue-form>            </modal-dialog>
 
-            <modal-dialog :show="showDetail" :title="t('detail.title')" @close="handleCloseDetail">
+            <modal-dialog :show="showDetail" :title="t('common.detail') + ' - ' + (detailItem ? detailItem.name || detailItem.title || detailItem.gid : '')" @close="handleCloseDetail" :wide="true">
                 <statue-detail-view
                     v-if="detailItem"
                     :statue="detailItem"
-                    @close="handleCloseDetail"
-                    @edit="handleDetailEdit"
-                    @delete="handleDetailDelete"
-                ></statue-detail-view>
-            </modal-dialog>
+                ></statue-detail-view>            </modal-dialog>
 
             <statue-list
                 :statues="statues"
@@ -370,8 +381,8 @@ const StatueView = {
                 @edit="handleEdit"
                 @delete="handleDelete"
                 @create="handleCreate"
-            ></statue-list>
-        </div>
+                @view-detail="handleViewDetail"
+            ></statue-list>        </div>
     `
 };
 
@@ -380,6 +391,7 @@ const MuralView = {
         MuralList,
         MuralForm,
         MuralCard,
+        MuralDetailView,
         ModalDialog,
     },
     setup() {
@@ -395,6 +407,8 @@ const MuralView = {
             showForm: false,
             editMode: false,
             editingItem: null,
+            showDetail: false,
+            detailItem: null,
         };
     },
     methods: {
@@ -440,6 +454,14 @@ const MuralView = {
         handleSelect(item) {
             this.selectMural(item);
             this.$emit('item-selected', item);
+        },
+        handleViewDetail(item) {
+            this.detailItem = item;
+            this.showDetail = true;
+        },
+        handleCloseDetail() {
+            this.showDetail = false;
+            this.detailItem = null;
         }
     },
     mounted() {
@@ -457,6 +479,12 @@ const MuralView = {
                     @error="(msg) => $emit('show-message', msg, 'error')"
                 ></mural-form>            </modal-dialog>
 
+            <modal-dialog :show="showDetail" :title="t('common.detail') + ' - ' + (detailItem ? detailItem.name || detailItem.title || detailItem.gid : '')" @close="handleCloseDetail" :wide="true">
+                <mural-detail-view
+                    v-if="detailItem"
+                    :mural="detailItem"
+                ></mural-detail-view>            </modal-dialog>
+
             <mural-list
                 :murals="murals"
                 :loading="loading"
@@ -464,6 +492,7 @@ const MuralView = {
                 @edit="handleEdit"
                 @delete="handleDelete"
                 @create="handleCreate"
+                @view-detail="handleViewDetail"
             ></mural-list>        </div>
     `
 };
@@ -473,6 +502,7 @@ const PaintingView = {
         PaintingList,
         PaintingForm,
         PaintingCard,
+        PaintingDetailView,
         ModalDialog,
     },
     setup() {
@@ -488,6 +518,8 @@ const PaintingView = {
             showForm: false,
             editMode: false,
             editingItem: null,
+            showDetail: false,
+            detailItem: null,
         };
     },
     methods: {
@@ -533,6 +565,14 @@ const PaintingView = {
         handleSelect(item) {
             this.selectPainting(item);
             this.$emit('item-selected', item);
+        },
+        handleViewDetail(item) {
+            this.detailItem = item;
+            this.showDetail = true;
+        },
+        handleCloseDetail() {
+            this.showDetail = false;
+            this.detailItem = null;
         }
     },
     mounted() {
@@ -550,6 +590,12 @@ const PaintingView = {
                     @error="(msg) => $emit('show-message', msg, 'error')"
                 ></painting-form>            </modal-dialog>
 
+            <modal-dialog :show="showDetail" :title="t('common.detail') + ' - ' + (detailItem ? detailItem.name || detailItem.title || detailItem.gid : '')" @close="handleCloseDetail" :wide="true">
+                <painting-detail-view
+                    v-if="detailItem"
+                    :painting="detailItem"
+                ></painting-detail-view>            </modal-dialog>
+
             <painting-list
                 :paintings="paintings"
                 :loading="loading"
@@ -557,6 +603,7 @@ const PaintingView = {
                 @edit="handleEdit"
                 @delete="handleDelete"
                 @create="handleCreate"
+                @view-detail="handleViewDetail"
             ></painting-list>        </div>
     `
 };
@@ -566,6 +613,7 @@ const InscriptionView = {
         InscriptionList,
         InscriptionForm,
         InscriptionCard,
+        InscriptionDetailView,
         ModalDialog,
     },
     setup() {
@@ -581,6 +629,8 @@ const InscriptionView = {
             showForm: false,
             editMode: false,
             editingItem: null,
+            showDetail: false,
+            detailItem: null,
         };
     },
     methods: {
@@ -626,6 +676,14 @@ const InscriptionView = {
         handleSelect(item) {
             this.selectInscription(item);
             this.$emit('item-selected', item);
+        },
+        handleViewDetail(item) {
+            this.detailItem = item;
+            this.showDetail = true;
+        },
+        handleCloseDetail() {
+            this.showDetail = false;
+            this.detailItem = null;
         }
     },
     mounted() {
@@ -643,6 +701,12 @@ const InscriptionView = {
                     @error="(msg) => $emit('show-message', msg, 'error')"
                 ></inscription-form>            </modal-dialog>
 
+            <modal-dialog :show="showDetail" :title="t('common.detail') + ' - ' + (detailItem ? detailItem.name || detailItem.title || detailItem.gid : '')" @close="handleCloseDetail" :wide="true">
+                <inscription-detail-view
+                    v-if="detailItem"
+                    :inscription="detailItem"
+                ></inscription-detail-view>            </modal-dialog>
+
             <inscription-list
                 :inscriptions="inscriptions"
                 :loading="loading"
@@ -650,6 +714,7 @@ const InscriptionView = {
                 @edit="handleEdit"
                 @delete="handleDelete"
                 @create="handleCreate"
+                @view-detail="handleViewDetail"
             ></inscription-list>        </div>
     `
 };
@@ -659,6 +724,7 @@ const DefectView = {
         DefectList,
         DefectForm,
         DefectCard,
+        DefectDetailView,
         ModalDialog,
     },
     setup() {
@@ -674,6 +740,8 @@ const DefectView = {
             showForm: false,
             editMode: false,
             editingItem: null,
+            showDetail: false,
+            detailItem: null,
         };
     },
     methods: {
@@ -719,6 +787,14 @@ const DefectView = {
         handleSelect(item) {
             this.selectDefect(item);
             this.$emit('item-selected', item);
+        },
+        handleViewDetail(item) {
+            this.detailItem = item;
+            this.showDetail = true;
+        },
+        handleCloseDetail() {
+            this.showDetail = false;
+            this.detailItem = null;
         }
     },
     mounted() {
@@ -736,6 +812,12 @@ const DefectView = {
                     @error="(msg) => $emit('show-message', msg, 'error')"
                 ></defect-form>            </modal-dialog>
 
+            <modal-dialog :show="showDetail" :title="t('common.detail') + ' - ' + (detailItem ? detailItem.name || detailItem.title || detailItem.gid : '')" @close="handleCloseDetail" :wide="true">
+                <defect-detail-view
+                    v-if="detailItem"
+                    :defect="detailItem"
+                ></defect-detail-view>            </modal-dialog>
+
             <defect-list
                 :defects="defects"
                 :loading="loading"
@@ -743,6 +825,7 @@ const DefectView = {
                 @edit="handleEdit"
                 @delete="handleDelete"
                 @create="handleCreate"
+                @view-detail="handleViewDetail"
             ></defect-list>        </div>
     `
 };

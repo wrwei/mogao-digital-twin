@@ -33,6 +33,7 @@ import { useI18n } from './i18n.js';
 import [%=entityName%]Card from './components/[%=entityName%]Card.js';
 import [%=entityName%]Form from './components/[%=entityName%]Form.js';
 import [%=entityName%]List from './components/[%=entityName%]List.js';
+import [%=entityName%]DetailView from './components/[%=entityName%]DetailView.js';
 [% } %]
 
 // ============================================
@@ -113,11 +114,11 @@ const ErrorMessage = {
 };
 
 const ModalDialog = {
-    props: ['title', 'show'],
+    props: ['title', 'show', 'wide'],
     emits: ['close'],
     template: `
         <div v-if="show" class="modal-overlay" @click.self="$emit('close')">
-            <div class="modal" style="min-width: 500px;">
+            <div class="modal" :style="wide ? 'min-width: 500px; max-width: 95vw; width: auto;' : 'min-width: 500px;'">
                 <div class="modal-header">
                     <h3 class="modal-title">{{ title }}</h3>
                     <button class="modal-close" @click="$emit('close')">&times;</button>
@@ -145,6 +146,7 @@ const [%=entityName%]View = {
         [%=entityName%]List,
         [%=entityName%]Form,
         [%=entityName%]Card,
+        [%=entityName%]DetailView,
         ModalDialog,
     },
     setup() {
@@ -160,6 +162,8 @@ const [%=entityName%]View = {
             showForm: false,
             editMode: false,
             editingItem: null,
+            showDetail: false,
+            detailItem: null,
         };
     },
     methods: {
@@ -205,6 +209,14 @@ const [%=entityName%]View = {
         handleSelect(item) {
             this.select[%=entityName%](item);
             this.$emit('item-selected', item);
+        },
+        handleViewDetail(item) {
+            this.detailItem = item;
+            this.showDetail = true;
+        },
+        handleCloseDetail() {
+            this.showDetail = false;
+            this.detailItem = null;
         }
     },
     mounted() {
@@ -223,6 +235,14 @@ const [%=entityName%]View = {
                 out.print("\n                ></" + entityLower + "-form>");
                 %]
             </modal-dialog>
+
+            <modal-dialog :show="showDetail" :title="t('common.detail') + ' - ' + (detailItem ? detailItem.name || detailItem.title || detailItem.gid : '')" @close="handleCloseDetail" :wide="true">[%
+                out.print("\n                <" + entityLower + "-detail-view");
+                out.print("\n                    v-if=\"detailItem\"");
+                out.print("\n                    :" + entityLower + "=\"detailItem\"");
+                out.print("\n                ></" + entityLower + "-detail-view>");
+                %]
+            </modal-dialog>
 [%
             out.print("\n            <" + entityLower + "-list");
             out.print("\n                :" + entityPlural + "=\"" + entityPlural + "\"");
@@ -231,6 +251,7 @@ const [%=entityName%]View = {
             out.print("\n                @edit=\"handleEdit\"");
             out.print("\n                @delete=\"handleDelete\"");
             out.print("\n                @create=\"handleCreate\"");
+            out.print("\n                @view-detail=\"handleViewDetail\"");
             out.print("\n            ></" + entityLower + "-list>");
             %]
         </div>

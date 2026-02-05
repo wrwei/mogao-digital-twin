@@ -18,9 +18,21 @@ if [ -d "src/main/java/digital/twin/mogao/controller" ]; then
     rm -rf "src/main/java/digital/twin/mogao/controller"
     echo "  Removed controller directory"
 fi
+# Backup manual components before cleanup
+if [ -f "../frontend/components/ModelViewer.js" ]; then
+    cp "../frontend/components/ModelViewer.js" "../frontend/ModelViewer.js.backup"
+    echo "  Backed up ModelViewer.js"
+fi
 if [ -d "../frontend/components" ]; then
     rm -rf "../frontend/components"
     echo "  Removed frontend components directory"
+fi
+# Restore manual components after cleanup
+mkdir -p "../frontend/components"
+if [ -f "../frontend/ModelViewer.js.backup" ]; then
+    cp "../frontend/ModelViewer.js.backup" "../frontend/components/ModelViewer.js"
+    rm "../frontend/ModelViewer.js.backup"
+    echo "  Restored ModelViewer.js"
 fi
 if [ -d "../frontend/composables" ]; then
     rm -rf "../frontend/composables"
