@@ -261,7 +261,7 @@ const CaveView = {
     },
     template: `
         <div class="entity-view">
-            <modal-dialog :show="showForm" :title="editMode ? t('common.edit') + ' ' + t('entities.cave') : t('actions.createNew', { entity: t('entities.cave') })" @close="handleFormCancel">
+            <drawer-panel :show="showForm" :title="editMode ? t('common.edit') + ' ' + t('entities.cave') : t('actions.createNew', { entity: t('entities.cave') })" @close="handleFormCancel">
                 <cave-form
                     :cave="editingItem"
                     :mode="editMode ? 'edit' : 'create'"
@@ -269,7 +269,7 @@ const CaveView = {
                     @updated="handleFormSubmit"
                     @cancel="handleFormCancel"
                     @error="(msg) => $emit('show-message', msg, 'error')"
-                ></cave-form>            </modal-dialog>
+                ></cave-form>            </drawer-panel>
 
             <drawer-panel :show="showDetail" :title="t('common.detail') + ' - ' + (detailItem ? detailItem.name || detailItem.title || detailItem.gid : '')" @close="handleCloseDetail">
                 <cave-detail-view
@@ -380,7 +380,7 @@ const StatueView = {
     },
     template: `
         <div class="entity-view">
-            <modal-dialog :show="showForm" :title="editMode ? t('common.edit') + ' ' + t('entities.statue') : t('actions.createNew', { entity: t('entities.statue') })" @close="handleFormCancel">
+            <drawer-panel :show="showForm" :title="editMode ? t('common.edit') + ' ' + t('entities.statue') : t('actions.createNew', { entity: t('entities.statue') })" @close="handleFormCancel">
                 <statue-form
                     :statue="editingItem"
                     :mode="editMode ? 'edit' : 'create'"
@@ -388,7 +388,7 @@ const StatueView = {
                     @updated="handleFormSubmit"
                     @cancel="handleFormCancel"
                     @error="(msg) => $emit('show-message', msg, 'error')"
-                ></statue-form>            </modal-dialog>
+                ></statue-form>            </drawer-panel>
 
             <drawer-panel :show="showDetail" :title="t('common.detail') + ' - ' + (detailItem ? detailItem.name || detailItem.title || detailItem.gid : '')" @close="handleCloseDetail">
                 <statue-detail-view
@@ -499,7 +499,7 @@ const MuralView = {
     },
     template: `
         <div class="entity-view">
-            <modal-dialog :show="showForm" :title="editMode ? t('common.edit') + ' ' + t('entities.mural') : t('actions.createNew', { entity: t('entities.mural') })" @close="handleFormCancel">
+            <drawer-panel :show="showForm" :title="editMode ? t('common.edit') + ' ' + t('entities.mural') : t('actions.createNew', { entity: t('entities.mural') })" @close="handleFormCancel">
                 <mural-form
                     :mural="editingItem"
                     :mode="editMode ? 'edit' : 'create'"
@@ -507,7 +507,7 @@ const MuralView = {
                     @updated="handleFormSubmit"
                     @cancel="handleFormCancel"
                     @error="(msg) => $emit('show-message', msg, 'error')"
-                ></mural-form>            </modal-dialog>
+                ></mural-form>            </drawer-panel>
 
             <drawer-panel :show="showDetail" :title="t('common.detail') + ' - ' + (detailItem ? detailItem.name || detailItem.title || detailItem.gid : '')" @close="handleCloseDetail">
                 <mural-detail-view
@@ -618,7 +618,7 @@ const PaintingView = {
     },
     template: `
         <div class="entity-view">
-            <modal-dialog :show="showForm" :title="editMode ? t('common.edit') + ' ' + t('entities.painting') : t('actions.createNew', { entity: t('entities.painting') })" @close="handleFormCancel">
+            <drawer-panel :show="showForm" :title="editMode ? t('common.edit') + ' ' + t('entities.painting') : t('actions.createNew', { entity: t('entities.painting') })" @close="handleFormCancel">
                 <painting-form
                     :painting="editingItem"
                     :mode="editMode ? 'edit' : 'create'"
@@ -626,7 +626,7 @@ const PaintingView = {
                     @updated="handleFormSubmit"
                     @cancel="handleFormCancel"
                     @error="(msg) => $emit('show-message', msg, 'error')"
-                ></painting-form>            </modal-dialog>
+                ></painting-form>            </drawer-panel>
 
             <drawer-panel :show="showDetail" :title="t('common.detail') + ' - ' + (detailItem ? detailItem.name || detailItem.title || detailItem.gid : '')" @close="handleCloseDetail">
                 <painting-detail-view
@@ -737,7 +737,7 @@ const InscriptionView = {
     },
     template: `
         <div class="entity-view">
-            <modal-dialog :show="showForm" :title="editMode ? t('common.edit') + ' ' + t('entities.inscription') : t('actions.createNew', { entity: t('entities.inscription') })" @close="handleFormCancel">
+            <drawer-panel :show="showForm" :title="editMode ? t('common.edit') + ' ' + t('entities.inscription') : t('actions.createNew', { entity: t('entities.inscription') })" @close="handleFormCancel">
                 <inscription-form
                     :inscription="editingItem"
                     :mode="editMode ? 'edit' : 'create'"
@@ -745,7 +745,7 @@ const InscriptionView = {
                     @updated="handleFormSubmit"
                     @cancel="handleFormCancel"
                     @error="(msg) => $emit('show-message', msg, 'error')"
-                ></inscription-form>            </modal-dialog>
+                ></inscription-form>            </drawer-panel>
 
             <drawer-panel :show="showDetail" :title="t('common.detail') + ' - ' + (detailItem ? detailItem.name || detailItem.title || detailItem.gid : '')" @close="handleCloseDetail">
                 <inscription-detail-view

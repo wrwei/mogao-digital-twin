@@ -249,7 +249,7 @@ const [%=entityName%]View = {
     },
     template: `
         <div class="entity-view">
-            <modal-dialog :show="showForm" :title="editMode ? t('common.edit') + ' ' + t('entities.[%=entityLower%]') : t('actions.createNew', { entity: t('entities.[%=entityLower%]') })" @close="handleFormCancel">[%
+            <drawer-panel :show="showForm" :title="editMode ? t('common.edit') + ' ' + t('entities.[%=entityLower%]') : t('actions.createNew', { entity: t('entities.[%=entityLower%]') })" @close="handleFormCancel">[%
                 out.print("\n                <" + entityLower + "-form");
                 out.print("\n                    :" + entityLower + "=\"editingItem\"");
                 out.print("\n                    :mode=\"editMode ? 'edit' : 'create'\"");
@@ -259,7 +259,7 @@ const [%=entityName%]View = {
                 out.print("\n                    @error=\"(msg) => $emit('show-message', msg, 'error')\"");
                 out.print("\n                ></" + entityLower + "-form>");
                 %]
-            </modal-dialog>
+            </drawer-panel>
 
             <drawer-panel :show="showDetail" :title="t('common.detail') + ' - ' + (detailItem ? detailItem.name || detailItem.title || detailItem.gid : '')" @close="handleCloseDetail">[%
                 out.print("\n                <" + entityLower + "-detail-view");
