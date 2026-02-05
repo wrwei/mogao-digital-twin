@@ -11,15 +11,21 @@ export default {
         inscription: {
             type: Object,
             required: true
+        },
+        selectedGid: {
+            type: String,
+            default: null
         }
     },
-    emits: ['select', 'edit', 'delete'],
+    emits: ['select', 'edit', 'delete', 'view-detail'],
     setup() {
         const { t } = useI18n();
         return { t };
     },
     template: `
-        <div class="card inscription-card" @click="$emit('select', inscription)">
+        <div class="card inscription-card"
+             :class="{ 'selected': isSelected }"
+             @click="$emit('select', inscription)">
             <div class="card-header">
                 <h3 class="card-title">{{ inscription.name || '铭文' }}</h3>
                 <span class="badge" :class="'badge-' + (inscription.conservationStatus || 'unknown').toLowerCase()">
@@ -27,47 +33,24 @@ export default {
                 </span>
             </div>
             <div class="card-body">
-                <div class="card-field">
-                    <span class="field-label">描述:</span>
-                    <span class="field-value">{{ inscription.description || 'N/A' }}</span>
-                </div>
-                <div class="card-field">
-                    <span class="field-label">label:</span>
-                    <span class="field-value">{{ inscription.label || 'N/A' }}</span>
-                </div>
-                <div class="card-field">
-                    <span class="field-label">creationPeriod:</span>
-                    <span class="field-value">{{ inscription.creationPeriod || 'N/A' }}</span>
-                </div>
-                <div v-if="inscription.reference" class="card-section">
-                    <div class="field-label">{{ t('detail.assetReference') }}</div>
-                    <div class="card-field" v-if="inscription.reference.modelLocation">
-                        <span class="field-label">{{ t('detail.modelPath') }}:</span>
-                        <span class="field-value">{{ inscription.reference.modelLocation }}</span>
-                    </div>
-                    <div class="card-field" v-if="inscription.reference.textureLocation">
-                        <span class="field-label">{{ t('detail.texturePath') }}:</span>
-                        <span class="field-value">{{ inscription.reference.textureLocation }}</span>
-                    </div>
-                </div>
+                <p class="card-description">{{ inscription.description || t('common.noDescription') }}</p>
             </div>
             <div class="card-footer">
-                <button class="btn btn-sm btn-primary" @click.stop="$emit('edit', inscription)" :title="t('common.edit')">
-                    ✏️ {{ t('common.edit') }}
+                <button class="btn btn-sm btn-primary" @click.stop="$emit('view-detail', inscription)" :title="t('actions.viewDetail')">
+                    {{ t('actions.viewDetail') }}
                 </button>
-                <button class="btn btn-sm btn-error" @click.stop="$emit('delete', inscription)" :title="t('common.delete')">
-                    🗑️ {{ t('common.delete') }}
+                <button class="btn btn-sm" @click.stop="$emit('edit', inscription)" :title="t('common.edit')">
+                    {{ t('common.edit') }}
+                </button>
+                <button class="btn btn-sm btn-danger" @click.stop="$emit('delete', inscription)" :title="t('common.delete')">
+                    {{ t('common.delete') }}
                 </button>
             </div>
         </div>
     `,
     computed: {
-        displayName() {
-            return this.inscription.name || this.inscription.gid || '铭文';
-        },
-        lastInspectionDateDisplay() {
-            const value = this.inscription.lastInspectionDate;
-            if (!value) return 'N/A';
-            return value;
-        }    }
+        isSelected() {
+            return this.selectedGid === this.inscription.gid;
+        }
+    }
 };

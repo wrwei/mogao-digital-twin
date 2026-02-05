@@ -22,15 +22,21 @@ export default {
         [%=classNameLower%]: {
             type: Object,
             required: true
+        },
+        selectedGid: {
+            type: String,
+            default: null
         }
     },
-    emits: ['select', 'edit', 'delete'],
+    emits: ['select', 'edit', 'delete', 'view-detail'],
     setup() {
         const { t } = useI18n();
         return { t };
     },
     template: `
-        <div class="card [%=classNameLower%]-card" @click="$emit('select', [%=classNameLower%])">
+        <div class="card [%=classNameLower%]-card"
+             :class="{ 'selected': isSelected }"
+             @click="$emit('select', [%=classNameLower%])">
             <div class="card-header">
                 <h3 class="card-title">{{ [%=classNameLower%].name || '[%=chineseLabel%]' }}</h3>
                 [% if (hasConservationStatus(eClass)) { %]
@@ -40,54 +46,24 @@ export default {
                 [% } %]
             </div>
             <div class="card-body">
-                [% for (attr in displayAttrs) { %]
-                [% if (attr.name <> "name") { %]
-                <div class="card-field">
-                    <span class="field-label">[%=getFieldLabel(attr.name)%]:</span>
-                    <span class="field-value">{{ [%=classNameLower%].[%=attr.name%] || 'N/A' }}</span>
-                </div>
-                [% } %]
-                [% } %]
-                [% if (hasAssetRef) { %]
-                <div v-if="[%=classNameLower%].reference" class="card-section">
-                    <div class="field-label">{{ t('detail.assetReference') }}</div>
-                    <div class="card-field" v-if="[%=classNameLower%].reference.modelLocation">
-                        <span class="field-label">{{ t('detail.modelPath') }}:</span>
-                        <span class="field-value">{{ [%=classNameLower%].reference.modelLocation }}</span>
-                    </div>
-                    <div class="card-field" v-if="[%=classNameLower%].reference.textureLocation">
-                        <span class="field-label">{{ t('detail.texturePath') }}:</span>
-                        <span class="field-value">{{ [%=classNameLower%].reference.textureLocation }}</span>
-                    </div>
-                </div>
-                [% } %]
+                <p class="card-description">{{ [%=classNameLower%].description || t('common.noDescription') }}</p>
             </div>
             <div class="card-footer">
-                <button class="btn btn-sm btn-primary" @click.stop="$emit('edit', [%=classNameLower%])" :title="t('common.edit')">
-                    ✏️ {{ t('common.edit') }}
+                <button class="btn btn-sm btn-primary" @click.stop="$emit('view-detail', [%=classNameLower%])" :title="t('actions.viewDetail')">
+                    {{ t('actions.viewDetail') }}
                 </button>
-                <button class="btn btn-sm btn-error" @click.stop="$emit('delete', [%=classNameLower%])" :title="t('common.delete')">
-                    🗑️ {{ t('common.delete') }}
+                <button class="btn btn-sm" @click.stop="$emit('edit', [%=classNameLower%])" :title="t('common.edit')">
+                    {{ t('common.edit') }}
+                </button>
+                <button class="btn btn-sm btn-danger" @click.stop="$emit('delete', [%=classNameLower%])" :title="t('common.delete')">
+                    {{ t('common.delete') }}
                 </button>
             </div>
         </div>
     `,
     computed: {
-        displayName() {
-            return this.[%=classNameLower%].name || this.[%=classNameLower%].gid || '[%=chineseLabel%]';
-        }[%
-        for (attr in getComputedAttributes(attributes)) {
-        %],
-        [%=attr.name%]Display() {
-            const value = this.[%=classNameLower%].[%=attr.name%];
-            if (!value) return 'N/A';
-            [% if (isNumber(attr)) { %]
-            return value.toLocaleString();
-            [% } else { %]
-            return value;
-            [% } %]
-        }[%
+        isSelected() {
+            return this.selectedGid === this.[%=classNameLower%].gid;
         }
-        %]
     }
 };

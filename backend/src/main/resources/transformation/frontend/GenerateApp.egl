@@ -2,7 +2,7 @@
 import "FrontendHelpers.eol";
 
 // Get all entity classes from metamodel
-var entityNames = Sequence{"Cave", "Defect", "Statue", "Mural", "Painting", "Inscription"};
+var entityNames = Sequence{"Cave", "Statue", "Mural", "Painting", "Inscription"};
 var entityClasses = Sequence{};
 for (classifier in ePackage.eClassifiers) {
     if (entityNames.includes(classifier.name)) {
@@ -131,6 +131,28 @@ const ModalDialog = {
     `
 };
 
+const DrawerPanel = {
+    props: ['show', 'title'],
+    emits: ['close'],
+    setup() {
+        const { t } = useI18n();
+        return { t };
+    },
+    template: `
+        <div v-if="show" class="drawer-overlay" @click.self="$emit('close')">
+            <div class="drawer drawer-right">
+                <div class="drawer-header">
+                    <h3>{{ title }}</h3>
+                    <button class="drawer-close" @click="$emit('close')">&times;</button>
+                </div>
+                <div class="drawer-body">
+                    <slot></slot>
+                </div>
+            </div>
+        </div>
+    `
+};
+
 // ============================================
 // Generated Entity View Components
 // ============================================
@@ -148,6 +170,7 @@ const [%=entityName%]View = {
         [%=entityName%]Card,
         [%=entityName%]DetailView,
         ModalDialog,
+        DrawerPanel,
     },
     setup() {
         const composable = use[%=entityName%]s();
@@ -164,6 +187,8 @@ const [%=entityName%]View = {
             editingItem: null,
             showDetail: false,
             detailItem: null,
+            selectedGid: null,
+            selectedItem: null,
         };
     },
     methods: {
@@ -207,10 +232,14 @@ const [%=entityName%]View = {
             this.editingItem = null;
         },
         handleSelect(item) {
+            this.selectedGid = item.gid;
+            this.selectedItem = item;
             this.select[%=entityName%](item);
             this.$emit('item-selected', item);
         },
         handleViewDetail(item) {
+            this.selectedGid = item.gid;
+            this.selectedItem = item;
             this.detailItem = item;
             this.showDetail = true;
         },
@@ -236,17 +265,18 @@ const [%=entityName%]View = {
                 %]
             </modal-dialog>
 
-            <modal-dialog :show="showDetail" :title="t('common.detail') + ' - ' + (detailItem ? detailItem.name || detailItem.title || detailItem.gid : '')" @close="handleCloseDetail" :wide="true">[%
+            <drawer-panel :show="showDetail" :title="t('common.detail') + ' - ' + (detailItem ? detailItem.name || detailItem.title || detailItem.gid : '')" @close="handleCloseDetail">[%
                 out.print("\n                <" + entityLower + "-detail-view");
                 out.print("\n                    v-if=\"detailItem\"");
                 out.print("\n                    :" + entityLower + "=\"detailItem\"");
                 out.print("\n                ></" + entityLower + "-detail-view>");
                 %]
-            </modal-dialog>
+            </drawer-panel>
 [%
             out.print("\n            <" + entityLower + "-list");
             out.print("\n                :" + entityPlural + "=\"" + entityPlural + "\"");
             out.print("\n                :loading=\"loading\"");
+            out.print("\n                :selected-gid=\"selectedGid\"");
             out.print("\n                @select=\"handleSelect\"");
             out.print("\n                @edit=\"handleEdit\"");
             out.print("\n                @delete=\"handleDelete\"");
