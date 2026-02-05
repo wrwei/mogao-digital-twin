@@ -1,0 +1,72 @@
+[%
+import "FrontendHelpers.eol";
+
+var className = eClass.name;
+var classNameLower = toLowerFirst(className);
+var attributes = eClass.eAllAttributes;
+var displayAttrs = getKeyAttributes(attributes);
+var chineseLabel = getChineseLabel(className);
+%]
+/**
+ * [%=className%] Card Component
+ * Auto-generated from mogao_dt.ecore
+ * Displays [%=chineseLabel%] information in card format
+ */
+export default {
+    name: '[%=className%]Card',
+    props: {
+        [%=classNameLower%]: {
+            type: Object,
+            required: true
+        }
+    },
+    emits: ['select', 'edit', 'delete'],
+    template: `
+        <div class="card [%=classNameLower%]-card" @click="$emit('select', [%=classNameLower%])">
+            <div class="card-header">
+                <h3 class="card-title">{{ [%=classNameLower%].name || '[%=chineseLabel%]' }}</h3>
+                [% if (hasConservationStatus(eClass)) { %]
+                <span class="badge" :class="'badge-' + ([%=classNameLower%].conservationStatus || 'unknown').toLowerCase()">
+                    {{ [%=classNameLower%].conservationStatus || '未知' }}
+                </span>
+                [% } %]
+            </div>
+            <div class="card-body">
+                [% for (attr in displayAttrs) { %]
+                [% if (attr.name <> "name") { %]
+                <div class="card-field">
+                    <span class="field-label">[%=getFieldLabel(attr.name)%]:</span>
+                    <span class="field-value">{{ [%=classNameLower%].[%=attr.name%] || 'N/A' }}</span>
+                </div>
+                [% } %]
+                [% } %]
+            </div>
+            <div class="card-footer">
+                <button class="btn btn-sm btn-primary" @click.stop="$emit('edit', [%=classNameLower%])" title="编辑">
+                    ✏️ 编辑
+                </button>
+                <button class="btn btn-sm btn-error" @click.stop="$emit('delete', [%=classNameLower%])" title="删除">
+                    🗑️ 删除
+                </button>
+            </div>
+        </div>
+    `,
+    computed: {
+        displayName() {
+            return this.[%=classNameLower%].name || this.[%=classNameLower%].gid || '[%=chineseLabel%]';
+        }[%
+        for (attr in getComputedAttributes(attributes)) {
+        %],
+        [%=attr.name%]Display() {
+            const value = this.[%=classNameLower%].[%=attr.name%];
+            if (!value) return 'N/A';
+            [% if (isNumber(attr)) { %]
+            return value.toLocaleString();
+            [% } else { %]
+            return value;
+            [% } %]
+        }[%
+        }
+        %]
+    }
+};

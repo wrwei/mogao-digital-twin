@@ -1,0 +1,103 @@
+[%
+// EGL template to generate a DTO class from an EClass
+// Parameters:
+//   - eClass: The EClass to generate DTO for
+//   - packageName: The package name for the DTO
+
+var className = eClass.name + "DTO";
+var allAttributes = eClass.eAllAttributes;
+var allReferences = eClass.eAllReferences;
+%]
+package [%=packageName%];
+
+import java.util.List;
+
+/**
+ * [%=eClass.name%] Data Transfer Object
+ * Auto-generated from mogao_dt.ecore model
+ */
+public class [%=className%] {
+
+[% // Generate fields for attributes
+for (attr in allAttributes) {
+    var typeName = "String"; // default type
+    if (attr.eType.isDefined()) {
+        typeName = getJavaType(attr.eType.name);
+    }
+%]
+    private [%=typeName%] [%=attr.name%];
+[% } %]
+
+[% // Generate fields for references
+for (ref in allReferences) {
+    if (ref.isMany()) { %]
+    private List<[%=ref.eType.name%]DTO> [%=ref.name%];
+[%  } else { %]
+    private [%=ref.eType.name%]DTO [%=ref.name%];
+[%  }
+} %]
+
+    // Getters and Setters
+[% // Generate getters and setters for attributes
+for (attr in allAttributes) {
+    var javaType = "String"; // default type
+    if (attr.eType.isDefined()) {
+        javaType = getJavaType(attr.eType.name);
+    }
+    var fieldName = attr.name;
+    var methodName = fieldName.firstToUpperCase();
+%]
+    public [%=javaType%] get[%=methodName%]() {
+        return [%=fieldName%];
+    }
+
+    public void set[%=methodName%]([%=javaType%] [%=fieldName%]) {
+        this.[%=fieldName%] = [%=fieldName%];
+    }
+
+[% } %]
+[% // Generate getters and setters for references
+for (ref in allReferences) {
+    var fieldName = ref.name;
+    var methodName = fieldName.firstToUpperCase();
+    var javaType = "";
+    if (ref.isMany()) {
+        javaType = "List<" + ref.eType.name + "DTO>";
+    } else {
+        javaType = ref.eType.name + "DTO";
+    }
+%]
+    public [%=javaType%] get[%=methodName%]() {
+        return [%=fieldName%];
+    }
+
+    public void set[%=methodName%]([%=javaType%] [%=fieldName%]) {
+        this.[%=fieldName%] = [%=fieldName%];
+    }
+
+[% } %]
+}
+
+[%
+// Helper operation to map Ecore types to Java types
+operation getJavaType(ecoreType : String) : String {
+    var typeMap = Map {
+        "EString" = "String",
+        "EInt" = "Integer",
+        "EBoolean" = "Boolean",
+        "EDouble" = "Double",
+        "EFloat" = "Float",
+        "ELong" = "Long",
+        "EByte" = "Byte",
+        "EShort" = "Short",
+        "EChar" = "Character"
+    };
+
+    if (typeMap.containsKey(ecoreType)) {
+        return typeMap.get(ecoreType);
+    }
+
+    // For enums and custom types, return as String
+    return "String";
+}
+%]

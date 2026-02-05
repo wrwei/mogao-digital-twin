@@ -1,0 +1,232 @@
+package digital.twin.mogao.dto;
+
+import java.util.List;
+
+/**
+ * Exhibit Data Transfer Object (Base class for specific exhibit types)
+ * Auto-generated from mogao_dt.ecore model
+ */
+public class ExhibitDTO {
+
+    private String gid;
+    private String name;
+    private String description;
+    private String reference;
+    private CoordinatesDTO coordinates;
+
+    // Heritage Artifact fields
+    private String label;
+    private String creationPeriod;
+    private Long lastInspectionDate;
+    private String inspectionNotes;
+
+    // Exhibit specific fields
+    private String material;
+    private String period;
+    private String conservationStatus;
+
+    private List<EnvironmentConditionDTO> environmentConditions;
+    private List<DefectDTO> defects;
+
+    // Type discriminator
+    private String exhibitType; // statue, mural, painting, inscription
+
+    // Statue fields
+    private Double width;
+    private Double depth;
+    private Double height;
+    private String subject;
+
+    // Mural/Painting fields
+    private String technique; // for murals
+    private String style; // for paintings
+
+    // Inscription fields
+    private String language;
+    private String content;
+
+    // Getters and Setters
+    public String getGid() {
+        return gid;
+    }
+
+    public void setGid(String gid) {
+        this.gid = gid;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public String getReference() {
+        return reference;
+    }
+
+    public void setReference(String reference) {
+        this.reference = reference;
+    }
+
+    public CoordinatesDTO getCoordinates() {
+        return coordinates;
+    }
+
+    public void setCoordinates(CoordinatesDTO coordinates) {
+        this.coordinates = coordinates;
+    }
+
+    public String getLabel() {
+        return label;
+    }
+
+    public void setLabel(String label) {
+        this.label = label;
+    }
+
+    public String getCreationPeriod() {
+        return creationPeriod;
+    }
+
+    public void setCreationPeriod(String creationPeriod) {
+        this.creationPeriod = creationPeriod;
+    }
+
+    public Long getLastInspectionDate() {
+        return lastInspectionDate;
+    }
+
+    public void setLastInspectionDate(Long lastInspectionDate) {
+        this.lastInspectionDate = lastInspectionDate;
+    }
+
+    public String getInspectionNotes() {
+        return inspectionNotes;
+    }
+
+    public void setInspectionNotes(String inspectionNotes) {
+        this.inspectionNotes = inspectionNotes;
+    }
+
+    public String getMaterial() {
+        return material;
+    }
+
+    public void setMaterial(String material) {
+        this.material = material;
+    }
+
+    public String getPeriod() {
+        return period;
+    }
+
+    public void setPeriod(String period) {
+        this.period = period;
+    }
+
+    public String getConservationStatus() {
+        return conservationStatus;
+    }
+
+    public void setConservationStatus(String conservationStatus) {
+        this.conservationStatus = conservationStatus;
+    }
+
+    public List<EnvironmentConditionDTO> getEnvironmentConditions() {
+        return environmentConditions;
+    }
+
+    public void setEnvironmentConditions(List<EnvironmentConditionDTO> environmentConditions) {
+        this.environmentConditions = environmentConditions;
+    }
+
+    public List<DefectDTO> getDefects() {
+        return defects;
+    }
+
+    public void setDefects(List<DefectDTO> defects) {
+        this.defects = defects;
+    }
+
+    public String getExhibitType() {
+        return exhibitType;
+    }
+
+    public void setExhibitType(String exhibitType) {
+        this.exhibitType = exhibitType;
+    }
+
+    public Double getWidth() {
+        return width;
+    }
+
+    public void setWidth(Double width) {
+        this.width = width;
+    }
+
+    public Double getDepth() {
+        return depth;
+    }
+
+    public void setDepth(Double depth) {
+        this.depth = depth;
+    }
+
+    public Double getHeight() {
+        return height;
+    }
+
+    public void setHeight(Double height) {
+        this.height = height;
+    }
+
+    public String getSubject() {
+        return subject;
+    }
+
+    public void setSubject(String subject) {
+        this.subject = subject;
+    }
+
+    public String getTechnique() {
+        return technique;
+    }
+
+    public void setTechnique(String technique) {
+        this.technique = technique;
+    }
+
+    public String getStyle() {
+        return style;
+    }
+
+    public void setStyle(String style) {
+        this.style = style;
+    }
+
+    public String getLanguage() {
+        return language;
+    }
+
+    public void setLanguage(String language) {
+        this.language = language;
+    }
+
+    public String getContent() {
+        return content;
+    }
+
+    public void setContent(String content) {
+        this.content = content;
+    }
+}

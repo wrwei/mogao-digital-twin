@@ -1,0 +1,129 @@
+[%
+// EGL template to generate a Service class from an EClass
+// Parameters:
+//   - eClass: The EClass to generate Service for
+//   - packageName: The package name for the Service
+
+var className = eClass.name + "Service";
+var dtoClassName = eClass.name + "DTO";
+var varName = eClass.name.firstToLowerCase();
+%]
+package [%=packageName%];
+
+import digital.twin.mogao.dto.[%=dtoClassName%];
+import digital.twin.mogao.util.EpsilonModelManager;
+import jakarta.inject.Singleton;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+/**
+ * [%=eClass.name%] Business Service
+ * Handles operations on [%=eClass.name%] model objects
+ * Auto-generated from mogao_dt.ecore model
+ */
+@Singleton
+public class [%=className%] {
+
+    private static final Logger LOG = LoggerFactory.getLogger([%=className%].class);
+
+    private final EpsilonModelManager modelManager;
+
+    // EOL script path
+    private static final String SCRIPT_PATH = "eol-scripts/[%=eClass.name.toLowerCase()%]/[%=eClass.name%]Operations.eol";
+
+    public [%=className%](EpsilonModelManager modelManager) {
+        this.modelManager = modelManager;
+    }
+
+    /**
+     * Get all [%=eClass.name%] objects from the model
+     */
+    public List<[%=dtoClassName%]> getAll[%=eClass.name%]s() {
+        try {
+            LOG.info("Getting all [%=eClass.name%] objects");
+
+            Object result = modelManager.executeEolOperation(SCRIPT_PATH, "getAll[%=eClass.name%]s");
+
+            // Convert model objects to DTOs
+            // TODO: Implement conversion logic
+
+            return null; // Placeholder
+
+        } catch (Exception e) {
+            LOG.error("Failed to get [%=eClass.name%] objects", e);
+            throw new RuntimeException("Failed to get [%=eClass.name%] objects: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Get [%=eClass.name%] by GID
+     */
+    public [%=dtoClassName%] get[%=eClass.name%]ByGid(String gid) {
+        try {
+            LOG.info("Getting [%=eClass.name%] with GID: {}", gid);
+
+            Object result = modelManager.executeEolOperation(SCRIPT_PATH, "get[%=eClass.name%]ByGid", gid);
+
+            // Convert model object to DTO
+            // TODO: Implement conversion logic
+
+            return null; // Placeholder
+
+        } catch (Exception e) {
+            LOG.error("Failed to get [%=eClass.name%] with GID: {}", gid, e);
+            throw new RuntimeException("Failed to get [%=eClass.name%]: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Create new [%=eClass.name%]
+     */
+    public [%=dtoClassName%] create[%=eClass.name%]([%=dtoClassName%] dto) {
+        try {
+            LOG.info("Creating new [%=eClass.name%]");
+
+            // Create operation with DTO data
+            // TODO: Implement creation logic
+
+            return dto;
+
+        } catch (Exception e) {
+            LOG.error("Failed to create [%=eClass.name%]", e);
+            throw new RuntimeException("Failed to create [%=eClass.name%]: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Update [%=eClass.name%]
+     */
+    public void update[%=eClass.name%](String gid, [%=dtoClassName%] dto) {
+        try {
+            LOG.info("Updating [%=eClass.name%] with GID: {}", gid);
+
+            // Update operation with DTO data
+            // TODO: Implement update logic
+
+        } catch (Exception e) {
+            LOG.error("Failed to update [%=eClass.name%]", e);
+            throw new RuntimeException("Failed to update [%=eClass.name%]: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Delete [%=eClass.name%]
+     */
+    public void delete[%=eClass.name%](String gid) {
+        try {
+            LOG.info("Deleting [%=eClass.name%] with GID: {}", gid);
+
+            modelManager.executeEolOperation(SCRIPT_PATH, "delete[%=eClass.name%]", gid);
+
+        } catch (Exception e) {
+            LOG.error("Failed to delete [%=eClass.name%]", e);
+            throw new RuntimeException("Failed to delete [%=eClass.name%]: " + e.getMessage(), e);
+        }
+    }
+}

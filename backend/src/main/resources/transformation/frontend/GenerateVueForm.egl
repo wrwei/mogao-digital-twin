@@ -1,0 +1,244 @@
+[%
+import "FrontendHelpers.eol";
+
+var className = eClass.name;
+var classNameLower = toLowerFirst(className);
+var classNamePlural = getPlural(classNameLower);
+var attributes = eClass.eAllAttributes;
+var formAttrs = getFormAttributes(attributes);
+var chineseLabel = getChineseLabel(className);
+%]
+/**
+ * [%=className%] Form Component
+ * Auto-generated from mogao_dt.ecore
+ * Create/Edit form for [%=chineseLabel%]
+ */
+export default {
+    name: '[%=className%]Form',
+    props: {
+        [%=classNameLower%]: {
+            type: Object,
+            default: null
+        },
+        mode: {
+            type: String,
+            default: 'create', // 'create' or 'edit'
+            validator: (value) => ['create', 'edit'].includes(value)
+        }
+    },
+    emits: ['created', 'updated', 'cancel', 'error'],
+    data() {
+        return {
+            form: {
+                [% for (attr in formAttrs) { %]
+                [%=attr.name%]: this.[%=classNameLower%]?.[%=attr.name%] || [%=getDefaultValue(attr)%][%= (loopCount < formAttrs.size()) ? "," : "" %]
+                [% } %]
+            },
+            errors: {},
+            loading: false,
+            touched: {}
+        };
+    },
+    watch: {
+        [%=classNameLower%]: {
+            handler(newVal) {
+                if (newVal && this.mode === 'edit') {
+                    this.loadFormData(newVal);
+                }
+            },
+            immediate: true
+        }
+    },
+    methods: {
+        loadFormData(data) {
+            [% for (attr in formAttrs) { %]
+            this.form.[%=attr.name%] = data.[%=attr.name%] || [%=getDefaultValue(attr)%];
+            [% } %]
+        },
+
+        async handleSubmit() {
+            // Mark all fields as touched
+            [% for (attr in formAttrs) { %]
+            this.touched.[%=attr.name%] = true;
+            [% } %]
+
+            if (!this.validate()) {
+                this.$emit('error', '请填写所有必填字段');
+                return;
+            }
+
+            this.loading = true;
+            try {
+                if (this.mode === 'create') {
+                    const response = await api.[%=classNamePlural%].create(this.form);
+                    this.$emit('created', response.data);
+                } else {
+                    const gid = this.[%=classNameLower%].gid;
+                    await api.[%=classNamePlural%].update(gid, this.form);
+                    this.$emit('updated', { ...this.[%=classNameLower%], ...this.form });
+                }
+                this.resetForm();
+            } catch (error) {
+                console.error('Form submission error:', error);
+                this.$emit('error', error.response?.data?.message || error.message || '保存失败');
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        validate() {
+            this.errors = {};
+            let isValid = true;
+
+            [% for (attr in formAttrs) { %]
+            // Validate [%=attr.name%]
+            [% if (isRequired(attr)) { %]
+            if (!this.form.[%=attr.name%] || this.form.[%=attr.name%].toString().trim() === '') {
+                this.errors.[%=attr.name%] = '[%=getFieldLabel(attr.name)%]是必填项';
+                isValid = false;
+            }
+            [% } %]
+            [% if (hasValidation(attr)) { %]
+            if (this.form.[%=attr.name%] && !this.validate[%=attr.name.substring(0,1).toUpperCase() + attr.name.substring(1)%](this.form.[%=attr.name%])) {
+                this.errors.[%=attr.name%] = '[%=getValidationMessage(attr)%]';
+                isValid = false;
+            }
+            [% } %]
+
+            [% } %]
+            return isValid;
+        },
+
+        [% // Add validation methods for specific fields %]
+        [% for (attr in formAttrs) { %]
+        [% if (hasValidation(attr)) { %]
+        validate[%=attr.name.substring(0,1).toUpperCase() + attr.name.substring(1)%](value) {
+            [% if (attr.name == "email") { %]
+            return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+            [% } else if (attr.name == "url") { %]
+            try {
+                new URL(value);
+                return true;
+            } catch {
+                return false;
+            }
+            [% } else if (isNumber(attr)) { %]
+            return !isNaN(value) && isFinite(value);
+            [% } else { %]
+            return true;
+            [% } %]
+        },
+        [% } %]
+        [% } %]
+
+        resetForm() {
+            [% for (attr in formAttrs) { %]
+            this.form.[%=attr.name%] = [%=getDefaultValue(attr)%];
+            [% } %]
+            this.errors = {};
+            this.touched = {};
+        },
+
+        handleCancel() {
+            this.resetForm();
+            this.$emit('cancel');
+        },
+
+        markTouched(field) {
+            this.touched[field] = true;
+        }
+    },
+    template: `
+        <form @submit.prevent="handleSubmit" class="form [%=classNameLower%]-form">
+            <h2>{{ mode === 'create' ? '创建' : '编辑' }}[%=chineseLabel%]</h2>
+
+            [% for (attr in formAttrs) { %]
+            <div class="form-group">
+                <label class="form-label[% if (isRequired(attr)) { %] form-label-required[% } %]" for="[%=attr.name%]">
+                    [%=getFieldLabel(attr.name)%]
+                </label>
+
+                [% if (isTextArea(attr)) { %]
+                <textarea
+                    id="[%=attr.name%]"
+                    v-model="form.[%=attr.name%]"
+                    @blur="markTouched('[%=attr.name%]')"
+                    class="form-textarea"
+                    :class="{ 'form-textarea-error': errors.[%=attr.name%] && touched.[%=attr.name%] }"
+                    placeholder="请输入[%=getFieldLabel(attr.name)%]"
+                    rows="4"
+                    [% if (isRequired(attr)) { %]required[% } %]
+                ></textarea>
+
+                [% } else if (isSelect(attr)) { %]
+                <select
+                    id="[%=attr.name%]"
+                    v-model="form.[%=attr.name%]"
+                    @blur="markTouched('[%=attr.name%]')"
+                    class="form-select"
+                    :class="{ 'form-select-error': errors.[%=attr.name%] && touched.[%=attr.name%] }"
+                    [% if (isRequired(attr)) { %]required[% } %]
+                >
+                    <option value="">请选择</option>
+                    [% for (option in getEnumOptions(attr)) { %]
+                    <option value="[%=option%]">[%=option%]</option>
+                    [% } %]
+                </select>
+
+                [% } else if (isBoolean(attr)) { %]
+                <div class="form-checkbox">
+                    <input
+                        type="checkbox"
+                        id="[%=attr.name%]"
+                        v-model="form.[%=attr.name%]"
+                        @change="markTouched('[%=attr.name%]')"
+                    />
+                    <label for="[%=attr.name%]">[%=getFieldLabel(attr.name)%]</label>
+                </div>
+
+                [% } else if (isNumber(attr)) { %]
+                <input
+                    type="number"
+                    id="[%=attr.name%]"
+                    v-model.number="form.[%=attr.name%]"
+                    @blur="markTouched('[%=attr.name%]')"
+                    class="form-input"
+                    :class="{ 'form-input-error': errors.[%=attr.name%] && touched.[%=attr.name%] }"
+                    placeholder="请输入[%=getFieldLabel(attr.name)%]"
+                    [% if (hasMin(attr)) { %]min="[%=getMin(attr)%]"[% } %]
+                    [% if (hasMax(attr)) { %]max="[%=getMax(attr)%]"[% } %]
+                    [% if (isRequired(attr)) { %]required[% } %]
+                    step="any"
+                />
+
+                [% } else { %]
+                <input
+                    type="text"
+                    id="[%=attr.name%]"
+                    v-model="form.[%=attr.name%]"
+                    @blur="markTouched('[%=attr.name%]')"
+                    class="form-input"
+                    :class="{ 'form-input-error': errors.[%=attr.name%] && touched.[%=attr.name%] }"
+                    placeholder="请输入[%=getFieldLabel(attr.name)%]"
+                    [% if (isRequired(attr)) { %]required[% } %]
+                />
+                [% } %]
+
+                <span v-if="errors.[%=attr.name%] && touched.[%=attr.name%]" class="form-error">
+                    {{ errors.[%=attr.name%] }}
+                </span>
+            </div>
+
+            [% } %]
+            <div class="form-actions">
+                <button type="button" class="btn btn-outline" @click="handleCancel" :disabled="loading">
+                    取消
+                </button>
+                <button type="submit" class="btn btn-primary" :disabled="loading">
+                    <span v-if="loading">保存中...</span>
+                    <span v-else>{{ mode === 'create' ? '创建' : '更新' }}</span>
+                </button>
+            </div>
+        </form>
+    `
+};
