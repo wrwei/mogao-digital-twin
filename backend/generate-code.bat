@@ -17,9 +17,21 @@ if exist "src\main\java\digital\twin\mogao\controller" (
     rmdir /s /q "src\main\java\digital\twin\mogao\controller"
     echo   Removed controller directory
 )
+REM Backup manual components before cleanup
+if exist "..\frontend\components\ModelViewer.js" (
+    copy /y "..\frontend\components\ModelViewer.js" "..\frontend\ModelViewer.js.backup" >nul
+    echo   Backed up ModelViewer.js
+)
 if exist "..\frontend\components" (
     rmdir /s /q "..\frontend\components"
     echo   Removed frontend components directory
+)
+REM Restore manual components after cleanup
+mkdir "..\frontend\components" 2>nul
+if exist "..\frontend\ModelViewer.js.backup" (
+    copy /y "..\frontend\ModelViewer.js.backup" "..\frontend\components\ModelViewer.js" >nul
+    del "..\frontend\ModelViewer.js.backup"
+    echo   Restored ModelViewer.js
 )
 if exist "..\frontend\composables" (
     rmdir /s /q "..\frontend\composables"
