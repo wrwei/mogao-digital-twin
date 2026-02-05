@@ -84,13 +84,21 @@ operation getJavaType(ecoreType : String) : String {
     var typeMap = Map {
         "EString" = "String",
         "EInt" = "Integer",
+        "EIntegerObject" = "Integer",
         "EBoolean" = "Boolean",
+        "EBooleanObject" = "Boolean",
         "EDouble" = "Double",
+        "EDoubleObject" = "Double",
         "EFloat" = "Float",
+        "EFloatObject" = "Float",
         "ELong" = "Long",
+        "ELongObject" = "Long",
         "EByte" = "Byte",
+        "EByteObject" = "Byte",
         "EShort" = "Short",
-        "EChar" = "Character"
+        "EShortObject" = "Short",
+        "EChar" = "Character",
+        "ECharacterObject" = "Character"
     };
 
     if (typeMap.containsKey(ecoreType)) {

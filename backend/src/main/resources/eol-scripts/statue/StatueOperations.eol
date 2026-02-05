@@ -1,0 +1,79 @@
+// EOL operations for Statue model objects
+// Auto-generated from metamodel
+
+/**
+ * Get all Statue objects from the model
+ */
+operation getAllStatues() : Sequence {
+    return Statue.all;
+}
+
+/**
+ * Get Statue by GID
+ */
+operation getStatueByGid(gid : String) : Statue {
+    return Statue.all.selectOne(obj | obj.gid = gid);
+}
+
+/**
+ * Get Statue by name
+ */
+operation getStatueByName(name : String) : Statue {
+    return Statue.all.selectOne(obj | obj.name = name);
+}
+
+/**
+ * Create new Statue
+ */
+operation createStatue(gid : String, name : String, label : String) : Statue {
+    var obj = new Statue;
+    obj.gid = gid;
+    obj.name = name;
+    if (label.isDefined()) {
+        obj.label = label;
+    }
+    return obj;
+}
+
+/**
+ * Update Statue
+ */
+operation updateStatue(gid : String, name : String, description : String) {
+    var obj = getStatueByGid(gid);
+    if (obj.isDefined()) {
+        if (name.isDefined()) obj.name = name;
+        if (description.isDefined()) obj.description = description;
+    }
+}
+
+/**
+ * Update Statue reference
+ */
+operation updateStatueReference(gid : String, modelLocation : String, metadataLocation : String, textureLocation : String) {
+    var obj = getStatueByGid(gid);
+    if (obj.isDefined()) {
+        if (obj.reference.isUndefined()) {
+            obj.reference = new AssetReference;
+        }
+        if (modelLocation.isDefined()) obj.reference.modelLocation = modelLocation;
+        if (metadataLocation.isDefined()) obj.reference.metadataLocation = metadataLocation;
+        if (textureLocation.isDefined()) obj.reference.textureLocation = textureLocation;
+    }
+}
+
+/**
+ * Delete Statue
+ */
+operation deleteStatue(gid : String) {
+    var obj = getStatueByGid(gid);
+    if (obj.isDefined()) {
+        delete obj;
+    }
+}
+
+/**
+ * Get count of Statue objects
+ */
+operation getStatueCount() : Integer {
+    return Statue.all.size();
+}

@@ -11,19 +11,19 @@ public class StatueDTO {
     private String gid;
     private String name;
     private String description;
-    private String reference;
     private String label;
     private String creationPeriod;
-    private String lastInspectionDate;
+    private Long lastInspectionDate;
     private String inspectionNotes;
     private String material;
     private String period;
     private String conservationStatus;
-    private String width;
-    private String depth;
-    private String height;
+    private Double width;
+    private Double depth;
+    private Double height;
     private String subject;
 
+    private AssetReferenceDTO reference;
     private CoordinatesDTO coordinates;
     private List<EnvironmentConditionDTO> environmentConditions;
     private List<DefectDTO> defects;
@@ -53,14 +53,6 @@ public class StatueDTO {
         this.description = description;
     }
 
-    public String getReference() {
-        return reference;
-    }
-
-    public void setReference(String reference) {
-        this.reference = reference;
-    }
-
     public String getLabel() {
         return label;
     }
@@ -77,11 +69,11 @@ public class StatueDTO {
         this.creationPeriod = creationPeriod;
     }
 
-    public String getLastInspectionDate() {
+    public Long getLastInspectionDate() {
         return lastInspectionDate;
     }
 
-    public void setLastInspectionDate(String lastInspectionDate) {
+    public void setLastInspectionDate(Long lastInspectionDate) {
         this.lastInspectionDate = lastInspectionDate;
     }
 
@@ -117,27 +109,27 @@ public class StatueDTO {
         this.conservationStatus = conservationStatus;
     }
 
-    public String getWidth() {
+    public Double getWidth() {
         return width;
     }
 
-    public void setWidth(String width) {
+    public void setWidth(Double width) {
         this.width = width;
     }
 
-    public String getDepth() {
+    public Double getDepth() {
         return depth;
     }
 
-    public void setDepth(String depth) {
+    public void setDepth(Double depth) {
         this.depth = depth;
     }
 
-    public String getHeight() {
+    public Double getHeight() {
         return height;
     }
 
-    public void setHeight(String height) {
+    public void setHeight(Double height) {
         this.height = height;
     }
 
@@ -147,6 +139,14 @@ public class StatueDTO {
 
     public void setSubject(String subject) {
         this.subject = subject;
+    }
+
+    public AssetReferenceDTO getReference() {
+        return reference;
+    }
+
+    public void setReference(AssetReferenceDTO reference) {
+        this.reference = reference;
     }
 
     public CoordinatesDTO getCoordinates() {

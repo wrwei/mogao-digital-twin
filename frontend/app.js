@@ -7,6 +7,11 @@
 const { createApp } = Vue;
 
 // ============================================
+// Import i18n
+// ============================================
+import { useI18n } from './i18n.js';
+
+// ============================================
 // Generated Component Imports
 // ============================================
 // Cave Components
@@ -17,6 +22,7 @@ import CaveList from './components/CaveList.js';
 import StatueCard from './components/StatueCard.js';
 import StatueForm from './components/StatueForm.js';
 import StatueList from './components/StatueList.js';
+import StatueDetailView from './components/StatueDetailView.js';
 // Mural Components
 import MuralCard from './components/MuralCard.js';
 import MuralForm from './components/MuralForm.js';
@@ -48,41 +54,59 @@ import { useDefects } from './composables/useDefects.js';
 // Shared UI Components
 // ============================================
 const AppHeader = {
-    props: ['currentView'],
-    emits: ['change-view'],
+    props: ['currentView', 'locale'],
+    emits: ['change-view', 'change-locale'],
+    setup() {
+        const { t } = useI18n();
+        return { t };
+    },
     template: `
-        <div class="app-header" style="background: var(--primary-color); color: white; padding: var(--spacing-md); display: flex; justify-content: space-between; align-items: center;">
-            <h1 style="margin: 0; font-size: 24px;">🏛️ 莫高窟数字孪生</h1>
-            <div style="display: flex; gap: var(--spacing-sm);">
+        <div class="app-header" style="background: var(--primary-color); color: white; padding: var(--spacing-md);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-sm);">
+                <h1 style="margin: 0; font-size: 24px;">🏛️ {{ locale === 'zh' ? '莫高窟数字孪生' : 'Mogao Digital Twin' }}</h1>
+                <div style="display: flex; gap: var(--spacing-sm);">
+                    <button @click="$emit('change-locale', 'zh')"
+                            class="btn btn-sm"
+                            :class="locale === 'zh' ? 'btn-secondary' : 'btn-outline'">
+                        🇨🇳 中文
+                    </button>
+                    <button @click="$emit('change-locale', 'en')"
+                            class="btn btn-sm"
+                            :class="locale === 'en' ? 'btn-secondary' : 'btn-outline'">
+                        🇬🇧 English
+                    </button>
+                </div>
+            </div>
+            <div style="display: flex; gap: var(--spacing-sm); flex-wrap: wrap;">
                 <button @click="$emit('change-view', 'caves')"
                         class="btn btn-sm"
                         :class="currentView === 'caves' ? 'btn-secondary' : 'btn-outline'">
-                    洞窟
+                    {{ t('entities.caves') }}
                 </button>
                 <button @click="$emit('change-view', 'statues')"
                         class="btn btn-sm"
                         :class="currentView === 'statues' ? 'btn-secondary' : 'btn-outline'">
-                    雕像
+                    {{ t('entities.statues') }}
                 </button>
                 <button @click="$emit('change-view', 'murals')"
                         class="btn btn-sm"
                         :class="currentView === 'murals' ? 'btn-secondary' : 'btn-outline'">
-                    壁画
+                    {{ t('entities.murals') }}
                 </button>
                 <button @click="$emit('change-view', 'paintings')"
                         class="btn btn-sm"
                         :class="currentView === 'paintings' ? 'btn-secondary' : 'btn-outline'">
-                    绘画
+                    {{ t('entities.paintings') }}
                 </button>
                 <button @click="$emit('change-view', 'inscriptions')"
                         class="btn btn-sm"
                         :class="currentView === 'inscriptions' ? 'btn-secondary' : 'btn-outline'">
-                    铭文
+                    {{ t('entities.inscriptions') }}
                 </button>
                 <button @click="$emit('change-view', 'defects')"
                         class="btn btn-sm"
                         :class="currentView === 'defects' ? 'btn-secondary' : 'btn-outline'">
-                    缺陷
+                    {{ t('entities.defects') }}
                 </button>
             </div>
         </div>
@@ -90,10 +114,14 @@ const AppHeader = {
 };
 
 const LoadingSpinner = {
+    setup() {
+        const { t } = useI18n();
+        return { t };
+    },
     template: `
         <div class="loading-overlay">
             <div class="spinner"></div>
-            <p style="margin-top: var(--spacing-md); color: var(--text-secondary);">加载中...</p>
+            <p style="margin-top: var(--spacing-md); color: var(--text-secondary);">{{ t('common.loading') }}</p>
         </div>
     `
 };
@@ -114,7 +142,7 @@ const ModalDialog = {
     emits: ['close'],
     template: `
         <div v-if="show" class="modal-overlay" @click.self="$emit('close')">
-            <div class="modal" style="min-width: 500px;">
+            <div class="modal" style="min-width: 500px; max-width: 95vw; width: auto;">
                 <div class="modal-header">
                     <h3 class="modal-title">{{ title }}</h3>
                     <button class="modal-close" @click="$emit('close')">&times;</button>
@@ -136,11 +164,14 @@ const CaveView = {
         CaveList,
         CaveForm,
         CaveCard,
+        ModalDialog,
     },
     setup() {
         const composable = useCaves();
+        const { t } = useI18n();
         return {
             ...composable,
+            t,
         };
     },
     data() {
@@ -162,12 +193,12 @@ const CaveView = {
             this.showForm = true;
         },
         async handleDelete(item) {
-            if (confirm(`确定要删除这个洞窟吗？`)) {
+            if (confirm(this.t('actions.deleteConfirm', { entity: this.t('entities.cave') }))) {
                 try {
                     await this.deleteCave(item.gid);
-                    this.$emit('show-message', '删除成功', 'success');
+                    this.$emit('show-message', this.t('actions.deleteSuccess', { entity: this.t('entities.cave') }), 'success');
                 } catch (err) {
-                    this.$emit('show-message', '删除失败: ' + err.message, 'error');
+                    this.$emit('show-message', this.t('actions.deleteError', { entity: this.t('entities.cave') }) + ': ' + err.message, 'error');
                 }
             }
         },
@@ -175,15 +206,15 @@ const CaveView = {
             try {
                 if (this.editMode) {
                     await this.updateCave(this.editingItem.gid, data);
-                    this.$emit('show-message', '更新成功', 'success');
+                    this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.cave') }), 'success');
                 } else {
                     await this.createCave(data);
-                    this.$emit('show-message', '创建成功', 'success');
+                    this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.cave') }), 'success');
                 }
                 this.showForm = false;
                 await this.fetchCaves();
             } catch (err) {
-                this.$emit('show-message', '操作失败: ' + err.message, 'error');
+                this.$emit('show-message', this.t('actions.saveError', { entity: this.t('entities.cave') }) + ': ' + err.message, 'error');
             }
         },
         handleFormCancel() {
@@ -200,7 +231,7 @@ const CaveView = {
     },
     template: `
         <div class="entity-view">
-            <modal-dialog :show="showForm" :title="editMode ? '编辑洞窟' : '创建洞窟'" @close="handleFormCancel">
+            <modal-dialog :show="showForm" :title="editMode ? t('common.edit') + ' ' + t('entities.cave') : t('actions.createNew', { entity: t('entities.cave') })" @close="handleFormCancel">
                 <cave-form
                     :cave="editingItem"
                     :mode="editMode ? 'edit' : 'create'"
@@ -226,11 +257,15 @@ const StatueView = {
         StatueList,
         StatueForm,
         StatueCard,
+        StatueDetailView,
+        ModalDialog,
     },
     setup() {
         const composable = useStatues();
+        const { t } = useI18n();
         return {
             ...composable,
+            t,
         };
     },
     data() {
@@ -238,6 +273,8 @@ const StatueView = {
             showForm: false,
             editMode: false,
             editingItem: null,
+            showDetail: false,
+            detailItem: null,
         };
     },
     methods: {
@@ -252,12 +289,13 @@ const StatueView = {
             this.showForm = true;
         },
         async handleDelete(item) {
-            if (confirm(`确定要删除这个雕像吗？`)) {
+            if (confirm(this.t('actions.deleteConfirm', { entity: this.t('entities.statue') }))) {
                 try {
                     await this.deleteStatue(item.gid);
-                    this.$emit('show-message', '删除成功', 'success');
+                    this.$emit('show-message', this.t('actions.deleteSuccess', { entity: this.t('entities.statue') }), 'success');
+                    this.showDetail = false;
                 } catch (err) {
-                    this.$emit('show-message', '删除失败: ' + err.message, 'error');
+                    this.$emit('show-message', this.t('actions.deleteError', { entity: this.t('entities.statue') }) + ': ' + err.message, 'error');
                 }
             }
         },
@@ -265,15 +303,15 @@ const StatueView = {
             try {
                 if (this.editMode) {
                     await this.updateStatue(this.editingItem.gid, data);
-                    this.$emit('show-message', '更新成功', 'success');
+                    this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.statue') }), 'success');
                 } else {
                     await this.createStatue(data);
-                    this.$emit('show-message', '创建成功', 'success');
+                    this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.statue') }), 'success');
                 }
                 this.showForm = false;
                 await this.fetchStatues();
             } catch (err) {
-                this.$emit('show-message', '操作失败: ' + err.message, 'error');
+                this.$emit('show-message', this.t('actions.saveError', { entity: this.t('entities.statue') }) + ': ' + err.message, 'error');
             }
         },
         handleFormCancel() {
@@ -281,8 +319,22 @@ const StatueView = {
             this.editingItem = null;
         },
         handleSelect(item) {
+            this.detailItem = item;
+            this.showDetail = true;
             this.selectStatue(item);
             this.$emit('item-selected', item);
+        },
+        handleCloseDetail() {
+            this.showDetail = false;
+            this.detailItem = null;
+        },
+        handleDetailEdit(item) {
+            this.showDetail = false;
+            this.handleEdit(item);
+        },
+        async handleDetailDelete(item) {
+            this.showDetail = false;
+            await this.handleDelete(item);
         }
     },
     mounted() {
@@ -290,7 +342,7 @@ const StatueView = {
     },
     template: `
         <div class="entity-view">
-            <modal-dialog :show="showForm" :title="editMode ? '编辑雕像' : '创建雕像'" @close="handleFormCancel">
+            <modal-dialog :show="showForm" :title="editMode ? t('common.edit') + ' ' + t('entities.statue') : t('actions.createNew', { entity: t('entities.statue') })" @close="handleFormCancel">
                 <statue-form
                     :statue="editingItem"
                     :mode="editMode ? 'edit' : 'create'"
@@ -298,7 +350,18 @@ const StatueView = {
                     @updated="handleFormSubmit"
                     @cancel="handleFormCancel"
                     @error="(msg) => $emit('show-message', msg, 'error')"
-                ></statue-form>            </modal-dialog>
+                ></statue-form>
+            </modal-dialog>
+
+            <modal-dialog :show="showDetail" :title="t('detail.title')" @close="handleCloseDetail">
+                <statue-detail-view
+                    v-if="detailItem"
+                    :statue="detailItem"
+                    @close="handleCloseDetail"
+                    @edit="handleDetailEdit"
+                    @delete="handleDetailDelete"
+                ></statue-detail-view>
+            </modal-dialog>
 
             <statue-list
                 :statues="statues"
@@ -307,7 +370,8 @@ const StatueView = {
                 @edit="handleEdit"
                 @delete="handleDelete"
                 @create="handleCreate"
-            ></statue-list>        </div>
+            ></statue-list>
+        </div>
     `
 };
 
@@ -316,11 +380,14 @@ const MuralView = {
         MuralList,
         MuralForm,
         MuralCard,
+        ModalDialog,
     },
     setup() {
         const composable = useMurals();
+        const { t } = useI18n();
         return {
             ...composable,
+            t,
         };
     },
     data() {
@@ -342,12 +409,12 @@ const MuralView = {
             this.showForm = true;
         },
         async handleDelete(item) {
-            if (confirm(`确定要删除这个壁画吗？`)) {
+            if (confirm(this.t('actions.deleteConfirm', { entity: this.t('entities.mural') }))) {
                 try {
                     await this.deleteMural(item.gid);
-                    this.$emit('show-message', '删除成功', 'success');
+                    this.$emit('show-message', this.t('actions.deleteSuccess', { entity: this.t('entities.mural') }), 'success');
                 } catch (err) {
-                    this.$emit('show-message', '删除失败: ' + err.message, 'error');
+                    this.$emit('show-message', this.t('actions.deleteError', { entity: this.t('entities.mural') }) + ': ' + err.message, 'error');
                 }
             }
         },
@@ -355,15 +422,15 @@ const MuralView = {
             try {
                 if (this.editMode) {
                     await this.updateMural(this.editingItem.gid, data);
-                    this.$emit('show-message', '更新成功', 'success');
+                    this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.mural') }), 'success');
                 } else {
                     await this.createMural(data);
-                    this.$emit('show-message', '创建成功', 'success');
+                    this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.mural') }), 'success');
                 }
                 this.showForm = false;
                 await this.fetchMurals();
             } catch (err) {
-                this.$emit('show-message', '操作失败: ' + err.message, 'error');
+                this.$emit('show-message', this.t('actions.saveError', { entity: this.t('entities.mural') }) + ': ' + err.message, 'error');
             }
         },
         handleFormCancel() {
@@ -380,7 +447,7 @@ const MuralView = {
     },
     template: `
         <div class="entity-view">
-            <modal-dialog :show="showForm" :title="editMode ? '编辑壁画' : '创建壁画'" @close="handleFormCancel">
+            <modal-dialog :show="showForm" :title="editMode ? t('common.edit') + ' ' + t('entities.mural') : t('actions.createNew', { entity: t('entities.mural') })" @close="handleFormCancel">
                 <mural-form
                     :mural="editingItem"
                     :mode="editMode ? 'edit' : 'create'"
@@ -406,11 +473,14 @@ const PaintingView = {
         PaintingList,
         PaintingForm,
         PaintingCard,
+        ModalDialog,
     },
     setup() {
         const composable = usePaintings();
+        const { t } = useI18n();
         return {
             ...composable,
+            t,
         };
     },
     data() {
@@ -432,12 +502,12 @@ const PaintingView = {
             this.showForm = true;
         },
         async handleDelete(item) {
-            if (confirm(`确定要删除这个绘画吗？`)) {
+            if (confirm(this.t('actions.deleteConfirm', { entity: this.t('entities.painting') }))) {
                 try {
                     await this.deletePainting(item.gid);
-                    this.$emit('show-message', '删除成功', 'success');
+                    this.$emit('show-message', this.t('actions.deleteSuccess', { entity: this.t('entities.painting') }), 'success');
                 } catch (err) {
-                    this.$emit('show-message', '删除失败: ' + err.message, 'error');
+                    this.$emit('show-message', this.t('actions.deleteError', { entity: this.t('entities.painting') }) + ': ' + err.message, 'error');
                 }
             }
         },
@@ -445,15 +515,15 @@ const PaintingView = {
             try {
                 if (this.editMode) {
                     await this.updatePainting(this.editingItem.gid, data);
-                    this.$emit('show-message', '更新成功', 'success');
+                    this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.painting') }), 'success');
                 } else {
                     await this.createPainting(data);
-                    this.$emit('show-message', '创建成功', 'success');
+                    this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.painting') }), 'success');
                 }
                 this.showForm = false;
                 await this.fetchPaintings();
             } catch (err) {
-                this.$emit('show-message', '操作失败: ' + err.message, 'error');
+                this.$emit('show-message', this.t('actions.saveError', { entity: this.t('entities.painting') }) + ': ' + err.message, 'error');
             }
         },
         handleFormCancel() {
@@ -470,7 +540,7 @@ const PaintingView = {
     },
     template: `
         <div class="entity-view">
-            <modal-dialog :show="showForm" :title="editMode ? '编辑绘画' : '创建绘画'" @close="handleFormCancel">
+            <modal-dialog :show="showForm" :title="editMode ? t('common.edit') + ' ' + t('entities.painting') : t('actions.createNew', { entity: t('entities.painting') })" @close="handleFormCancel">
                 <painting-form
                     :painting="editingItem"
                     :mode="editMode ? 'edit' : 'create'"
@@ -496,11 +566,14 @@ const InscriptionView = {
         InscriptionList,
         InscriptionForm,
         InscriptionCard,
+        ModalDialog,
     },
     setup() {
         const composable = useInscriptions();
+        const { t } = useI18n();
         return {
             ...composable,
+            t,
         };
     },
     data() {
@@ -522,12 +595,12 @@ const InscriptionView = {
             this.showForm = true;
         },
         async handleDelete(item) {
-            if (confirm(`确定要删除这个铭文吗？`)) {
+            if (confirm(this.t('actions.deleteConfirm', { entity: this.t('entities.inscription') }))) {
                 try {
                     await this.deleteInscription(item.gid);
-                    this.$emit('show-message', '删除成功', 'success');
+                    this.$emit('show-message', this.t('actions.deleteSuccess', { entity: this.t('entities.inscription') }), 'success');
                 } catch (err) {
-                    this.$emit('show-message', '删除失败: ' + err.message, 'error');
+                    this.$emit('show-message', this.t('actions.deleteError', { entity: this.t('entities.inscription') }) + ': ' + err.message, 'error');
                 }
             }
         },
@@ -535,15 +608,15 @@ const InscriptionView = {
             try {
                 if (this.editMode) {
                     await this.updateInscription(this.editingItem.gid, data);
-                    this.$emit('show-message', '更新成功', 'success');
+                    this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.inscription') }), 'success');
                 } else {
                     await this.createInscription(data);
-                    this.$emit('show-message', '创建成功', 'success');
+                    this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.inscription') }), 'success');
                 }
                 this.showForm = false;
                 await this.fetchInscriptions();
             } catch (err) {
-                this.$emit('show-message', '操作失败: ' + err.message, 'error');
+                this.$emit('show-message', this.t('actions.saveError', { entity: this.t('entities.inscription') }) + ': ' + err.message, 'error');
             }
         },
         handleFormCancel() {
@@ -560,7 +633,7 @@ const InscriptionView = {
     },
     template: `
         <div class="entity-view">
-            <modal-dialog :show="showForm" :title="editMode ? '编辑铭文' : '创建铭文'" @close="handleFormCancel">
+            <modal-dialog :show="showForm" :title="editMode ? t('common.edit') + ' ' + t('entities.inscription') : t('actions.createNew', { entity: t('entities.inscription') })" @close="handleFormCancel">
                 <inscription-form
                     :inscription="editingItem"
                     :mode="editMode ? 'edit' : 'create'"
@@ -586,11 +659,14 @@ const DefectView = {
         DefectList,
         DefectForm,
         DefectCard,
+        ModalDialog,
     },
     setup() {
         const composable = useDefects();
+        const { t } = useI18n();
         return {
             ...composable,
+            t,
         };
     },
     data() {
@@ -612,12 +688,12 @@ const DefectView = {
             this.showForm = true;
         },
         async handleDelete(item) {
-            if (confirm(`确定要删除这个缺陷吗？`)) {
+            if (confirm(this.t('actions.deleteConfirm', { entity: this.t('entities.defect') }))) {
                 try {
                     await this.deleteDefect(item.gid);
-                    this.$emit('show-message', '删除成功', 'success');
+                    this.$emit('show-message', this.t('actions.deleteSuccess', { entity: this.t('entities.defect') }), 'success');
                 } catch (err) {
-                    this.$emit('show-message', '删除失败: ' + err.message, 'error');
+                    this.$emit('show-message', this.t('actions.deleteError', { entity: this.t('entities.defect') }) + ': ' + err.message, 'error');
                 }
             }
         },
@@ -625,15 +701,15 @@ const DefectView = {
             try {
                 if (this.editMode) {
                     await this.updateDefect(this.editingItem.gid, data);
-                    this.$emit('show-message', '更新成功', 'success');
+                    this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.defect') }), 'success');
                 } else {
                     await this.createDefect(data);
-                    this.$emit('show-message', '创建成功', 'success');
+                    this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.defect') }), 'success');
                 }
                 this.showForm = false;
                 await this.fetchDefects();
             } catch (err) {
-                this.$emit('show-message', '操作失败: ' + err.message, 'error');
+                this.$emit('show-message', this.t('actions.saveError', { entity: this.t('entities.defect') }) + ': ' + err.message, 'error');
             }
         },
         handleFormCancel() {
@@ -650,7 +726,7 @@ const DefectView = {
     },
     template: `
         <div class="entity-view">
-            <modal-dialog :show="showForm" :title="editMode ? '编辑缺陷' : '创建缺陷'" @close="handleFormCancel">
+            <modal-dialog :show="showForm" :title="editMode ? t('common.edit') + ' ' + t('entities.defect') : t('actions.createNew', { entity: t('entities.defect') })" @close="handleFormCancel">
                 <defect-form
                     :defect="editingItem"
                     :mode="editMode ? 'edit' : 'create'"
@@ -687,6 +763,10 @@ const app = createApp({
         InscriptionView,
         DefectView,
     },
+    setup() {
+        const { locale, t, setLocale } = useI18n();
+        return { locale, t, setLocale };
+    },
     data() {
         return {
             // Application state
@@ -705,6 +785,11 @@ const app = createApp({
         changeView(view) {
             console.log('Changing view to:', view);
             this.currentView = view;
+        },
+
+        changeLocale(newLocale) {
+            console.log('Changing locale to:', newLocale);
+            this.setLocale(newLocale);
         },
 
         showMessage(message, type = 'info') {
@@ -752,7 +837,9 @@ const app = createApp({
         <div id="app-container">
             <app-header
                 :current-view="currentView"
+                :locale="locale"
                 @change-view="changeView"
+                @change-locale="changeLocale"
             ></app-header>
 
             <error-message
@@ -799,7 +886,7 @@ const app = createApp({
             </div>
 
             <div class="status-bar" :class="backendOnline ? 'status-online' : 'status-offline'">
-                <span>{{ backendOnline ? '✅ 后端在线' : '❌ 后端离线' }}</span>
+                <span>{{ backendOnline ? (locale === 'zh' ? '✅ 后端在线' : '✅ Backend Online') : (locale === 'zh' ? '❌ 后端离线' : '❌ Backend Offline') }}</span>
             </div>
         </div>
     `

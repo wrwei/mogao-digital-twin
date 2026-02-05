@@ -1,4 +1,5 @@
 // EOL operations for Defect model objects
+// Auto-generated from metamodel
 
 /**
  * Get all Defect objects from the model
@@ -11,161 +12,68 @@ operation getAllDefects() : Sequence {
  * Get Defect by GID
  */
 operation getDefectByGid(gid : String) : Defect {
-    return Defect.all.selectOne(d | d.gid = gid);
+    return Defect.all.selectOne(obj | obj.gid = gid);
 }
 
 /**
- * Get defects by type
+ * Get Defect by name
  */
-operation getDefectsByType(defectType : String) : Sequence {
-    return Defect.all.select(d | d.defectType.toString() = defectType);
-}
-
-/**
- * Get defects by severity
- */
-operation getDefectsBySeverity(severity : String) : Sequence {
-    return Defect.all.select(d | d.severity.toString() = severity);
-}
-
-/**
- * Get defects requiring immediate action
- */
-operation getDefectsRequiringAction() : Sequence {
-    return Defect.all.select(d | d.requiresImmediateAction = true);
-}
-
-/**
- * Get defects detected after a certain date
- */
-operation getDefectsDetectedAfter(timestamp : Integer) : Sequence {
-    return Defect.all.select(d | d.detectionDate > timestamp);
-}
-
-/**
- * Get defects with affected area larger than threshold
- */
-operation getDefectsWithLargeArea(areaThreshold : Real) : Sequence {
-    return Defect.all.select(d | d.affectedArea > areaThreshold);
+operation getDefectByName(name : String) : Defect {
+    return Defect.all.selectOne(obj | obj.name = name);
 }
 
 /**
  * Create new Defect
  */
-operation createDefect(gid : String, defectType : String, severity : String, detectionDate : Integer) : Defect {
-    var defect = new Defect;
-    defect.gid = gid;
-    defect.defectType = defectType.asDefectType();
-    defect.severity = severity.asDefectSeverity();
-    defect.detectionDate = detectionDate;
-    defect.requiresImmediateAction = false;
-    return defect;
+operation createDefect(gid : String, name : String, label : String) : Defect {
+    var obj = new Defect;
+    obj.gid = gid;
+    obj.name = name;
+    if (label.isDefined()) {
+        obj.label = label;
+    }
+    return obj;
 }
 
 /**
- * Set defect coordinates
+ * Update Defect
  */
-operation setDefectCoordinates(defectGid : String, x : Real, y : Real, z : Real) {
-    var defect = getDefectByGid(defectGid);
-    if (defect.isDefined()) {
-        if (defect.coordinates.isUndefined()) {
-            defect.coordinates = new Coordinates;
+operation updateDefect(gid : String, name : String, description : String) {
+    var obj = getDefectByGid(gid);
+    if (obj.isDefined()) {
+        if (name.isDefined()) obj.name = name;
+        if (description.isDefined()) obj.description = description;
+    }
+}
+
+/**
+ * Update Defect reference
+ */
+operation updateDefectReference(gid : String, modelLocation : String, metadataLocation : String, textureLocation : String) {
+    var obj = getDefectByGid(gid);
+    if (obj.isDefined()) {
+        if (obj.reference.isUndefined()) {
+            obj.reference = new AssetReference;
         }
-        defect.coordinates.x = x;
-        defect.coordinates.y = y;
-        defect.coordinates.z = z;
+        if (modelLocation.isDefined()) obj.reference.modelLocation = modelLocation;
+        if (metadataLocation.isDefined()) obj.reference.metadataLocation = metadataLocation;
+        if (textureLocation.isDefined()) obj.reference.textureLocation = textureLocation;
     }
 }
 
 /**
- * Set defect description
- */
-operation setDefectDescription(defectGid : String, description : String) {
-    var defect = getDefectByGid(defectGid);
-    if (defect.isDefined()) {
-        defect.description = description;
-    }
-}
-
-/**
- * Set affected area
- */
-operation setAffectedArea(defectGid : String, area : Real) {
-    var defect = getDefectByGid(defectGid);
-    if (defect.isDefined()) {
-        defect.affectedArea = area;
-    }
-}
-
-/**
- * Set treatment history
- */
-operation setTreatmentHistory(defectGid : String, history : String) {
-    var defect = getDefectByGid(defectGid);
-    if (defect.isDefined()) {
-        defect.treatmentHistory = history;
-    }
-}
-
-/**
- * Mark defect as requiring immediate action
- */
-operation markAsUrgent(defectGid : String) {
-    var defect = getDefectByGid(defectGid);
-    if (defect.isDefined()) {
-        defect.requiresImmediateAction = true;
-    }
-}
-
-/**
- * Update defect severity
- */
-operation updateSeverity(defectGid : String, newSeverity : String) {
-    var defect = getDefectByGid(defectGid);
-    if (defect.isDefined()) {
-        defect.severity = newSeverity.asDefectSeverity();
-
-        // Automatically mark as urgent if severity is critical
-        if (newSeverity = "critical") {
-            defect.requiresImmediateAction = true;
-        }
-    }
-}
-
-/**
- * Update defect information
- */
-operation updateDefect(gid : String, description : String, affectedArea : Real, treatmentHistory : String) {
-    var defect = getDefectByGid(gid);
-    if (defect.isDefined()) {
-        if (description.isDefined()) defect.description = description;
-        if (affectedArea.isDefined()) defect.affectedArea = affectedArea;
-        if (treatmentHistory.isDefined()) defect.treatmentHistory = treatmentHistory;
-    }
-}
-
-/**
- * Delete defect
+ * Delete Defect
  */
 operation deleteDefect(gid : String) {
-    var defect = getDefectByGid(gid);
-    if (defect.isDefined()) {
-        delete defect;
+    var obj = getDefectByGid(gid);
+    if (obj.isDefined()) {
+        delete obj;
     }
 }
 
 /**
- * Helper: Convert string to DefectType enum
+ * Get count of Defect objects
  */
-operation String asDefectType() : Any {
-    // This will be handled by EMF enum conversion
-    return self;
-}
-
-/**
- * Helper: Convert string to DefectSeverity enum
- */
-operation String asDefectSeverity() : Any {
-    // This will be handled by EMF enum conversion
-    return self;
+operation getDefectCount() : Integer {
+    return Defect.all.size();
 }

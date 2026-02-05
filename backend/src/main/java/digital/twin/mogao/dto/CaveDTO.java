@@ -11,12 +11,12 @@ public class CaveDTO {
     private String gid;
     private String name;
     private String description;
-    private String reference;
     private String label;
     private String creationPeriod;
-    private String lastInspectionDate;
+    private Long lastInspectionDate;
     private String inspectionNotes;
 
+    private AssetReferenceDTO reference;
     private CoordinatesDTO coordinates;
     private List<EnvironmentConditionDTO> environmentConditions;
     private List<DefectDTO> defects;
@@ -47,14 +47,6 @@ public class CaveDTO {
         this.description = description;
     }
 
-    public String getReference() {
-        return reference;
-    }
-
-    public void setReference(String reference) {
-        this.reference = reference;
-    }
-
     public String getLabel() {
         return label;
     }
@@ -71,11 +63,11 @@ public class CaveDTO {
         this.creationPeriod = creationPeriod;
     }
 
-    public String getLastInspectionDate() {
+    public Long getLastInspectionDate() {
         return lastInspectionDate;
     }
 
-    public void setLastInspectionDate(String lastInspectionDate) {
+    public void setLastInspectionDate(Long lastInspectionDate) {
         this.lastInspectionDate = lastInspectionDate;
     }
 
@@ -85,6 +77,14 @@ public class CaveDTO {
 
     public void setInspectionNotes(String inspectionNotes) {
         this.inspectionNotes = inspectionNotes;
+    }
+
+    public AssetReferenceDTO getReference() {
+        return reference;
+    }
+
+    public void setReference(AssetReferenceDTO reference) {
+        this.reference = reference;
     }
 
     public CoordinatesDTO getCoordinates() {

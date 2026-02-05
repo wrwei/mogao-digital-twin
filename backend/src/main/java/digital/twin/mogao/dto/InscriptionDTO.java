@@ -11,10 +11,9 @@ public class InscriptionDTO {
     private String gid;
     private String name;
     private String description;
-    private String reference;
     private String label;
     private String creationPeriod;
-    private String lastInspectionDate;
+    private Long lastInspectionDate;
     private String inspectionNotes;
     private String material;
     private String period;
@@ -22,6 +21,7 @@ public class InscriptionDTO {
     private String language;
     private String content;
 
+    private AssetReferenceDTO reference;
     private CoordinatesDTO coordinates;
     private List<EnvironmentConditionDTO> environmentConditions;
     private List<DefectDTO> defects;
@@ -51,14 +51,6 @@ public class InscriptionDTO {
         this.description = description;
     }
 
-    public String getReference() {
-        return reference;
-    }
-
-    public void setReference(String reference) {
-        this.reference = reference;
-    }
-
     public String getLabel() {
         return label;
     }
@@ -75,11 +67,11 @@ public class InscriptionDTO {
         this.creationPeriod = creationPeriod;
     }
 
-    public String getLastInspectionDate() {
+    public Long getLastInspectionDate() {
         return lastInspectionDate;
     }
 
-    public void setLastInspectionDate(String lastInspectionDate) {
+    public void setLastInspectionDate(Long lastInspectionDate) {
         this.lastInspectionDate = lastInspectionDate;
     }
 
@@ -129,6 +121,14 @@ public class InscriptionDTO {
 
     public void setContent(String content) {
         this.content = content;
+    }
+
+    public AssetReferenceDTO getReference() {
+        return reference;
+    }
+
+    public void setReference(AssetReferenceDTO reference) {
+        this.reference = reference;
     }
 
     public CoordinatesDTO getCoordinates() {

@@ -6,177 +6,77 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>莫高窟数字孪生 - Mogao Digital Twin</title>
 
-    <!-- A-Frame for 3D visualization -->
-    <script src="https://aframe.io/releases/1.7.0/aframe.min.js"></script>
-
-    <!-- Vue 3 -->
+    <!-- Vue 3 from CDN -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-
-    <!-- Chart.js for data visualization -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
 
     <!-- Axios for HTTP requests -->
     <script src="https://cdn.jsdelivr.net/npm/axios@1.6.2/dist/axios.min.js"></script>
 
-    <!-- CSS -->
+    <!-- Three.js for 3D model rendering (r147 - last version with /js/ examples) -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/loaders/OBJLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/loaders/MTLLoader.js"></script>
+
+    <!-- CSS Styles -->
     <link rel="stylesheet" href="css/main.css">
     <link rel="stylesheet" href="css/components.css">
     <link rel="stylesheet" href="css/drawers.css">
     <link rel="stylesheet" href="css/forms.css">
+    <link rel="stylesheet" href="styles/model-viewer.css">
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        #app {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .status-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 8px 16px;
+            font-size: 12px;
+            text-align: center;
+            z-index: 100;
+        }
+
+        .status-online {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border-top: 1px solid #4caf50;
+        }
+
+        .status-offline {
+            background: #ffebee;
+            color: #c62828;
+            border-top: 1px solid #f44336;
+        }
+    </style>
 </head>
 
 <body>
-    <div id="app">
-        <!-- App Header -->
-        <app-header
-            :current-view="currentView"
-            @change-view="currentView = $event">
-        </app-header>
+    <!-- Vue App Mount Point -->
+    <div id="app"></div>
 
-        <!-- Main Content Area -->
-        <div class="main-content">
-            <!-- Left Sidebar -->
-            <sidebar
-                :current-view="currentView"
-                @select-cave="handleCaveSelect"
-                @select-exhibit="handleExhibitSelect">
-            </sidebar>
-
-            <!-- Center Content (3D Scene or Main View) -->
-            <div class="center-content">
-                <!-- Loading State -->
-                <loading-spinner v-if="loading"></loading-spinner>
-
-                <!-- Error State -->
-                <error-message v-if="error" :message="error" @dismiss="error = null"></error-message>
-
-                <!-- 3D Scene (A-Frame) -->
-                <div v-show="currentView === 'caves' && !loading" class="scene-container">
-                    <a-scene embedded>
-                        <a-sky color="#87CEEB"></a-sky>
-
-                        <!-- Lighting -->
-                        <a-entity light="type: ambient; intensity: 0.5"></a-entity>
-                        <a-entity light="type: directional; intensity: 0.8" position="1 1 1"></a-entity>
-
-                        <!-- Camera with controls -->
-                        <a-camera position="0 1.6 3" look-controls wasd-controls></a-camera>
-
-                        <!-- Ground plane -->
-                        <a-plane position="0 0 0" rotation="-90 0 0" width="50" height="50" color="#7BC8A4"></a-plane>
-
-                        <!-- Placeholder cave model -->
-                        <a-box position="0 0.5 -3" rotation="0 45 0" color="#DEB887"
-                               shadow="cast: true; receive: true">
-                        </a-box>
-
-                        <a-text value="莫高窟数字孪生" position="-1 2 -3" color="#333"></a-text>
-                    </a-scene>
-                </div>
-
-                <!-- Cave Management View -->
-                <cave-list
-                    v-if="currentView === 'caves' && !loading"
-                    @select="handleCaveSelect">
-                </cave-list>
-
-                <!-- Exhibit Management View -->
-                <exhibit-list
-                    v-if="currentView === 'exhibits' && !loading"
-                    @select="handleExhibitSelect">
-                </exhibit-list>
-
-                <!-- Defect Tracking View -->
-                <defect-tracker
-                    v-if="currentView === 'defects' && !loading">
-                </defect-tracker>
-
-                <!-- Environmental Monitoring View -->
-                <environment-monitor
-                    v-if="currentView === 'environment' && !loading">
-                </environment-monitor>
-
-                <!-- Statistics Dashboard -->
-                <statistics-dashboard
-                    v-if="currentView === 'statistics' && !loading">
-                </statistics-dashboard>
-            </div>
-
-            <!-- Right Details Panel -->
-            <details-panel
-                :selected-cave="selectedCave"
-                :selected-exhibit="selectedExhibit"
-                :current-view="currentView">
-            </details-panel>
-        </div>
-
-        <!-- Modals -->
-        <modal-dialog
-            v-if="showModal"
-            :title="modalTitle"
-            @close="showModal = false">
-            <component :is="modalComponent" v-bind="modalProps"></component>
-        </modal-dialog>
-    </div>
-
-    <!-- API Service -->
+    <!-- API Service Layer -->
     <script type="module" src="api.js"></script>
 
-    <!-- Utilities -->
-    <script type="module" src="utils/coordinates.js"></script>
-    <script type="module" src="utils/validators.js"></script>
-    <script type="module" src="utils/formatters.js"></script>
-
-    <!-- Composables -->
-    <script type="module" src="composables/useApi.js"></script>
-    <script type="module" src="composables/useCaves.js"></script>
-    <script type="module" src="composables/useExhibits.js"></script>
-    <script type="module" src="composables/useDefects.js"></script>
-    <script type="module" src="composables/useEnvironment.js"></script>
-
-    <!-- Common Components -->
-    <script type="module" src="components/Common/LoadingSpinner.js"></script>
-    <script type="module" src="components/Common/ErrorMessage.js"></script>
-    <script type="module" src="components/Common/ConfirmDialog.js"></script>
-    <script type="module" src="components/Common/SearchBar.js"></script>
-
-    <!-- Layout Components -->
-    <script type="module" src="components/Layout/AppHeader.js"></script>
-    <script type="module" src="components/Layout/Sidebar.js"></script>
-    <script type="module" src="components/Layout/Drawer.js"></script>
-    <script type="module" src="components/Layout/Modal.js"></script>
-    <script type="module" src="components/Layout/DetailsPanel.js"></script>
-
-    <!-- Cave Components -->
-    <script type="module" src="components/Cave/CaveList.js"></script>
-    <script type="module" src="components/Cave/CaveCard.js"></script>
-    <script type="module" src="components/Cave/CaveDetails.js"></script>
-    <script type="module" src="components/Cave/CaveForm.js"></script>
-
-    <!-- Exhibit Components -->
-    <script type="module" src="components/Exhibit/ExhibitList.js"></script>
-    <script type="module" src="components/Exhibit/ExhibitCard.js"></script>
-    <script type="module" src="components/Exhibit/ExhibitDetails.js"></script>
-    <script type="module" src="components/Exhibit/ExhibitForm.js"></script>
-
-    <!-- Defect Components -->
-    <script type="module" src="components/Defect/DefectTracker.js"></script>
-    <script type="module" src="components/Defect/DefectList.js"></script>
-    <script type="module" src="components/Defect/DefectCard.js"></script>
-    <script type="module" src="components/Defect/DefectForm.js"></script>
-
-    <!-- Environment Components -->
-    <script type="module" src="components/Environment/EnvironmentMonitor.js"></script>
-    <script type="module" src="components/Environment/TemperatureChart.js"></script>
-    <script type="module" src="components/Environment/HumidityChart.js"></script>
-    <script type="module" src="components/Environment/LightChart.js"></script>
-
-    <!-- Statistics Components -->
-    <script type="module" src="components/Statistics/Dashboard.js"></script>
-    <script type="module" src="components/Statistics/DefectStats.js"></script>
-    <script type="module" src="components/Statistics/ConservationProgress.js"></script>
-
-    <!-- Main App -->
+    <!-- Main Application Script (Auto-generated) -->
     <script type="module" src="app.js"></script>
 </body>
 

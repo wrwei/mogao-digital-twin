@@ -32,6 +32,9 @@ public class CodeGenerator {
     private static final String COMPONENTS_DIR = FRONTEND_OUTPUT_DIR + "components/";
     private static final String COMPOSABLES_DIR = FRONTEND_OUTPUT_DIR + "composables/";
 
+    // EOL scripts generation constants
+    private static final String EOL_SCRIPTS_OUTPUT_DIR = "src/main/resources/eol-scripts/";
+
     public static void main(String[] args) {
         try {
             CodeGenerator generator = new CodeGenerator();
@@ -50,6 +53,14 @@ public class CodeGenerator {
             System.out.println("\nGenerating Controllers...");
             generator.generateControllers();
 
+            // Generate Health Controller
+            System.out.println("\nGenerating Health Controller...");
+            generator.generateHealthController();
+
+            // Generate File Upload Controller
+            System.out.println("\nGenerating File Upload Controller...");
+            generator.generateFileUploadController();
+
             // Generate Frontend Components
             System.out.println("\nGenerating Frontend Components...");
             generator.generateFrontendComponents();
@@ -61,6 +72,18 @@ public class CodeGenerator {
             // Generate App.js
             System.out.println("\nGenerating App.js...");
             generator.generateApp();
+
+            // Generate i18n
+            System.out.println("\nGenerating i18n...");
+            generator.generateI18n();
+
+            // Generate index.html
+            System.out.println("\nGenerating index.html...");
+            generator.generateIndexHtml();
+
+            // Generate EOL Operation Scripts
+            System.out.println("\nGenerating EOL Operation Scripts...");
+            generator.generateEOLOperations();
 
             System.out.println("\n=== Code Generation Complete ===");
 
@@ -183,6 +206,52 @@ public class CodeGenerator {
     }
 
     /**
+     * Generate Health Controller - Simple health check endpoint
+     */
+    public void generateHealthController() throws Exception {
+        EpsilonModelManager manager = new EpsilonModelManager();
+
+        System.out.println("  Generating HealthController...");
+
+        // Prepare parameters for EGL template
+        Map<String, Object> params = new HashMap<>();
+        params.put("packageName", CONTROLLER_PACKAGE);
+
+        // Execute EGL template
+        String generatedCode = manager.executeEglTemplateWithoutModel("transformation/backend/GenerateHealthController.egl", params);
+
+        // Write to file
+        String outputDir = OUTPUT_BASE_DIR + CONTROLLER_PACKAGE.replace('.', '/') + "/";
+        String fileName = "HealthController.java";
+        writeToFile(outputDir, fileName, generatedCode);
+
+        System.out.println("    -> Generated: " + outputDir + fileName);
+    }
+
+    /**
+     * Generate File Upload Controller - Handles multipart file uploads
+     */
+    public void generateFileUploadController() throws Exception {
+        EpsilonModelManager manager = new EpsilonModelManager();
+
+        System.out.println("  Generating FileUploadController...");
+
+        // Prepare parameters for EGL template
+        Map<String, Object> params = new HashMap<>();
+        params.put("packageName", CONTROLLER_PACKAGE);
+
+        // Execute EGL template
+        String generatedCode = manager.executeEglTemplateWithoutModel("transformation/backend/GenerateFileUploadController.egl", params);
+
+        // Write to file
+        String outputDir = OUTPUT_BASE_DIR + CONTROLLER_PACKAGE.replace('.', '/') + "/";
+        String fileName = "FileUploadController.java";
+        writeToFile(outputDir, fileName, generatedCode);
+
+        System.out.println("    -> Generated: " + outputDir + fileName);
+    }
+
+    /**
      * Generate Frontend Components (Card, Form, List) for main entity classes
      */
     public void generateFrontendComponents() throws Exception {
@@ -195,8 +264,8 @@ public class CodeGenerator {
         String[] entityClasses = {"Cave", "Defect", "Statue", "Mural", "Painting", "Inscription"};
 
         // Component templates to generate
-        String[] templates = {"GenerateVueCard.egl", "GenerateVueForm.egl", "GenerateVueList.egl"};
-        String[] suffixes = {"Card.js", "Form.js", "List.js"};
+        String[] templates = {"GenerateVueCard.egl", "GenerateVueForm.egl", "GenerateVueList.egl", "GenerateVueDetailView.egl"};
+        String[] suffixes = {"Card.js", "Form.js", "List.js", "DetailView.js"};
 
         for (String className : entityClasses) {
             EClass eClass = findEClass(metamodel, className);
@@ -287,6 +356,93 @@ public class CodeGenerator {
     }
 
     /**
+     * Generate i18n - Internationalization language resources
+     */
+    public void generateI18n() throws Exception {
+        EpsilonModelManager manager = new EpsilonModelManager();
+
+        // Load metamodel
+        EPackage metamodel = loadMetamodel();
+
+        System.out.println("  Generating i18n.js...");
+
+        // Prepare parameters for EGL template
+        Map<String, Object> params = new HashMap<>();
+        params.put("ePackage", metamodel);
+
+        // Execute EGL template
+        String generatedCode = manager.executeEglTemplateWithoutModel("transformation/frontend/GenerateI18n.egl", params);
+
+        // Write to file
+        String fileName = "i18n.js";
+        writeFrontendFile(FRONTEND_OUTPUT_DIR, fileName, generatedCode);
+
+        System.out.println("    -> Generated: " + FRONTEND_OUTPUT_DIR + fileName);
+    }
+
+    /**
+     * Generate index.html - Main HTML entry point
+     */
+    public void generateIndexHtml() throws Exception {
+        EpsilonModelManager manager = new EpsilonModelManager();
+
+        // Load metamodel
+        EPackage metamodel = loadMetamodel();
+
+        System.out.println("  Generating index.html...");
+
+        // Prepare parameters for EGL template
+        Map<String, Object> params = new HashMap<>();
+        params.put("ePackage", metamodel);
+
+        // Execute EGL template
+        String generatedCode = manager.executeEglTemplateWithoutModel("transformation/frontend/GenerateIndexHtml.egl", params);
+
+        // Write to file
+        String fileName = "index.html";
+        writeFrontendFile(FRONTEND_OUTPUT_DIR, fileName, generatedCode);
+
+        System.out.println("    -> Generated: " + FRONTEND_OUTPUT_DIR + fileName);
+    }
+
+    /**
+     * Generate EOL Operation Scripts for entity classes
+     */
+    public void generateEOLOperations() throws Exception {
+        EpsilonModelManager manager = new EpsilonModelManager();
+
+        // Load metamodel
+        EPackage metamodel = loadMetamodel();
+
+        // Entity classes we want to generate EOL operations for
+        String[] entityClasses = {"Cave", "Defect", "Statue", "Mural", "Painting", "Inscription"};
+
+        for (String className : entityClasses) {
+            EClass eClass = findEClass(metamodel, className);
+
+            if (eClass != null) {
+                System.out.println("  Generating EOL operations for: " + eClass.getName());
+
+                // Prepare parameters for EGL template
+                Map<String, Object> params = new HashMap<>();
+                params.put("eClass", eClass);
+
+                // Execute EGL template
+                String generatedCode = manager.executeEglTemplateWithoutModel("transformation/eol/GenerateEOLOperations.egl", params);
+
+                // Write to file
+                String outputDir = EOL_SCRIPTS_OUTPUT_DIR + className.toLowerCase() + "/";
+                String fileName = eClass.getName() + "Operations.eol";
+                writeEOLFile(outputDir, fileName, generatedCode);
+
+                System.out.println("    -> Generated: " + outputDir + fileName);
+            } else {
+                System.out.println("  Warning: Class not found: " + className);
+            }
+        }
+    }
+
+    /**
      * Load the Ecore metamodel
      */
     private EPackage loadMetamodel() throws Exception {
@@ -343,6 +499,21 @@ public class CodeGenerator {
      * Write generated frontend code to file
      */
     private void writeFrontendFile(String directory, String fileName, String content) throws Exception {
+        File dir = new File(directory);
+        if (!dir.exists()) {
+            dir.mkdirs();
+        }
+
+        File file = new File(dir, fileName);
+        try (FileWriter writer = new FileWriter(file)) {
+            writer.write(content);
+        }
+    }
+
+    /**
+     * Write generated EOL operation script to file
+     */
+    private void writeEOLFile(String directory, String fileName, String content) throws Exception {
         File dir = new File(directory);
         if (!dir.exists()) {
             dir.mkdirs();

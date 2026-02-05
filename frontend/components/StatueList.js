@@ -4,9 +4,14 @@
  * Displays list of 雕像 with search and filter
  */
 import StatueCard from './StatueCard.js';
+import { useI18n } from '../i18n.js';
 
 export default {
     name: 'StatueList',
+    setup() {
+        const { t } = useI18n();
+        return { t };
+    },
     components: {
         StatueCard
     },
@@ -60,9 +65,9 @@ export default {
         <div class="statue-list">
             <div class="list-header" style="padding: var(--spacing-md); border-bottom: 1px solid var(--border);">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-md);">
-                    <h2 style="margin: 0;">雕像列表</h2>
+                    <h2 style="margin: 0;">{{ t('entities.statues') }}</h2>
                     <button class="btn btn-primary" @click="$emit('create')">
-                        ➕ 添加雕像
+                        ➕ {{ t('actions.createNew', { entity: t('entities.statue') }) }}
                     </button>
                 </div>
 
@@ -72,25 +77,28 @@ export default {
                         type="text"
                         v-model="searchQuery"
                         class="search-input"
-                        placeholder="搜索雕像..."
+                        :placeholder="t('common.search') + ' ' + t('entities.statue')"
                     />
                 </div>
             </div>
 
             <div class="list-body" style="padding: var(--spacing-md);">
-                <loading-spinner v-if="loading"></loading-spinner>
+                <div v-if="loading" class="loading-overlay">
+                    <div class="spinner"></div>
+                    <p style="margin-top: var(--spacing-md); color: var(--text-secondary);">{{ t('common.loading') }}</p>
+                </div>
 
                 <div v-else-if="isEmpty" class="empty-state">
                     <div class="empty-state-icon">📭</div>
-                    <div class="empty-state-text">暂无雕像数据</div>
+                    <div class="empty-state-text">{{ t('common.noData') }}</div>
                     <button class="btn btn-primary" @click="$emit('create')">
-                        创建第一个雕像
+                        {{ t('actions.createNew', { entity: t('entities.statue') }) }}
                     </button>
                 </div>
 
                 <div v-else-if="filteredStatues.length === 0" class="empty-state">
                     <div class="empty-state-icon">🔍</div>
-                    <div class="empty-state-text">未找到匹配的雕像</div>
+                    <div class="empty-state-text">{{ t('common.noData') }}</div>
                 </div>
 
                 <div v-else class="list-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--spacing-md);">
@@ -105,8 +113,8 @@ export default {
             </div>
 
             <div class="list-footer" style="padding: var(--spacing-md); border-top: 1px solid var(--border); text-align: center; color: var(--text-secondary);">
-                共 {{ filteredStatues.length }} 个雕像
-                <span v-if="searchQuery">（从 {{ statues.length }} 个中筛选）</span>
+                {{ filteredStatues.length }} {{ t('entities.statue') }}
+                <span v-if="searchQuery">({{ statues.length }} {{ t('common.filter') }})</span>
             </div>
         </div>
     `

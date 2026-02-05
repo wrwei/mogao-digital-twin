@@ -1,10 +1,100 @@
 /**
  * Frontend Helper Functions for EGL Templates
  * Utility functions for generating Vue.js components
+ * Supports i18n (internationalization) for multiple languages
  */
 
 // ============================================
-// Label and Display Helpers
+// Multilingual Label Helpers (i18n)
+// ============================================
+
+/**
+ * Get label in specified language
+ * Supported languages: 'zh' (Chinese), 'en' (English)
+ */
+operation getLabel(key : String, lang : String) : String {
+    if (lang == 'en') {
+        return getEnglishLabel(key);
+    }
+    return getFieldLabel(key); // Default to Chinese
+}
+
+/**
+ * Get English label for field name
+ */
+operation getEnglishLabel(fieldName : String) : String {
+    var labels = Map {
+        "gid" = "Global ID",
+        "name" = "Name",
+        "description" = "Description",
+        "conservationStatus" = "Conservation Status",
+        "defectType" = "Defect Type",
+        "severity" = "Severity",
+        "material" = "Material",
+        "height" = "Height",
+        "width" = "Width",
+        "depth" = "Depth",
+        "deity" = "Deity",
+        "figure" = "Figure",
+        "theme" = "Theme",
+        "technique" = "Technique",
+        "colors" = "Colors",
+        "language" = "Language",
+        "text" = "Text",
+        "x" = "X Coordinate",
+        "y" = "Y Coordinate",
+        "z" = "Z Coordinate",
+        "value" = "Value",
+        "unit" = "Unit",
+        "timestamp" = "Timestamp",
+        "location" = "Location",
+        "reference" = "Asset Reference",
+        "label" = "Label",
+        "creationPeriod" = "Creation Period",
+        "lastInspectionDate" = "Last Inspection Date",
+        "inspectionNotes" = "Inspection Notes",
+        "period" = "Period",
+        "subject" = "Subject",
+        "style" = "Style",
+        "content" = "Content",
+        "detectionDate" = "Detection Date",
+        "affectedArea" = "Affected Area",
+        "treatmentHistory" = "Treatment History",
+        "requiresImmediateAction" = "Requires Immediate Action",
+        "reading" = "Reading",
+        "expression" = "Expression"
+    };
+
+    return labels.get(fieldName) ?: fieldName;
+}
+
+/**
+ * Get English label for class name
+ */
+operation getEnglishClassLabel(className : String) : String {
+    var labels = Map {
+        "Cave" = "Cave",
+        "Defect" = "Defect",
+        "Statue" = "Statue",
+        "Mural" = "Mural",
+        "Painting" = "Painting",
+        "Inscription" = "Inscription",
+        "Temperature" = "Temperature",
+        "Humidity" = "Humidity",
+        "LightIntensity" = "Light Intensity",
+        "Coordinates" = "Coordinates",
+        "Parameter" = "Parameter",
+        "AssetReference" = "Asset Reference",
+        "Exhibit" = "Exhibit",
+        "HeritageArtifact" = "Heritage Artifact",
+        "EnvironmentCondition" = "Environment Condition"
+    };
+
+    return labels.get(className) ?: className;
+}
+
+// ============================================
+// Label and Display Helpers (Chinese - Legacy)
 // ============================================
 
 /**
@@ -35,7 +125,8 @@ operation getFieldLabel(fieldName : String) : String {
         "value" = "数值",
         "unit" = "单位",
         "timestamp" = "时间戳",
-        "location" = "位置"
+        "location" = "位置",
+        "reference" = "资产引用"
     };
 
     return labels.get(fieldName) ?: fieldName;
@@ -178,6 +269,24 @@ operation getFormAttributes(attributes : Sequence) : Sequence {
 }
 
 /**
+ * Check if attribute is essential for creation (should appear in create mode)
+ * Essential fields: name, description, label
+ * Everything else can be added after creation
+ */
+operation isEssentialForCreation(attr : Any) : Boolean {
+    return attr.name == "name" or
+           attr.name == "description" or
+           attr.name == "label";
+}
+
+/**
+ * Get only essential attributes for create forms
+ */
+operation getEssentialAttributes(attributes : Sequence) : Sequence {
+    return attributes.select(a | isEssentialForCreation(a) and not a.derived);
+}
+
+/**
  * Get key display attributes (first 3-4 most important)
  */
 operation getKeyAttributes(attributes : Sequence) : Sequence {
@@ -316,4 +425,72 @@ operation getComputedAttributes(attributes : Sequence) : Sequence {
         a.name.endsWith("Date") or
         a.name == "timestamp"
     );
+}
+
+// ============================================
+// Reference Helpers (for nested objects)
+// ============================================
+
+/**
+ * Check if a reference is a nested composite object (containment=true)
+ */
+operation isCompositeReference(ref : Any) : Boolean {
+    return ref.containment == true;
+}
+
+/**
+ * Get form references (composite references that should appear in forms)
+ */
+operation getFormReferences(references : Sequence) : Sequence {
+    return references.select(r |
+        isCompositeReference(r) and
+        r.name <> "coordinates" // Exclude coordinates from form for now
+    );
+}
+
+/**
+ * Check if reference is AssetReference
+ */
+operation isAssetReference(ref : Any) : Boolean {
+    if (ref.isDefined() and ref.eType.isDefined()) {
+        return ref.eType.name == "AssetReference";
+    }
+    return false;
+}
+
+/**
+ * Get nested attributes for a reference type
+ */
+operation getNestedAttributes(ref : Any) : Sequence {
+    if (ref.eType.isDefined()) {
+        return ref.eType.eAllAttributes;
+    }
+    return Sequence{};
+}
+
+/**
+ * Get field label for nested reference field
+ */
+operation getNestedFieldLabel(refName : String, attrName : String) : String {
+    var refLabels = Map {
+        "reference" = "资产引用"
+    };
+
+    var attrLabels = Map {
+        "modelLocation" = "3D模型路径",
+        "metadataLocation" = "元数据路径",
+        "textureLocation" = "纹理路径"
+    };
+
+    return attrLabels.get(attrName) ?: getFieldLabel(attrName);
+}
+
+/**
+ * Check if an EClass has a specific attribute by name
+ */
+operation hasAttribute(eClass : Any, attrName : String) : Boolean {
+    if (eClass.isDefined() and eClass.eAllAttributes.isDefined()) {
+        return eClass.eAllAttributes.exists(a | a.name == attrName);
+    }
+    return false;
 }

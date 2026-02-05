@@ -11,14 +11,14 @@ public class DefectDTO {
     private String gid;
     private String name;
     private String description;
-    private String reference;
     private String defectType;
     private String severity;
-    private String detectionDate;
-    private String affectedArea;
+    private Long detectionDate;
+    private Double affectedArea;
     private String treatmentHistory;
-    private String requiresImmediateAction;
+    private Boolean requiresImmediateAction;
 
+    private AssetReferenceDTO reference;
     private CoordinatesDTO coordinates;
 
     // Getters and Setters
@@ -46,14 +46,6 @@ public class DefectDTO {
         this.description = description;
     }
 
-    public String getReference() {
-        return reference;
-    }
-
-    public void setReference(String reference) {
-        this.reference = reference;
-    }
-
     public String getDefectType() {
         return defectType;
     }
@@ -70,19 +62,19 @@ public class DefectDTO {
         this.severity = severity;
     }
 
-    public String getDetectionDate() {
+    public Long getDetectionDate() {
         return detectionDate;
     }
 
-    public void setDetectionDate(String detectionDate) {
+    public void setDetectionDate(Long detectionDate) {
         this.detectionDate = detectionDate;
     }
 
-    public String getAffectedArea() {
+    public Double getAffectedArea() {
         return affectedArea;
     }
 
-    public void setAffectedArea(String affectedArea) {
+    public void setAffectedArea(Double affectedArea) {
         this.affectedArea = affectedArea;
     }
 
@@ -94,12 +86,20 @@ public class DefectDTO {
         this.treatmentHistory = treatmentHistory;
     }
 
-    public String getRequiresImmediateAction() {
+    public Boolean getRequiresImmediateAction() {
         return requiresImmediateAction;
     }
 
-    public void setRequiresImmediateAction(String requiresImmediateAction) {
+    public void setRequiresImmediateAction(Boolean requiresImmediateAction) {
         this.requiresImmediateAction = requiresImmediateAction;
+    }
+
+    public AssetReferenceDTO getReference() {
+        return reference;
+    }
+
+    public void setReference(AssetReferenceDTO reference) {
+        this.reference = reference;
     }
 
     public CoordinatesDTO getCoordinates() {

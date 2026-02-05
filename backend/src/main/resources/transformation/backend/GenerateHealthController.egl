@@ -1,0 +1,30 @@
+/**
+ * Health Check Controller Template
+ * Simple health endpoint for monitoring application status
+ */
+package [%=packageName%];
+
+import io.micronaut.http.MediaType;
+import io.micronaut.http.annotation.Controller;
+import io.micronaut.http.annotation.Get;
+
+import java.util.HashMap;
+import java.util.Map;
+
+/**
+ * Health Check Controller
+ * Provides a simple health endpoint for monitoring
+ * Auto-generated from code generator
+ */
+@Controller("/health")
+public class HealthController {
+
+    @Get(produces = MediaType.APPLICATION_JSON)
+    public Map<String, String> health() {
+        Map<String, String> response = new HashMap<>();
+        response.put("status", "UP");
+        response.put("service", "Mogao Digital Twin API");
+        response.put("timestamp", String.valueOf(System.currentTimeMillis()));
+        return response;
+    }
+}

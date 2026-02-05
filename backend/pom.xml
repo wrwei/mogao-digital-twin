@@ -109,6 +109,27 @@
             <version>${micronaut.version}</version>
         </dependency>
 
+        <!-- Micronaut Runtime -->
+        <dependency>
+            <groupId>io.micronaut</groupId>
+            <artifactId>micronaut-runtime</artifactId>
+            <version>${micronaut.version}</version>
+        </dependency>
+
+        <!-- Micronaut HTTP Server (Netty) -->
+        <dependency>
+            <groupId>io.micronaut</groupId>
+            <artifactId>micronaut-http-server-netty</artifactId>
+            <version>${micronaut.version}</version>
+        </dependency>
+
+        <!-- Micronaut Jackson for JSON -->
+        <dependency>
+            <groupId>io.micronaut</groupId>
+            <artifactId>micronaut-jackson-databind</artifactId>
+            <version>${micronaut.version}</version>
+        </dependency>
+
         <!-- Jakarta Inject API (for @Inject, @Singleton) -->
         <dependency>
             <groupId>jakarta.inject</groupId>
@@ -126,6 +147,19 @@
                 <configuration>
                     <source>17</source>
                     <target>17</target>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>io.micronaut</groupId>
+                            <artifactId>micronaut-inject-java</artifactId>
+                            <version>${micronaut.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
+                    <compilerArgs>
+                        <arg>-Amicronaut.processing.incremental=true</arg>
+                        <arg>-Amicronaut.processing.annotations=digital.twin.mogao.*</arg>
+                        <arg>-Amicronaut.processing.group=digital.twin</arg>
+                        <arg>-Amicronaut.processing.module=mogao</arg>
+                    </compilerArgs>
                 </configuration>
             </plugin>
             <plugin>
@@ -138,9 +172,36 @@
                 <artifactId>exec-maven-plugin</artifactId>
                 <version>3.1.0</version>
                 <configuration>
-                    <mainClass>digital.twin.mogao.codegen.CodeGenerator</mainClass>
+                    <mainClass>digital.twin.mogao.Application</mainClass>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>codegen</id>
+                        <goals>
+                            <goal>java</goal>
+                        </goals>
+                        <configuration>
+                            <mainClass>digital.twin.mogao.codegen.CodeGenerator</mainClass>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>io.micronaut.maven</groupId>
+                <artifactId>micronaut-maven-plugin</artifactId>
+                <version>4.2.1</version>
+                <configuration>
+                    <mainClass>digital.twin.mogao.Application</mainClass>
+                    <testResourcesEnabled>false</testResourcesEnabled>
                 </configuration>
             </plugin>
         </plugins>
     </build>
+
+    <pluginRepositories>
+        <pluginRepository>
+            <id>maven-central</id>
+            <url>https://repo.maven.apache.org/maven2</url>
+        </pluginRepository>
+    </pluginRepositories>
 </project>

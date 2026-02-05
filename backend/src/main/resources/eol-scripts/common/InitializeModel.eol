@@ -1,0 +1,145 @@
+/**
+ * Initialize Model with Demo Data
+ * Creates sample Cave, Exhibit, and Defect instances for the Mogao Digital Twin
+ */
+
+// Create Cave 001 - Tang Dynasty Cave
+var cave001 = new Cave;
+cave001.gid = "cave-001";
+cave001.name = "Cave 001";
+cave001.label = "Mogao Cave 001 - Tang Dynasty Masterpiece";
+cave001.description = "A Tang Dynasty cave featuring exceptional murals, statues, and inscriptions.";
+cave001.creationPeriod = "Tang Dynasty (618-907 AD)";
+cave001.lastInspectionDate = 1704067200000;
+cave001.inspectionNotes = "Annual inspection completed. Minor environmental monitoring adjustments needed.";
+cave001.conservationStatus = ConservationStatus#good;
+
+// Add coordinates to cave
+var cave001Coords = new Coordinates;
+cave001Coords.gid = "coord-cave-001";
+cave001Coords.x = 0.0;
+cave001Coords.y = 0.0;
+cave001Coords.z = 0.0;
+cave001Coords.roll = 0.0;
+cave001Coords.pitch = 0.0;
+cave001Coords.yaw = 0.0;
+cave001.coordinates = cave001Coords;
+
+// Create North Wall Mural
+var mural001 = new Mural;
+mural001.gid = "mural-001";
+mural001.name = "North Wall Mural";
+mural001.label = "Buddha Life Story Mural - Jataka Tales";
+mural001.description = "Extensive narrative mural depicting scenes from Buddha's previous lives (Jataka tales).";
+mural001.material = "Mineral pigments on clay plaster";
+mural001.period = "Tang Dynasty (7th century)";
+mural001.conservationStatus = ConservationStatus#fair;
+mural001.width = 3000.0;
+mural001.height = 2500.0;
+mural001.technique = "Fresco with dry pigment details";
+mural001.lastInspectionDate = 1704240000000;
+mural001.inspectionNotes = "Pigment stabilization treatment recommended for upper sections.";
+
+// Add coordinates to mural
+var mural001Coords = new Coordinates;
+mural001Coords.gid = "coord-mural-001";
+mural001Coords.x = 5.0;
+mural001Coords.y = 0.0;
+mural001Coords.z = 2.0;
+mural001Coords.roll = 0.0;
+mural001Coords.pitch = 90.0;
+mural001Coords.yaw = 0.0;
+mural001.coordinates = mural001Coords;
+
+// Add mural to cave
+cave001.exhibits.add(mural001);
+
+// Create a statue
+var statue001 = new Statue;
+statue001.gid = "statue-001";
+statue001.name = "Central Buddha Statue";
+statue001.label = "Seated Buddha - Tang Dynasty";
+statue001.description = "Large seated Buddha statue in meditation pose.";
+statue001.material = "Painted clay over wooden armature";
+statue001.period = "Tang Dynasty (8th century)";
+statue001.conservationStatus = ConservationStatus#good;
+statue001.height = 350.0;
+statue001.width = 180.0;
+statue001.depth = 150.0;
+statue001.subject = "Shakyamuni Buddha";
+statue001.pose = "Seated meditation (lotus position)";
+statue001.lastInspectionDate = 1704326400000;
+statue001.inspectionNotes = "Excellent condition. Regular dust removal maintained.";
+
+// Add coordinates to statue
+var statue001Coords = new Coordinates;
+statue001Coords.gid = "coord-statue-001";
+statue001Coords.x = 0.0;
+statue001Coords.y = 0.0;
+statue001Coords.z = 1.5;
+statue001Coords.roll = 0.0;
+statue001Coords.pitch = 0.0;
+statue001Coords.yaw = 0.0;
+statue001.coordinates = statue001Coords;
+
+// Add statue to cave
+cave001.exhibits.add(statue001);
+
+// Create a defect
+var defect001 = new Defect;
+defect001.gid = "defect-001";
+defect001.name = "Pigment Flaking - Upper Left";
+defect001.description = "Progressive pigment flaking affecting approximately 150 square centimeters.";
+defect001.defectType = DefectType#flaking;
+defect001.severity = Severity#moderate;
+defect001.discoveryDate = 1698825600000;
+defect001.lastAssessmentDate = 1704240000000;
+defect001.requiresImmediateAction = false;
+defect001.recommendedAction = "Monitor quarterly. Consider pigment consolidation if progression continues.";
+
+// Add defect coordinates
+var defect001Coords = new Coordinates;
+defect001Coords.gid = "coord-defect-001";
+defect001Coords.x = 5.2;
+defect001Coords.y = 0.1;
+defect001Coords.z = 3.8;
+defect001Coords.roll = 0.0;
+defect001Coords.pitch = 90.0;
+defect001Coords.yaw = 0.0;
+defect001.coordinates = defect001Coords;
+
+// Associate defect with mural
+mural001.defects.add(defect001);
+
+// Create environmental monitoring data
+var temp001 = new Temperature;
+temp001.gid = "temp-001";
+temp001.timestamp = 1704412800000;
+var tempParam = new Parameter;
+tempParam.gid = "param-temp-001";
+tempParam.value = 18.5;
+tempParam.unit = Unit#celsius;
+temp001.value = tempParam;
+cave001.environmentConditions.add(temp001);
+
+var humidity001 = new Humidity;
+humidity001.gid = "humidity-001";
+humidity001.timestamp = 1704412800000;
+var humidityParam = new Parameter;
+humidityParam.gid = "param-humidity-001";
+humidityParam.value = 45.0;
+humidityParam.unit = Unit#percent;
+humidity001.value = humidityParam;
+cave001.environmentConditions.add(humidity001);
+
+var light001 = new LightIntensity;
+light001.gid = "light-001";
+light001.timestamp = 1704412800000;
+var lightParam = new Parameter;
+lightParam.gid = "param-light-001";
+lightParam.value = 50.0;
+lightParam.unit = Unit#lux;
+light001.value = lightParam;
+cave001.environmentConditions.add(light001);
+
+"Model initialized successfully with Cave 001 and associated exhibits".println();

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dtm:Cave xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:dtm="http://digital.twin.mogao/1.0" xmi:id="cave-001" gid="cave-001" name="Cave 001" description="A Tang Dynasty cave featuring exceptional murals, statues, and inscriptions." label="Mogao Cave 001 - Tang Dynasty Masterpiece" creationPeriod="Tang Dynasty (618-907 AD)" lastInspectionDate="1704067200000" inspectionNotes="Annual inspection completed. Minor environmental monitoring adjustments needed.">
+  <coordinates xmi:id="coord-cave-001" gid="coord-cave-001" x="0.0" y="0.0" z="0.0" roll="0.0" pitch="0.0" yaw="0.0"/>
+  <environmentConditions xsi:type="dtm:Temperature" xmi:id="temp-001" gid="temp-001" timestamp="1704412800000">
+    <reading xmi:id="param-temp-001" gid="param-temp-001" value="18.5" unit="K"/>
+  </environmentConditions>
+  <environmentConditions xsi:type="dtm:Humidity" xmi:id="humidity-001" gid="humidity-001" timestamp="1704412800000">
+    <reading xmi:id="param-humidity-001" gid="param-humidity-001" value="45.0" unit="RH"/>
+  </environmentConditions>
+  <environmentConditions xsi:type="dtm:LightIntensity" xmi:id="light-001" gid="light-001" timestamp="1704412800000">
+    <reading xmi:id="param-light-001" gid="param-light-001" value="50.0" unit="lux"/>
+  </environmentConditions>
+  <exhibits xsi:type="dtm:Mural" xmi:id="mural-001" gid="mural-001" name="North Wall Mural" description="Extensive narrative mural depicting scenes from Buddha's previous lives (Jataka tales)." label="Buddha Life Story Mural - Jataka Tales" lastInspectionDate="1704240000000" inspectionNotes="Pigment stabilization treatment recommended for upper sections." material="Mineral pigments on clay plaster" period="Tang Dynasty (7th century)" conservationStatus="fair" width="3000.0" height="2500.0" technique="Fresco with dry pigment details">
+    <coordinates xmi:id="coord-mural-001" gid="coord-mural-001" x="5.0" y="0.0" z="2.0" roll="0.0" pitch="90.0" yaw="0.0"/>
+    <defects xmi:id="defect-001" gid="defect-001" name="Pigment Flaking - Upper Left" description="Progressive pigment flaking affecting approximately 150 square centimeters." defectType="flaking" severity="moderate" detectionDate="1698825600000" affectedArea="150.0" treatmentHistory="Monitored quarterly since 2023." requiresImmediateAction="false">
+      <coordinates xmi:id="coord-defect-001" gid="coord-defect-001" x="5.2" y="0.1" z="3.8" roll="0.0" pitch="90.0" yaw="0.0"/>
+    </defects>
+  </exhibits>
+  <exhibits xsi:type="dtm:Statue" xmi:id="statue-001" gid="statue-001" name="Central Buddha Statue" description="Large seated Buddha statue in meditation pose." label="Seated Buddha - Tang Dynasty" lastInspectionDate="1704326400000" inspectionNotes="Excellent condition. Regular dust removal maintained." material="Painted clay over wooden armature" period="Tang Dynasty (8th century)" conservationStatus="good" width="180.0" depth="150.0" height="350.0" subject="Shakyamuni Buddha">
+    <reference modelLocation="/exhibit_models/model/9c68ccc1-4b46-4bd3-b454-597b8a3826fd.obj" textureLocation="/exhibit_models/texture/3e380ff8-fe24-432f-89a4-f7702028e0ae.jpg"/>
+    <coordinates xmi:id="coord-statue-001" gid="coord-statue-001" x="0.0" y="0.0" z="1.5" roll="0.0" pitch="0.0" yaw="0.0"/>
+  </exhibits>
+</dtm:Cave>

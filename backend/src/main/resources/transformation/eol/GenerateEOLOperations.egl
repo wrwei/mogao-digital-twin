@@ -1,0 +1,97 @@
+[%
+/**
+ * EGL Template: Generate EOL Operations
+ * Generates EOL operation scripts for entity classes
+ *
+ * Parameters:
+ * - eClass: The EClass to generate operations for
+ */
+
+var className = eClass.name;
+var classNameLower = className.toLowerCase();
+var classNamePlural = className + "s";
+%]
+// EOL operations for [%=className%] model objects
+// Auto-generated from metamodel
+
+/**
+ * Get all [%=className%] objects from the model
+ */
+operation getAll[%=classNamePlural%]() : Sequence {
+    return [%=className%].all;
+}
+
+/**
+ * Get [%=className%] by GID
+ */
+operation get[%=className%]ByGid(gid : String) : [%=className%] {
+    return [%=className%].all.selectOne(obj | obj.gid = gid);
+}
+
+/**
+ * Get [%=className%] by name
+ */
+operation get[%=className%]ByName(name : String) : [%=className%] {
+    return [%=className%].all.selectOne(obj | obj.name = name);
+}
+
+/**
+ * Create new [%=className%]
+ */
+operation create[%=className%](gid : String, name : String, label : String) : [%=className%] {
+    var obj = new [%=className%];
+    obj.gid = gid;
+    obj.name = name;
+    if (label.isDefined()) {
+        obj.label = label;
+    }
+    return obj;
+}
+
+/**
+ * Update [%=className%]
+ */
+operation update[%=className%](gid : String, name : String, description : String) {
+    var obj = get[%=className%]ByGid(gid);
+    if (obj.isDefined()) {
+        if (name.isDefined()) obj.name = name;
+        if (description.isDefined()) obj.description = description;
+    }
+}
+
+[% // Check if class has AssetReference and add update operation for it %]
+[% for (ref in eClass.eAllReferences) { %]
+[% if (ref.containment and ref.eType.name == "AssetReference") { %]
+/**
+ * Update [%=className%] [%=ref.name%]
+ */
+operation update[%=className%][%=ref.name.firstToUpperCase()%](gid : String, modelLocation : String, metadataLocation : String, textureLocation : String) {
+    var obj = get[%=className%]ByGid(gid);
+    if (obj.isDefined()) {
+        if (obj.[%=ref.name%].isUndefined()) {
+            obj.[%=ref.name%] = new AssetReference;
+        }
+        if (modelLocation.isDefined()) obj.[%=ref.name%].modelLocation = modelLocation;
+        if (metadataLocation.isDefined()) obj.[%=ref.name%].metadataLocation = metadataLocation;
+        if (textureLocation.isDefined()) obj.[%=ref.name%].textureLocation = textureLocation;
+    }
+}
+
+[% } %]
+[% } %]
+/**
+ * Delete [%=className%]
+ */
+operation delete[%=className%](gid : String) {
+    var obj = get[%=className%]ByGid(gid);
+    if (obj.isDefined()) {
+        delete obj;
+    }
+}
+
+/**
+ * Get count of [%=className%] objects
+ */
+operation get[%=className%]Count() : Integer {
+    return [%=className%].all.size();
+}

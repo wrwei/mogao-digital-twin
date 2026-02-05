@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Model Viewer Demo - Mogao Digital Twin</title>
+
+    <!-- Three.js Library -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/loaders/OBJLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/loaders/MTLLoader.js"></script>
+
+    <!-- Vue 3 -->
+    <script src="https://unpkg.com/vue@3.4.21/dist/vue.global.js"></script>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="styles/model-viewer.css">
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .demo-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            padding: 40px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 32px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+
+        .viewer-section {
+            margin-bottom: 40px;
+        }
+
+        .section-title {
+            font-size: 24px;
+            color: #444;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+
+        .info-panel {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .info-panel h3 {
+            color: #555;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 10px;
+        }
+
+        .info-label {
+            font-weight: bold;
+            color: #666;
+        }
+
+        .info-value {
+            color: #333;
+            word-break: break-all;
+        }
+
+        .btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+
+        .btn:hover {
+            background: #5568d3;
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 13px;
+        }
+
+        .feature-list {
+            background: #e8f4f8;
+            border-left: 4px solid #3498db;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .feature-list ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .feature-list li {
+            padding: 8px 0;
+            color: #333;
+        }
+
+        .feature-list li:before {
+            content: "✓ ";
+            color: #3498db;
+            font-weight: bold;
+            margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="demo-container">
+            <h1>🏛️ Mogao Digital Twin - 3D Model Viewer</h1>
+            <p class="subtitle">基于 Three.js 的莫高窟数字孪生三维模型查看器</p>
+
+            <div class="viewer-section">
+                <h2 class="section-title">跪坐供养菩萨 (Kneeling Attendant Bodhisattva)</h2>
+
+                <model-viewer
+                    :asset-reference="assetReference"
+                    :width="800"
+                    :height="500"
+                    :auto-rotate="autoRotate"
+                ></model-viewer>
+
+                <div style="margin-top: 15px;">
+                    <label>
+                        <input type="checkbox" v-model="autoRotate">
+                        启用自动旋转
+                    </label>
+                </div>
+
+                <div class="info-panel">
+                    <h3>📋 模型信息</h3>
+                    <div class="info-grid">
+                        <span class="info-label">模型路径:</span>
+                        <span class="info-value">{{ assetReference.modelLocation }}</span>
+
+                        <span class="info-label">材质路径:</span>
+                        <span class="info-value">{{ assetReference.metadataLocation }}</span>
+
+                        <span class="info-label">纹理路径:</span>
+                        <span class="info-value">{{ assetReference.textureLocation }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="feature-list">
+                <h3>✨ 功能特性</h3>
+                <ul>
+                    <li>支持 OBJ/MTL 格式的三维模型加载</li>
+                    <li>自动加载和应用纹理贴图</li>
+                    <li>OrbitControls 交互式视角控制</li>
+                    <li>自动模型居中和缩放适配</li>
+                    <li>可选的自动旋转功能</li>
+                    <li>实时渲染和光照效果</li>
+                    <li>响应式设计，支持不同尺寸</li>
+                </ul>
+            </div>
+
+            <div class="info-panel">
+                <h3>🎮 使用说明</h3>
+                <div style="color: #555; line-height: 1.8;">
+                    <p><strong>鼠标左键:</strong> 按住并拖动可旋转模型</p>
+                    <p><strong>鼠标右键:</strong> 按住并拖动可平移视角</p>
+                    <p><strong>鼠标滚轮:</strong> 前后滚动可缩放模型</p>
+                    <p><strong>重置按钮:</strong> 点击"重置视角"按钮恢复初始视角</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import ModelViewer Component -->
+    <script type="module">
+        import ModelViewer from './components/ModelViewer.js';
+
+        const { createApp } = Vue;
+
+        createApp({
+            components: {
+                ModelViewer
+            },
+            data() {
+                return {
+                    autoRotate: false,
+                    assetReference: {
+                        gid: 'ref-statue-001',
+                        modelLocation: '/exhibit_models/kneeling-attendant-bodhisattva/source/obj/obj/1924_70_Bodhisattva-1mil.obj',
+                        metadataLocation: '/exhibit_models/kneeling-attendant-bodhisattva/source/obj/obj/1924_70_Bodhisattva-1mil.mtl',
+                        textureLocation: '/exhibit_models/kneeling-attendant-bodhisattva/textures/1924_70_Bodhisattva-1mil.jpeg'
+                    }
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

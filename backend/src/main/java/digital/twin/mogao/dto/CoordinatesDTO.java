@@ -9,12 +9,12 @@ import java.util.List;
 public class CoordinatesDTO {
 
     private String gid;
-    private String x;
-    private String y;
-    private String z;
-    private String roll;
-    private String pitch;
-    private String yaw;
+    private Float x;
+    private Float y;
+    private Float z;
+    private Float roll;
+    private Float pitch;
+    private Float yaw;
 
 
     // Getters and Setters
@@ -26,51 +26,51 @@ public class CoordinatesDTO {
         this.gid = gid;
     }
 
-    public String getX() {
+    public Float getX() {
         return x;
     }
 
-    public void setX(String x) {
+    public void setX(Float x) {
         this.x = x;
     }
 
-    public String getY() {
+    public Float getY() {
         return y;
     }
 
-    public void setY(String y) {
+    public void setY(Float y) {
         this.y = y;
     }
 
-    public String getZ() {
+    public Float getZ() {
         return z;
     }
 
-    public void setZ(String z) {
+    public void setZ(Float z) {
         this.z = z;
     }
 
-    public String getRoll() {
+    public Float getRoll() {
         return roll;
     }
 
-    public void setRoll(String roll) {
+    public void setRoll(Float roll) {
         this.roll = roll;
     }
 
-    public String getPitch() {
+    public Float getPitch() {
         return pitch;
     }
 
-    public void setPitch(String pitch) {
+    public void setPitch(Float pitch) {
         this.pitch = pitch;
     }
 
-    public String getYaw() {
+    public Float getYaw() {
         return yaw;
     }
 
-    public void setYaw(String yaw) {
+    public void setYaw(Float yaw) {
         this.yaw = yaw;
     }
 
