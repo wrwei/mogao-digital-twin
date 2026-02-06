@@ -23,15 +23,37 @@ operation getStatueByName(name : String) : Statue {
 }
 
 /**
- * Create new Statue
+ * Create new Statue and add to first cave
  */
 operation createStatue(gid : String, name : String, label : String) : Statue {
+    var cave = Cave.all.first();
+    if (cave.isUndefined()) {
+        "ERROR: No cave found".println();
+        return null;
+    }
+
     var obj = new Statue;
+
+    // Set basic attributes
     obj.gid = gid;
     obj.name = name;
     if (label.isDefined()) {
         obj.label = label;
     }
+
+    // Add to cave FIRST (must be in containment tree)
+    cave.exhibits.add(obj);
+
+    // CRITICAL: Set XMI ID after adding to resource tree
+    // Use EMF's setID method via eContainer().eResource()
+    var res = cave.eResource();
+    if (res.isDefined()) {
+        res.setID(obj, gid);
+        "SUCCESS: Added statue with XMI ID".println();
+    } else {
+        "ERROR: Cave not in resource".println();
+    }
+
     return obj;
 }
 

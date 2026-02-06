@@ -1,6 +1,9 @@
 micronaut:
   application:
     name: mogaoDigitalTwin
+  io:
+    watch:
+      enabled: false
   server:
     port: 8080
     max-request-size: 500MB
