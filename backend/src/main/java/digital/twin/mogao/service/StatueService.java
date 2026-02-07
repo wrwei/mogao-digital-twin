@@ -82,10 +82,35 @@ public class StatueService {
         try {
             LOG.info("Creating new Statue");
 
-            // Create operation with DTO data
-            // TODO: Implement creation logic
+            // Generate GID if not provided
+            String gid = dto.getGid();
+            if (gid == null || gid.isEmpty()) {
+                gid = "statue-" + java.util.UUID.randomUUID().toString().substring(0, 8);
+            }
 
-            return dto;
+            // Create statue with basic fields
+            Object createdObj = modelManager.executeEolOperation(SCRIPT_PATH, "createStatue",
+                gid, dto.getName(), dto.getLabel());
+
+            // Update additional fields using update operation
+            modelManager.executeEolOperation(SCRIPT_PATH, "updateStatue",
+                gid, dto.getName(), dto.getDescription());
+
+            // Update AssetReference if present
+            if (dto.getReference() != null) {
+                digital.twin.mogao.dto.AssetReferenceDTO refDTO = dto.getReference();
+                modelManager.executeEolOperation(SCRIPT_PATH, "updateStatueReference",
+                    gid,
+                    refDTO.getModelLocation(),
+                    refDTO.getMetadataLocation(),
+                    refDTO.getTextureLocation());
+            }
+
+            // Model is automatically saved by executeEolOperation for create operations
+
+            // Fetch and return the created statue
+            Object result = modelManager.executeEolOperation(SCRIPT_PATH, "getStatueByGid", gid);
+            return convertToDTO(result);
 
         } catch (Exception e) {
             LOG.error("Failed to create Statue", e);

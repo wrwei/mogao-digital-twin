@@ -155,9 +155,12 @@ const DrawerPanel = {
     template: `
         <div v-if="show" class="drawer-overlay" @click.self="$emit('close')">
             <div class="drawer drawer-right">
-                <div class="drawer-header">
-                    <h3>{{ title }}</h3>
-                    <button class="drawer-close" @click="$emit('close')">&times;</button>
+                <div class="drawer-header" style="display: flex; justify-content: space-between; align-items: center;">
+                    <h3 style="margin: 0; flex: 1;">{{ title }}</h3>
+                    <div class="drawer-header-actions" style="display: flex; align-items: center; gap: 8px;">
+                        <slot name="header-actions"></slot>
+                        <button class="drawer-close" @click="$emit('close')">&times;</button>
+                    </div>
                 </div>
                 <div class="drawer-body">
                     <slot></slot>
@@ -203,11 +206,13 @@ const CaveView = {
         handleCreate() {
             this.editMode = false;
             this.editingItem = null;
+            this.showDetail = false;  // Close detail drawer if open
             this.showForm = true;
         },
         handleEdit(item) {
             this.editMode = true;
             this.editingItem = item;
+            this.showDetail = false;  // Close detail drawer if open
             this.showForm = true;
         },
         async handleDelete(item) {
@@ -272,6 +277,11 @@ const CaveView = {
                 ></cave-form>            </drawer-panel>
 
             <drawer-panel :show="showDetail" :title="t('common.detail') + ' - ' + (detailItem ? detailItem.name || detailItem.title || detailItem.gid : '')" @close="handleCloseDetail">
+                <template #header-actions>
+                    <button class="btn btn-sm btn-primary" @click="handleEdit(detailItem)" style="margin-right: 8px;">
+                        {{ t('common.edit') }}
+                    </button>
+                </template>
                 <cave-detail-view
                     v-if="detailItem"
                     :cave="detailItem"
@@ -322,11 +332,13 @@ const StatueView = {
         handleCreate() {
             this.editMode = false;
             this.editingItem = null;
+            this.showDetail = false;  // Close detail drawer if open
             this.showForm = true;
         },
         handleEdit(item) {
             this.editMode = true;
             this.editingItem = item;
+            this.showDetail = false;  // Close detail drawer if open
             this.showForm = true;
         },
         async handleDelete(item) {
@@ -391,6 +403,11 @@ const StatueView = {
                 ></statue-form>            </drawer-panel>
 
             <drawer-panel :show="showDetail" :title="t('common.detail') + ' - ' + (detailItem ? detailItem.name || detailItem.title || detailItem.gid : '')" @close="handleCloseDetail">
+                <template #header-actions>
+                    <button class="btn btn-sm btn-primary" @click="handleEdit(detailItem)" style="margin-right: 8px;">
+                        {{ t('common.edit') }}
+                    </button>
+                </template>
                 <statue-detail-view
                     v-if="detailItem"
                     :statue="detailItem"
@@ -441,11 +458,13 @@ const MuralView = {
         handleCreate() {
             this.editMode = false;
             this.editingItem = null;
+            this.showDetail = false;  // Close detail drawer if open
             this.showForm = true;
         },
         handleEdit(item) {
             this.editMode = true;
             this.editingItem = item;
+            this.showDetail = false;  // Close detail drawer if open
             this.showForm = true;
         },
         async handleDelete(item) {
@@ -510,6 +529,11 @@ const MuralView = {
                 ></mural-form>            </drawer-panel>
 
             <drawer-panel :show="showDetail" :title="t('common.detail') + ' - ' + (detailItem ? detailItem.name || detailItem.title || detailItem.gid : '')" @close="handleCloseDetail">
+                <template #header-actions>
+                    <button class="btn btn-sm btn-primary" @click="handleEdit(detailItem)" style="margin-right: 8px;">
+                        {{ t('common.edit') }}
+                    </button>
+                </template>
                 <mural-detail-view
                     v-if="detailItem"
                     :mural="detailItem"
@@ -560,11 +584,13 @@ const PaintingView = {
         handleCreate() {
             this.editMode = false;
             this.editingItem = null;
+            this.showDetail = false;  // Close detail drawer if open
             this.showForm = true;
         },
         handleEdit(item) {
             this.editMode = true;
             this.editingItem = item;
+            this.showDetail = false;  // Close detail drawer if open
             this.showForm = true;
         },
         async handleDelete(item) {
@@ -629,6 +655,11 @@ const PaintingView = {
                 ></painting-form>            </drawer-panel>
 
             <drawer-panel :show="showDetail" :title="t('common.detail') + ' - ' + (detailItem ? detailItem.name || detailItem.title || detailItem.gid : '')" @close="handleCloseDetail">
+                <template #header-actions>
+                    <button class="btn btn-sm btn-primary" @click="handleEdit(detailItem)" style="margin-right: 8px;">
+                        {{ t('common.edit') }}
+                    </button>
+                </template>
                 <painting-detail-view
                     v-if="detailItem"
                     :painting="detailItem"
@@ -679,11 +710,13 @@ const InscriptionView = {
         handleCreate() {
             this.editMode = false;
             this.editingItem = null;
+            this.showDetail = false;  // Close detail drawer if open
             this.showForm = true;
         },
         handleEdit(item) {
             this.editMode = true;
             this.editingItem = item;
+            this.showDetail = false;  // Close detail drawer if open
             this.showForm = true;
         },
         async handleDelete(item) {
@@ -748,6 +781,11 @@ const InscriptionView = {
                 ></inscription-form>            </drawer-panel>
 
             <drawer-panel :show="showDetail" :title="t('common.detail') + ' - ' + (detailItem ? detailItem.name || detailItem.title || detailItem.gid : '')" @close="handleCloseDetail">
+                <template #header-actions>
+                    <button class="btn btn-sm btn-primary" @click="handleEdit(detailItem)" style="margin-right: 8px;">
+                        {{ t('common.edit') }}
+                    </button>
+                </template>
                 <inscription-detail-view
                     v-if="detailItem"
                     :inscription="detailItem"

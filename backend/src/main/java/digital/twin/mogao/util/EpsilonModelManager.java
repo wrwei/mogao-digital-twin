@@ -16,6 +16,7 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.net.URL;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -174,7 +175,15 @@ public class EpsilonModelManager {
 
             Resource resource = model.getResource();
             resource.setURI(URI.createFileURI(modelFile.getAbsolutePath()));
-            resource.save(Collections.emptyMap());
+
+            // Use proper XMI save options
+            Map<Object, Object> saveOptions = new HashMap<>();
+            saveOptions.put(org.eclipse.emf.ecore.xmi.XMLResource.OPTION_SAVE_TYPE_INFORMATION, Boolean.TRUE);
+            saveOptions.put(org.eclipse.emf.ecore.xmi.XMLResource.OPTION_SCHEMA_LOCATION, Boolean.TRUE);
+            saveOptions.put(org.eclipse.emf.ecore.xmi.XMLResource.OPTION_EXTENDED_META_DATA, Boolean.TRUE);
+            saveOptions.put(org.eclipse.emf.ecore.xmi.XMLResource.OPTION_ENCODING, "UTF-8");
+
+            resource.save(saveOptions);
 
             LOG.info("Model saved successfully: {}", modelFile.getAbsolutePath());
 

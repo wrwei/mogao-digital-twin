@@ -25,167 +25,146 @@ export default {
     },
     template: `
         <div class="detail-view">
-            <div class="detail-header">
-                <div class="detail-title-section">
-                    <h1 class="detail-title">{{ displayName }}</h1>
-                    <span class="badge" :class="'badge-' + (statue.conservationStatus || 'unknown').toLowerCase()">
-                        {{ statue.conservationStatus ? t('conservationStatus.' + statue.conservationStatus.toLowerCase()) : t('conservationStatus.unknown') }}
-                    </span>
-                </div>
-                <div class="detail-actions">
-                    <button @click="$emit('edit', statue)" class="btn btn-primary" :title="t('common.edit')">
-                        ✏️ {{ t('common.edit') }}
-                    </button>
-                    <button @click="$emit('delete', statue)" class="btn btn-error" :title="t('common.delete')">
-                        🗑️ {{ t('common.delete') }}
-                    </button>
-                    <button @click="$emit('close')" class="btn btn-outline" :title="t('common.close')">
-                        ✕ {{ t('common.close') }}
-                    </button>
+            <!-- Title with Badge -->
+            <div class="detail-title-bar">
+                <h2 class="detail-title">{{ displayName }}</h2>
+                <span class="badge badge-lg" :class="'badge-' + (statue.conservationStatus || 'unknown').toLowerCase()">
+                    {{ statue.conservationStatus ? t('conservationStatus.' + statue.conservationStatus.toLowerCase()) : t('conservationStatus.unknown') }}
+                </span>
+            </div>
+
+            <!-- Basic Information Section -->
+            <div class="info-section">
+                <h3 class="section-header">{{ t('detail.basicInfo') }}</h3>
+                <div class="info-grid">
+                    <div class="info-row">
+                        <span class="info-label">{{ t('fields.name') }}</span>
+                        <span class="info-value">
+                            {{ statue.name || 'N/A' }}
+                        </span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">{{ t('fields.description') }}</span>
+                        <span class="info-value">
+                            {{ statue.description || 'N/A' }}
+                        </span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">{{ t('fields.label') }}</span>
+                        <span class="info-value">
+                            {{ statue.label || 'N/A' }}
+                        </span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">{{ t('fields.creationPeriod') }}</span>
+                        <span class="info-value">
+                            {{ statue.creationPeriod || 'N/A' }}
+                        </span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">{{ t('fields.lastInspectionDate') }}</span>
+                        <span class="info-value">
+                            {{ statue.lastInspectionDate || 'N/A' }}
+                        </span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">{{ t('fields.inspectionNotes') }}</span>
+                        <span class="info-value">
+                            {{ statue.inspectionNotes || 'N/A' }}
+                        </span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">{{ t('fields.material') }}</span>
+                        <span class="info-value">
+                            {{ statue.material || 'N/A' }}
+                        </span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">{{ t('fields.period') }}</span>
+                        <span class="info-value">
+                            {{ statue.period || 'N/A' }}
+                        </span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">{{ t('fields.conservationStatus') }}</span>
+                        <span class="info-value">
+                            {{ statue.conservationStatus || 'N/A' }}
+                        </span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">{{ t('fields.width') }}</span>
+                        <span class="info-value">
+                            {{ statue.width || 'N/A' }}
+                        </span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">{{ t('fields.depth') }}</span>
+                        <span class="info-value">
+                            {{ statue.depth || 'N/A' }}
+                        </span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">{{ t('fields.height') }}</span>
+                        <span class="info-value">
+                            {{ statue.height || 'N/A' }}
+                        </span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">{{ t('fields.subject') }}</span>
+                        <span class="info-value">
+                            {{ statue.subject || 'N/A' }}
+                        </span>
+                    </div>
                 </div>
             </div>
 
-            <div class="detail-content">
-                <!-- Basic Information Section -->
-                <div class="detail-section info-section">
-                    <h2 class="section-title">{{ t('detail.basicInfo') }}</h2>
-                    <dl class="detail-list">
-                        <div class="detail-item">
-                            <dt class="detail-label">名称</dt>
-                            <dd class="detail-value">
-                                {{ statue.name || 'N/A' }}
-                            </dd>
-                        </div>
-                        <div class="detail-item">
-                            <dt class="detail-label">描述</dt>
-                            <dd class="detail-value">
-                                {{ statue.description || 'N/A' }}
-                            </dd>
-                        </div>
-                        <div class="detail-item">
-                            <dt class="detail-label">label</dt>
-                            <dd class="detail-value">
-                                {{ statue.label || 'N/A' }}
-                            </dd>
-                        </div>
-                        <div class="detail-item">
-                            <dt class="detail-label">creationPeriod</dt>
-                            <dd class="detail-value">
-                                {{ statue.creationPeriod || 'N/A' }}
-                            </dd>
-                        </div>
-                        <div class="detail-item">
-                            <dt class="detail-label">lastInspectionDate</dt>
-                            <dd class="detail-value">
-                                {{ statue.lastInspectionDate || 'N/A' }}
-                            </dd>
-                        </div>
-                        <div class="detail-item">
-                            <dt class="detail-label">inspectionNotes</dt>
-                            <dd class="detail-value">
-                                {{ statue.inspectionNotes || 'N/A' }}
-                            </dd>
-                        </div>
-                        <div class="detail-item">
-                            <dt class="detail-label">材质</dt>
-                            <dd class="detail-value">
-                                {{ statue.material || 'N/A' }}
-                            </dd>
-                        </div>
-                        <div class="detail-item">
-                            <dt class="detail-label">period</dt>
-                            <dd class="detail-value">
-                                {{ statue.period || 'N/A' }}
-                            </dd>
-                        </div>
-                        <div class="detail-item">
-                            <dt class="detail-label">保护状态</dt>
-                            <dd class="detail-value">
-                                {{ statue.conservationStatus || 'N/A' }}
-                            </dd>
-                        </div>
-                        <div class="detail-item">
-                            <dt class="detail-label">宽度</dt>
-                            <dd class="detail-value">
-                                {{ statue.width || 'N/A' }}
-                            </dd>
-                        </div>
-                        <div class="detail-item">
-                            <dt class="detail-label">深度</dt>
-                            <dd class="detail-value">
-                                {{ statue.depth || 'N/A' }}
-                            </dd>
-                        </div>
-                        <div class="detail-item">
-                            <dt class="detail-label">高度</dt>
-                            <dd class="detail-value">
-                                {{ statue.height || 'N/A' }}
-                            </dd>
-                        </div>
-                        <div class="detail-item">
-                            <dt class="detail-label">subject</dt>
-                            <dd class="detail-value">
-                                {{ statue.subject || 'N/A' }}
-                            </dd>
-                        </div>
-                    </dl>
+            <!-- Asset Reference Section -->
+            <div v-if="statue.reference" class="info-section">
+                <h3 class="section-header">{{ t('detail.assetReference') }}</h3>
+                <div class="info-grid">
+                    <div class="info-row" v-if="statue.reference.modelLocation">
+                        <span class="info-label">{{ t('detail.modelPath') }}</span>
+                        <span class="info-value info-path">{{ statue.reference.modelLocation }}</span>
+                    </div>
+                    <div class="info-row" v-if="statue.reference.metadataLocation">
+                        <span class="info-label">{{ t('detail.metadataPath') }}</span>
+                        <span class="info-value info-path">{{ statue.reference.metadataLocation }}</span>
+                    </div>
+                    <div class="info-row" v-if="statue.reference.textureLocation">
+                        <span class="info-label">{{ t('detail.texturePath') }}</span>
+                        <span class="info-value info-path">{{ statue.reference.textureLocation }}</span>
+                    </div>
                 </div>
+            </div>
 
-                <!-- Asset Reference Information -->
-                <div v-if="statue.reference" class="detail-section asset-section">
-                    <h2 class="section-title">{{ t('detail.assetReference') }}</h2>
-                    <dl class="detail-list">
-                        <div class="detail-item" v-if="statue.reference.modelLocation">
-                            <dt class="detail-label">{{ t('detail.modelPath') }}</dt>
-                            <dd class="detail-value detail-path">{{ statue.reference.modelLocation }}</dd>
+            <!-- Defects Section -->
+            <div v-if="statue.defects && statue.defects.length > 0" class="info-section defects-section">
+                <h3 class="section-header">
+                    {{ t('entities.defects') }}
+                    <span class="count-badge">{{ statue.defects.length }}</span>
+                </h3>
+                <div class="defects-list">
+                    <div v-for="defect in statue.defects" :key="defect.gid" class="defect-card">
+                        <div class="defect-card-header">
+                            <strong class="defect-name">{{ defect.name || defect.gid }}</strong>
+                            <span v-if="defect.severity" class="badge" :class="'badge-' + (defect.severity || 'unknown').toLowerCase()">
+                                {{ defect.severity }}
+                            </span>
                         </div>
-                        <div class="detail-item" v-if="statue.reference.metadataLocation">
-                            <dt class="detail-label">{{ t('detail.metadataPath') }}</dt>
-                            <dd class="detail-value detail-path">{{ statue.reference.metadataLocation }}</dd>
-                        </div>
-                        <div class="detail-item" v-if="statue.reference.textureLocation">
-                            <dt class="detail-label">{{ t('detail.texturePath') }}</dt>
-                            <dd class="detail-value detail-path">{{ statue.reference.textureLocation }}</dd>
-                        </div>
-                    </dl>
-                </div>
-
-
-                <!-- Defects Section -->
-                <div v-if="statue.defects && statue.defects.length > 0" class="detail-section defects-section">
-                    <h2 class="section-title">{{ t('entities.defects') }} ({{ statue.defects.length }})</h2>
-                    <div class="defects-list">
-                        <div v-for="defect in statue.defects" :key="defect.gid" class="defect-item" style="border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--spacing-md); margin-bottom: var(--spacing-sm);">
-                            <div class="defect-header" style="display: flex; justify-content: space-between; align-items: start; margin-bottom: var(--spacing-sm);">
-                                <strong style="font-size: 1.1em;">{{ defect.name || defect.gid }}</strong>
-                                <span v-if="defect.severity" class="badge" :class="'badge-' + (defect.severity || 'unknown').toLowerCase()" style="font-size: 0.85em;">
-                                    {{ defect.severity }}
-                                </span>
-                            </div>
-                            <p v-if="defect.description" style="margin-bottom: var(--spacing-sm); color: var(--text-secondary);">{{ defect.description }}</p>
-                            <div class="defect-meta" style="font-size: 0.9em; color: var(--text-secondary); display: flex; flex-wrap: wrap; gap: var(--spacing-md);">
-                                <span v-if="defect.defectType">
-                                    <strong>{{ t('detail.type') }}:</strong> {{ defect.defectType }}
-                                </span>
-                                <span v-if="defect.affectedArea">
-                                    <strong>{{ t('detail.affectedArea') }}:</strong> {{ defect.affectedArea }} m²
-                                </span>
-                                <span v-if="defect.requiresImmediateAction" style="color: var(--error-color); font-weight: bold;">
-                                    ⚠️ {{ t('detail.urgent') }}
-                                </span>
-                            </div>
+                        <p v-if="defect.description" class="defect-description">{{ defect.description }}</p>
+                        <div class="defect-meta">
+                            <span v-if="defect.defectType" class="meta-item">
+                                <strong>{{ t('detail.type') }}:</strong> {{ defect.defectType }}
+                            </span>
+                            <span v-if="defect.affectedArea" class="meta-item">
+                                <strong>{{ t('detail.affectedArea') }}:</strong> {{ defect.affectedArea }} m²
+                            </span>
+                            <span v-if="defect.requiresImmediateAction" class="meta-item meta-urgent">
+                                ⚠️ {{ t('detail.urgent') }}
+                            </span>
                         </div>
                     </div>
                 </div>
-
-                <!-- coordinates Section -->
-                <div v-if="statue.coordinates" class="detail-section">
-                    <h2 class="section-title">coordinates</h2>
-                    <div class="nested-content">
-                        <pre>{{ statue.coordinates }}</pre>
-                    </div>
-                </div>
-
             </div>
         </div>
     `

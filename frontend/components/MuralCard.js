@@ -25,10 +25,11 @@ export default {
     template: `
         <div class="card mural-card"
              :class="{ 'selected': isSelected }"
-             @click="$emit('select', mural)">
+             @click="handleCardClick">
             <div class="card-header">
                 <h3 class="card-title">{{ mural.name || '壁画' }}</h3>
-                <span class="badge" :class="'badge-' + (mural.conservationStatus || 'unknown').toLowerCase()">
+                <span class="badge" :class="'badge-' + (mural.conservationStatus || 'unknown').toLowerCase()" :title="t('fields.conservationStatus')">
+                    <span style="opacity: 0.8; font-size: 0.9em;">🏛️</span>
                     {{ mural.conservationStatus ? t('conservationStatus.' + mural.conservationStatus.toLowerCase()) : t('conservationStatus.unknown') }}
                 </span>
             </div>
@@ -36,9 +37,6 @@ export default {
                 <p class="card-description">{{ mural.description || t('common.noDescription') }}</p>
             </div>
             <div class="card-footer">
-                <button class="btn btn-sm btn-primary" @click.stop="$emit('view-detail', mural)" :title="t('actions.viewDetail')">
-                    {{ t('actions.viewDetail') }}
-                </button>
                 <button class="btn btn-sm" @click.stop="$emit('edit', mural)" :title="t('common.edit')">
                     {{ t('common.edit') }}
                 </button>
@@ -48,6 +46,12 @@ export default {
             </div>
         </div>
     `,
+    methods: {
+        handleCardClick() {
+            this.$emit('select', this.mural);
+            this.$emit('view-detail', this.mural);
+        }
+    },
     computed: {
         isSelected() {
             return this.selectedGid === this.mural.gid;

@@ -36,11 +36,12 @@ export default {
     template: `
         <div class="card [%=classNameLower%]-card"
              :class="{ 'selected': isSelected }"
-             @click="$emit('select', [%=classNameLower%])">
+             @click="handleCardClick">
             <div class="card-header">
                 <h3 class="card-title">{{ [%=classNameLower%].name || '[%=chineseLabel%]' }}</h3>
                 [% if (hasConservationStatus(eClass)) { %]
-                <span class="badge" :class="'badge-' + ([%=classNameLower%].conservationStatus || 'unknown').toLowerCase()">
+                <span class="badge" :class="'badge-' + ([%=classNameLower%].conservationStatus || 'unknown').toLowerCase()" :title="t('fields.conservationStatus')">
+                    <span style="opacity: 0.8; font-size: 0.9em;">🏛️</span>
                     {{ [%=classNameLower%].conservationStatus ? t('conservationStatus.' + [%=classNameLower%].conservationStatus.toLowerCase()) : t('conservationStatus.unknown') }}
                 </span>
                 [% } %]
@@ -49,9 +50,6 @@ export default {
                 <p class="card-description">{{ [%=classNameLower%].description || t('common.noDescription') }}</p>
             </div>
             <div class="card-footer">
-                <button class="btn btn-sm btn-primary" @click.stop="$emit('view-detail', [%=classNameLower%])" :title="t('actions.viewDetail')">
-                    {{ t('actions.viewDetail') }}
-                </button>
                 <button class="btn btn-sm" @click.stop="$emit('edit', [%=classNameLower%])" :title="t('common.edit')">
                     {{ t('common.edit') }}
                 </button>
@@ -61,6 +59,12 @@ export default {
             </div>
         </div>
     `,
+    methods: {
+        handleCardClick() {
+            this.$emit('select', this.[%=classNameLower%]);
+            this.$emit('view-detail', this.[%=classNameLower%]);
+        }
+    },
     computed: {
         isSelected() {
             return this.selectedGid === this.[%=classNameLower%].gid;

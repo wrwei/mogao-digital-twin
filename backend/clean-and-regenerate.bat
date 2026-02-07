@@ -28,6 +28,16 @@ if exist "src\main\java\digital\twin\mogao\controller" (
     echo   Removed controller directory
 )
 
+REM Backup manual components before cleanup
+if exist "..\frontend\components\ModelViewer.js" (
+    copy /y "..\frontend\components\ModelViewer.js" "..\frontend\ModelViewer.js.backup" >nul
+    echo   Backed up ModelViewer.js
+)
+if exist "..\frontend\components\SimulationPanel.js" (
+    copy /y "..\frontend\components\SimulationPanel.js" "..\frontend\SimulationPanel.js.backup" >nul
+    echo   Backed up SimulationPanel.js
+)
+
 REM Remove generated frontend code
 if exist "..\frontend\components" (
     rmdir /s /q "..\frontend\components"
@@ -80,6 +90,18 @@ if %ERRORLEVEL% NEQ 0 (
     echo ============================================
     pause
     exit /b 1
+)
+
+REM Restore manual components after code generation
+if exist "..\frontend\ModelViewer.js.backup" (
+    copy /y "..\frontend\ModelViewer.js.backup" "..\frontend\components\ModelViewer.js" >nul
+    del "..\frontend\ModelViewer.js.backup"
+    echo   Restored ModelViewer.js
+)
+if exist "..\frontend\SimulationPanel.js.backup" (
+    copy /y "..\frontend\SimulationPanel.js.backup" "..\frontend\components\SimulationPanel.js" >nul
+    del "..\frontend\SimulationPanel.js.backup"
+    echo   Restored SimulationPanel.js
 )
 
 echo.

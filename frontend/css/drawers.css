@@ -137,49 +137,99 @@
     justify-content: flex-end;
 }
 
+/* Drawer Overlay */
+.drawer-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 2000;
+    animation: fadeIn 0.2s ease;
+}
+
 /* Drawer (slide-in panel) */
 .drawer {
     position: fixed;
     top: 0;
     bottom: 0;
-    width: 400px;
-    background: var(--surface);
-    box-shadow: var(--shadow-lg);
-    z-index: 1500;
-    transition: transform 0.3s ease;
+    width: 500px;
+    background: white;
+    box-shadow: -2px 0 12px rgba(0, 0, 0, 0.15);
+    z-index: 2001;
+    display: flex;
+    flex-direction: column;
 }
 
 .drawer-left {
     left: 0;
-    transform: translateX(-100%);
-}
-
-.drawer-left.open {
-    transform: translateX(0);
+    animation: slideInLeft 0.3s ease-out;
 }
 
 .drawer-right {
     right: 0;
-    transform: translateX(100%);
+    animation: slideInRight 0.3s ease-out;
 }
 
-.drawer-right.open {
-    transform: translateX(0);
+@keyframes slideInLeft {
+    from {
+        transform: translateX(-100%);
+    }
+    to {
+        transform: translateX(0);
+    }
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+    }
+    to {
+        transform: translateX(0);
+    }
 }
 
 .drawer-header {
-    padding: var(--spacing-md);
-    border-bottom: 1px solid var(--border);
+    padding: var(--spacing-lg);
+    border-bottom: 1px solid #e0e0e0;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    flex-shrink: 0;
+}
+
+.drawer-header h3 {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0;
+}
+
+.drawer-close {
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 20px;
+    line-height: 1;
+    color: white;
+    transition: all 0.2s ease;
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    background: var(--background);
+    justify-content: center;
+}
+
+.drawer-close:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(1.1);
 }
 
 .drawer-body {
-    padding: var(--spacing-md);
-    height: calc(100% - 60px);
+    padding: var(--spacing-lg);
+    flex: 1;
     overflow-y: auto;
+    background: #fafafa;
 }
 
 /* Responsive */

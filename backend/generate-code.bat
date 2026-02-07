@@ -22,6 +22,10 @@ if exist "..\frontend\components\ModelViewer.js" (
     copy /y "..\frontend\components\ModelViewer.js" "..\frontend\ModelViewer.js.backup" >nul
     echo   Backed up ModelViewer.js
 )
+if exist "..\frontend\components\SimulationPanel.js" (
+    copy /y "..\frontend\components\SimulationPanel.js" "..\frontend\SimulationPanel.js.backup" >nul
+    echo   Backed up SimulationPanel.js
+)
 if exist "..\frontend\components" (
     rmdir /s /q "..\frontend\components"
     echo   Removed frontend components directory
@@ -32,6 +36,11 @@ if exist "..\frontend\ModelViewer.js.backup" (
     copy /y "..\frontend\ModelViewer.js.backup" "..\frontend\components\ModelViewer.js" >nul
     del "..\frontend\ModelViewer.js.backup"
     echo   Restored ModelViewer.js
+)
+if exist "..\frontend\SimulationPanel.js.backup" (
+    copy /y "..\frontend\SimulationPanel.js.backup" "..\frontend\components\SimulationPanel.js" >nul
+    del "..\frontend\SimulationPanel.js.backup"
+    echo   Restored SimulationPanel.js
 )
 if exist "..\frontend\composables" (
     rmdir /s /q "..\frontend\composables"

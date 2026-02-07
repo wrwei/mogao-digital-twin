@@ -25,108 +25,85 @@ export default {
     },
     template: `
         <div class="detail-view">
-            <div class="detail-header">
-                <div class="detail-title-section">
-                    <h1 class="detail-title">{{ displayName }}</h1>
-                </div>
-                <div class="detail-actions">
-                    <button @click="$emit('edit', defect)" class="btn btn-primary" :title="t('common.edit')">
-                        ✏️ {{ t('common.edit') }}
-                    </button>
-                    <button @click="$emit('delete', defect)" class="btn btn-error" :title="t('common.delete')">
-                        🗑️ {{ t('common.delete') }}
-                    </button>
-                    <button @click="$emit('close')" class="btn btn-outline" :title="t('common.close')">
-                        ✕ {{ t('common.close') }}
-                    </button>
-                </div>
+            <!-- Title with Badge -->
+            <div class="detail-title-bar">
+                <h2 class="detail-title">{{ displayName }}</h2>
             </div>
 
-            <div class="detail-content">
-                <!-- Basic Information Section -->
-                <div class="detail-section info-section">
-                    <h2 class="section-title">{{ t('detail.basicInfo') }}</h2>
-                    <dl class="detail-list">
-                        <div class="detail-item">
-                            <dt class="detail-label">名称</dt>
-                            <dd class="detail-value">
-                                {{ defect.name || 'N/A' }}
-                            </dd>
-                        </div>
-                        <div class="detail-item">
-                            <dt class="detail-label">描述</dt>
-                            <dd class="detail-value">
-                                {{ defect.description || 'N/A' }}
-                            </dd>
-                        </div>
-                        <div class="detail-item">
-                            <dt class="detail-label">缺陷类型</dt>
-                            <dd class="detail-value">
-                                {{ defect.defectType || 'N/A' }}
-                            </dd>
-                        </div>
-                        <div class="detail-item">
-                            <dt class="detail-label">严重程度</dt>
-                            <dd class="detail-value">
-                                {{ defect.severity || 'N/A' }}
-                            </dd>
-                        </div>
-                        <div class="detail-item">
-                            <dt class="detail-label">detectionDate</dt>
-                            <dd class="detail-value">
-                                {{ defect.detectionDate || 'N/A' }}
-                            </dd>
-                        </div>
-                        <div class="detail-item">
-                            <dt class="detail-label">affectedArea</dt>
-                            <dd class="detail-value">
-                                {{ defect.affectedArea || 'N/A' }}
-                            </dd>
-                        </div>
-                        <div class="detail-item">
-                            <dt class="detail-label">treatmentHistory</dt>
-                            <dd class="detail-value">
-                                {{ defect.treatmentHistory || 'N/A' }}
-                            </dd>
-                        </div>
-                        <div class="detail-item">
-                            <dt class="detail-label">requiresImmediateAction</dt>
-                            <dd class="detail-value">
-                                {{ defect.requiresImmediateAction || 'N/A' }}
-                            </dd>
-                        </div>
-                    </dl>
-                </div>
-
-                <!-- Asset Reference Information -->
-                <div v-if="defect.reference" class="detail-section asset-section">
-                    <h2 class="section-title">{{ t('detail.assetReference') }}</h2>
-                    <dl class="detail-list">
-                        <div class="detail-item" v-if="defect.reference.modelLocation">
-                            <dt class="detail-label">{{ t('detail.modelPath') }}</dt>
-                            <dd class="detail-value detail-path">{{ defect.reference.modelLocation }}</dd>
-                        </div>
-                        <div class="detail-item" v-if="defect.reference.metadataLocation">
-                            <dt class="detail-label">{{ t('detail.metadataPath') }}</dt>
-                            <dd class="detail-value detail-path">{{ defect.reference.metadataLocation }}</dd>
-                        </div>
-                        <div class="detail-item" v-if="defect.reference.textureLocation">
-                            <dt class="detail-label">{{ t('detail.texturePath') }}</dt>
-                            <dd class="detail-value detail-path">{{ defect.reference.textureLocation }}</dd>
-                        </div>
-                    </dl>
-                </div>
-
-
-                <!-- coordinates Section -->
-                <div v-if="defect.coordinates" class="detail-section">
-                    <h2 class="section-title">coordinates</h2>
-                    <div class="nested-content">
-                        <pre>{{ defect.coordinates }}</pre>
+            <!-- Basic Information Section -->
+            <div class="info-section">
+                <h3 class="section-header">{{ t('detail.basicInfo') }}</h3>
+                <div class="info-grid">
+                    <div class="info-row">
+                        <span class="info-label">{{ t('fields.name') }}</span>
+                        <span class="info-value">
+                            {{ defect.name || 'N/A' }}
+                        </span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">{{ t('fields.description') }}</span>
+                        <span class="info-value">
+                            {{ defect.description || 'N/A' }}
+                        </span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">{{ t('fields.defectType') }}</span>
+                        <span class="info-value">
+                            {{ defect.defectType || 'N/A' }}
+                        </span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">{{ t('fields.severity') }}</span>
+                        <span class="info-value">
+                            {{ defect.severity || 'N/A' }}
+                        </span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">{{ t('fields.detectionDate') }}</span>
+                        <span class="info-value">
+                            {{ defect.detectionDate || 'N/A' }}
+                        </span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">{{ t('fields.affectedArea') }}</span>
+                        <span class="info-value">
+                            {{ defect.affectedArea || 'N/A' }}
+                        </span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">{{ t('fields.treatmentHistory') }}</span>
+                        <span class="info-value">
+                            {{ defect.treatmentHistory || 'N/A' }}
+                        </span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">{{ t('fields.requiresImmediateAction') }}</span>
+                        <span class="info-value">
+                            {{ defect.requiresImmediateAction || 'N/A' }}
+                        </span>
                     </div>
                 </div>
-
             </div>
+
+            <!-- Asset Reference Section -->
+            <div v-if="defect.reference" class="info-section">
+                <h3 class="section-header">{{ t('detail.assetReference') }}</h3>
+                <div class="info-grid">
+                    <div class="info-row" v-if="defect.reference.modelLocation">
+                        <span class="info-label">{{ t('detail.modelPath') }}</span>
+                        <span class="info-value info-path">{{ defect.reference.modelLocation }}</span>
+                    </div>
+                    <div class="info-row" v-if="defect.reference.metadataLocation">
+                        <span class="info-label">{{ t('detail.metadataPath') }}</span>
+                        <span class="info-value info-path">{{ defect.reference.metadataLocation }}</span>
+                    </div>
+                    <div class="info-row" v-if="defect.reference.textureLocation">
+                        <span class="info-label">{{ t('detail.texturePath') }}</span>
+                        <span class="info-value info-path">{{ defect.reference.textureLocation }}</span>
+                    </div>
+                </div>
+            </div>
+
         </div>
     `
 };

@@ -213,7 +213,7 @@ export default {
 
             <div class="form-group" v-if="mode === 'edit' || true">
                 <label class="form-label" for="name">
-                    名称
+                    {{ t('fields.name') }}
                 </label>
 
                 <input
@@ -233,7 +233,7 @@ export default {
 
             <div class="form-group" v-if="mode === 'edit' || true">
                 <label class="form-label" for="description">
-                    描述
+                    {{ t('fields.description') }}
                 </label>
 
                 <textarea
@@ -254,7 +254,7 @@ export default {
 
             <div class="form-group" v-if="mode === 'edit' || false">
                 <label class="form-label" for="defectType">
-                    缺陷类型
+                    {{ t('fields.defectType') }}
                 </label>
 
                 <select
@@ -295,7 +295,7 @@ export default {
 
             <div class="form-group" v-if="mode === 'edit' || false">
                 <label class="form-label" for="severity">
-                    严重程度
+                    {{ t('fields.severity') }}
                 </label>
 
                 <select
@@ -320,7 +320,7 @@ export default {
 
             <div class="form-group" v-if="mode === 'edit' || false">
                 <label class="form-label" for="detectionDate">
-                    detectionDate
+                    {{ t('fields.detectionDate') }}
                 </label>
 
                 <input
@@ -340,7 +340,7 @@ export default {
 
             <div class="form-group" v-if="mode === 'edit' || false">
                 <label class="form-label" for="affectedArea">
-                    affectedArea
+                    {{ t('fields.affectedArea') }}
                 </label>
 
                 <input
@@ -360,7 +360,7 @@ export default {
 
             <div class="form-group" v-if="mode === 'edit' || false">
                 <label class="form-label" for="treatmentHistory">
-                    treatmentHistory
+                    {{ t('fields.treatmentHistory') }}
                 </label>
 
                 <input
@@ -380,7 +380,7 @@ export default {
 
             <div class="form-group" v-if="mode === 'edit' || false">
                 <label class="form-label" for="requiresImmediateAction">
-                    requiresImmediateAction
+                    {{ t('fields.requiresImmediateAction') }}
                 </label>
 
                 <input
@@ -400,10 +400,10 @@ export default {
 
 
             <fieldset class="form-fieldset" v-if="mode === 'edit'">
-                <legend class="form-legend">资产引用</legend>
+                <legend class="form-legend">{{ t('fields.reference') }}</legend>
                 <div class="form-group">
                     <label class="form-label" for="reference_gid">
-                        全局ID
+                        {{ t('fields.gid') }}
                     </label>
                     <input
                         type="text"
@@ -420,7 +420,7 @@ export default {
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="reference_modelLocation">
-                        3D模型路径
+                        {{ t('fields.modelLocation') }}
                     </label>
                     <input
                         type="file"
@@ -439,7 +439,7 @@ accept=".obj,.fbx,.gltf,.glb"                    />
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="reference_metadataLocation">
-                        元数据路径
+                        {{ t('fields.metadataLocation') }}
                     </label>
                     <input
                         type="file"
@@ -458,7 +458,7 @@ accept=".json,.xml,.txt"                    />
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="reference_textureLocation">
-                        纹理路径
+                        {{ t('fields.textureLocation') }}
                     </label>
                     <input
                         type="file"

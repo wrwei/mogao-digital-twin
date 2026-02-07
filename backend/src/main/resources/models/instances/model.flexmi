@@ -102,7 +102,7 @@
         <reference gid="ref-statue-001"
                    modelLocation="/exhibit_models/kneeling-attendant-bodhisattva/source/obj/obj/1924_70_Bodhisattva-1mil.obj"
                    metadataLocation="/exhibit_models/kneeling-attendant-bodhisattva/source/obj/obj/1924_70_Bodhisattva-1mil.mtl"
-                   textureLocation="/exhibit_models/kneeling-attendant-bodhisattva/textures/1924_70_Bodhisattva-1mil.jpeg"/>
+                   textureLocation="/exhibit_models/kneeling-attendant-bodhisattva/source/obj/obj/1924_70_Bodhisattva-1mil_restored.jpg"/>
 
         <coordinates gid="coord-statue-001"
                      x="0.0" y="0.0" z="0.5"/>
