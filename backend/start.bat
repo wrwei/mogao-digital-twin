@@ -12,11 +12,11 @@ for /f "tokens=5" %%a in ('netstat -ano ^| findstr :8080 ^| findstr LISTENING') 
 )
 
 echo.
-echo Starting Micronaut application...
+echo Compiling and starting Micronaut application...
 echo Backend will be available at: http://localhost:8080
 echo.
 echo Press Ctrl+C to stop the server
 echo ============================================
 echo.
 
-mvn mn:run
+mvn clean compile mn:run

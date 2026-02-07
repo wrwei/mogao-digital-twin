@@ -30,10 +30,6 @@ micronaut:
             - Authorization
   router:
     static-resources:
-      default:
-        enabled: true
-        mapping: /**
-        paths: classpath:public
       exhibit-models:
         enabled: true
         mapping: /exhibit_models/**
