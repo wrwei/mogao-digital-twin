@@ -144,6 +144,37 @@ export const messages = {
             controls: '左键旋转 | 右键平移 | 滚轮缩放'
         },
 
+        // Simulation
+        simulation: {
+            title: '环境模拟',
+            start: '开始模拟',
+            stop: '停止模拟',
+            reset: '重置',
+            advanced: '高级设置',
+            temperature: '温度',
+            humidity: '相对湿度',
+            speed: '模拟速度',
+            clickToConvert: '点击切换单位',
+            status: {
+                optimal: '最佳',
+                tooCold: '过冷',
+                cold: '偏冷',
+                warm: '偏热',
+                tooHot: '过热',
+                tooDry: '过干',
+                dry: '偏干',
+                humid: '偏湿',
+                tooHumid: '过湿'
+            },
+            info: {
+                title: '信息',
+                optimal: '最佳条件',
+                warning: '警告',
+                warningText: '极端条件可能损害文物',
+                kelvin: '开尔文温度'
+            }
+        },
+
         // Detail View
         detail: {
             basicInfo: '基本信息',
@@ -280,6 +311,37 @@ export const messages = {
             autoRotate: 'Enable Auto-rotate',
             resetCamera: 'Reset Camera',
             controls: 'Left-click: Rotate | Right-click: Pan | Scroll: Zoom'
+        },
+
+        // Simulation
+        simulation: {
+            title: 'Environmental Simulation',
+            start: 'Start Simulation',
+            stop: 'Stop Simulation',
+            reset: 'Reset',
+            advanced: 'Advanced Settings',
+            temperature: 'Temperature',
+            humidity: 'Relative Humidity',
+            speed: 'Simulation Speed',
+            clickToConvert: 'Click to toggle unit',
+            status: {
+                optimal: 'Optimal',
+                tooCold: 'Too Cold',
+                cold: 'Cold',
+                warm: 'Warm',
+                tooHot: 'Too Hot',
+                tooDry: 'Too Dry',
+                dry: 'Dry',
+                humid: 'Humid',
+                tooHumid: 'Too Humid'
+            },
+            info: {
+                title: 'Information',
+                optimal: 'Optimal Conditions',
+                warning: 'Warning',
+                warningText: 'Extreme conditions may damage artifacts',
+                kelvin: 'Kelvin Temperature'
+            }
         },
 
         // Detail View

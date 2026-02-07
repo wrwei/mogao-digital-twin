@@ -25,7 +25,7 @@ export default {
     template: `
         <div class="card defect-card"
              :class="{ 'selected': isSelected }"
-             @click="$emit('select', defect)">
+             @click="handleCardClick">
             <div class="card-header">
                 <h3 class="card-title">{{ defect.name || '缺陷' }}</h3>
             </div>
@@ -33,9 +33,6 @@ export default {
                 <p class="card-description">{{ defect.description || t('common.noDescription') }}</p>
             </div>
             <div class="card-footer">
-                <button class="btn btn-sm btn-primary" @click.stop="$emit('view-detail', defect)" :title="t('actions.viewDetail')">
-                    {{ t('actions.viewDetail') }}
-                </button>
                 <button class="btn btn-sm" @click.stop="$emit('edit', defect)" :title="t('common.edit')">
                     {{ t('common.edit') }}
                 </button>
@@ -45,6 +42,12 @@ export default {
             </div>
         </div>
     `,
+    methods: {
+        handleCardClick() {
+            this.$emit('select', this.defect);
+            this.$emit('view-detail', this.defect);
+        }
+    },
     computed: {
         isSelected() {
             return this.selectedGid === this.defect.gid;

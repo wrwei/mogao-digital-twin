@@ -247,7 +247,7 @@ export default {
             [% for (attr in formAttrs) { %]
             <div class="form-group" v-if="mode === 'edit' || [%=isEssentialForCreation(attr) ? "true" : "false"%]">
                 <label class="form-label[% if (isRequired(attr)) { %] form-label-required[% } %]" for="[%=attr.name%]">
-                    [%=getFieldLabel(attr.name)%]
+                    {{ t('fields.[%=attr.name%]') }}
                 </label>
 
                 [% if (isTextArea(attr)) { %]
@@ -285,7 +285,7 @@ export default {
                         v-model="form.[%=attr.name%]"
                         @change="markTouched('[%=attr.name%]')"
                     />
-                    <label for="[%=attr.name%]">[%=getFieldLabel(attr.name)%]</label>
+                    <label for="[%=attr.name%]">{{ t('fields.[%=attr.name%]') }}</label>
                 </div>
 
                 [% } else if (isNumber(attr)) { %]
@@ -328,11 +328,11 @@ export default {
             [% var nestedAttrs = getNestedAttributes(ref); %]
             [% if (nestedAttrs.size() > 0) { %]
             <fieldset class="form-fieldset" v-if="mode === 'edit'">
-                <legend class="form-legend">[%=getFieldLabel(ref.name)%]</legend>
+                <legend class="form-legend">{{ t('fields.[%=ref.name%]') }}</legend>
                 [% for (nestedAttr in nestedAttrs) { %]
                 <div class="form-group">
                     <label class="form-label" for="[%=ref.name%]_[%=nestedAttr.name%]">
-                        [%=getNestedFieldLabel(ref.name, nestedAttr.name)%]
+                        {{ t('fields.[%=nestedAttr.name%]') }}
                     </label>
                     [% if (nestedAttr.name.endsWith("Location")) { %]
                     <input

@@ -293,7 +293,7 @@ export default {
 
             <div class="form-group" v-if="mode === 'edit' || true">
                 <label class="form-label" for="name">
-                    名称
+                    {{ t('fields.name') }}
                 </label>
 
                 <input
@@ -313,7 +313,7 @@ export default {
 
             <div class="form-group" v-if="mode === 'edit' || true">
                 <label class="form-label" for="description">
-                    描述
+                    {{ t('fields.description') }}
                 </label>
 
                 <textarea
@@ -334,7 +334,7 @@ export default {
 
             <div class="form-group" v-if="mode === 'edit' || true">
                 <label class="form-label" for="label">
-                    label
+                    {{ t('fields.label') }}
                 </label>
 
                 <input
@@ -354,7 +354,7 @@ export default {
 
             <div class="form-group" v-if="mode === 'edit' || false">
                 <label class="form-label" for="creationPeriod">
-                    creationPeriod
+                    {{ t('fields.creationPeriod') }}
                 </label>
 
                 <input
@@ -374,7 +374,7 @@ export default {
 
             <div class="form-group" v-if="mode === 'edit' || false">
                 <label class="form-label" for="lastInspectionDate">
-                    lastInspectionDate
+                    {{ t('fields.lastInspectionDate') }}
                 </label>
 
                 <input
@@ -394,7 +394,7 @@ export default {
 
             <div class="form-group" v-if="mode === 'edit' || false">
                 <label class="form-label" for="inspectionNotes">
-                    inspectionNotes
+                    {{ t('fields.inspectionNotes') }}
                 </label>
 
                 <input
@@ -414,10 +414,10 @@ export default {
 
 
             <fieldset class="form-fieldset" v-if="mode === 'edit'">
-                <legend class="form-legend">资产引用</legend>
+                <legend class="form-legend">{{ t('fields.reference') }}</legend>
                 <div class="form-group">
                     <label class="form-label" for="reference_gid">
-                        全局ID
+                        {{ t('fields.gid') }}
                     </label>
                     <input
                         type="text"
@@ -434,7 +434,7 @@ export default {
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="reference_modelLocation">
-                        3D模型路径
+                        {{ t('fields.modelLocation') }}
                     </label>
                     <input
                         type="file"
@@ -453,7 +453,7 @@ accept=".obj,.fbx,.gltf,.glb"                    />
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="reference_metadataLocation">
-                        元数据路径
+                        {{ t('fields.metadataLocation') }}
                     </label>
                     <input
                         type="file"
@@ -472,7 +472,7 @@ accept=".json,.xml,.txt"                    />
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="reference_textureLocation">
-                        纹理路径
+                        {{ t('fields.textureLocation') }}
                     </label>
                     <input
                         type="file"
@@ -492,10 +492,10 @@ accept=".jpg,.jpeg,.png,.bmp"                    />
             </fieldset>
 
             <fieldset class="form-fieldset" v-if="mode === 'edit'">
-                <legend class="form-legend">environmentConditions</legend>
+                <legend class="form-legend">{{ t('fields.environmentConditions') }}</legend>
                 <div class="form-group">
                     <label class="form-label" for="environmentConditions_gid">
-                        全局ID
+                        {{ t('fields.gid') }}
                     </label>
                     <input
                         type="text"
@@ -512,7 +512,7 @@ accept=".jpg,.jpeg,.png,.bmp"                    />
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="environmentConditions_name">
-                        名称
+                        {{ t('fields.name') }}
                     </label>
                     <input
                         type="text"
@@ -529,7 +529,7 @@ accept=".jpg,.jpeg,.png,.bmp"                    />
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="environmentConditions_description">
-                        描述
+                        {{ t('fields.description') }}
                     </label>
                     <input
                         type="text"
@@ -546,7 +546,7 @@ accept=".jpg,.jpeg,.png,.bmp"                    />
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="environmentConditions_timestamp">
-                        时间戳
+                        {{ t('fields.timestamp') }}
                     </label>
                     <input
                         type="text"
@@ -564,10 +564,10 @@ accept=".jpg,.jpeg,.png,.bmp"                    />
             </fieldset>
 
             <fieldset class="form-fieldset" v-if="mode === 'edit'">
-                <legend class="form-legend">defects</legend>
+                <legend class="form-legend">{{ t('fields.defects') }}</legend>
                 <div class="form-group">
                     <label class="form-label" for="defects_gid">
-                        全局ID
+                        {{ t('fields.gid') }}
                     </label>
                     <input
                         type="text"
@@ -584,7 +584,7 @@ accept=".jpg,.jpeg,.png,.bmp"                    />
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="defects_name">
-                        名称
+                        {{ t('fields.name') }}
                     </label>
                     <input
                         type="text"
@@ -601,7 +601,7 @@ accept=".jpg,.jpeg,.png,.bmp"                    />
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="defects_description">
-                        描述
+                        {{ t('fields.description') }}
                     </label>
                     <input
                         type="text"
@@ -618,7 +618,7 @@ accept=".jpg,.jpeg,.png,.bmp"                    />
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="defects_defectType">
-                        缺陷类型
+                        {{ t('fields.defectType') }}
                     </label>
                     <input
                         type="text"
@@ -635,7 +635,7 @@ accept=".jpg,.jpeg,.png,.bmp"                    />
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="defects_severity">
-                        严重程度
+                        {{ t('fields.severity') }}
                     </label>
                     <input
                         type="text"
@@ -652,7 +652,7 @@ accept=".jpg,.jpeg,.png,.bmp"                    />
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="defects_detectionDate">
-                        detectionDate
+                        {{ t('fields.detectionDate') }}
                     </label>
                     <input
                         type="text"
@@ -669,7 +669,7 @@ accept=".jpg,.jpeg,.png,.bmp"                    />
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="defects_affectedArea">
-                        affectedArea
+                        {{ t('fields.affectedArea') }}
                     </label>
                     <input
                         type="text"
@@ -686,7 +686,7 @@ accept=".jpg,.jpeg,.png,.bmp"                    />
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="defects_treatmentHistory">
-                        treatmentHistory
+                        {{ t('fields.treatmentHistory') }}
                     </label>
                     <input
                         type="text"
@@ -703,7 +703,7 @@ accept=".jpg,.jpeg,.png,.bmp"                    />
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="defects_requiresImmediateAction">
-                        requiresImmediateAction
+                        {{ t('fields.requiresImmediateAction') }}
                     </label>
                     <input
                         type="text"
@@ -721,10 +721,10 @@ accept=".jpg,.jpeg,.png,.bmp"                    />
             </fieldset>
 
             <fieldset class="form-fieldset" v-if="mode === 'edit'">
-                <legend class="form-legend">exhibits</legend>
+                <legend class="form-legend">{{ t('fields.exhibits') }}</legend>
                 <div class="form-group">
                     <label class="form-label" for="exhibits_gid">
-                        全局ID
+                        {{ t('fields.gid') }}
                     </label>
                     <input
                         type="text"
@@ -741,7 +741,7 @@ accept=".jpg,.jpeg,.png,.bmp"                    />
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="exhibits_name">
-                        名称
+                        {{ t('fields.name') }}
                     </label>
                     <input
                         type="text"
@@ -758,7 +758,7 @@ accept=".jpg,.jpeg,.png,.bmp"                    />
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="exhibits_description">
-                        描述
+                        {{ t('fields.description') }}
                     </label>
                     <input
                         type="text"
@@ -775,7 +775,7 @@ accept=".jpg,.jpeg,.png,.bmp"                    />
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="exhibits_label">
-                        label
+                        {{ t('fields.label') }}
                     </label>
                     <input
                         type="text"
@@ -792,7 +792,7 @@ accept=".jpg,.jpeg,.png,.bmp"                    />
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="exhibits_creationPeriod">
-                        creationPeriod
+                        {{ t('fields.creationPeriod') }}
                     </label>
                     <input
                         type="text"
@@ -809,7 +809,7 @@ accept=".jpg,.jpeg,.png,.bmp"                    />
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="exhibits_lastInspectionDate">
-                        lastInspectionDate
+                        {{ t('fields.lastInspectionDate') }}
                     </label>
                     <input
                         type="text"
@@ -826,7 +826,7 @@ accept=".jpg,.jpeg,.png,.bmp"                    />
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="exhibits_inspectionNotes">
-                        inspectionNotes
+                        {{ t('fields.inspectionNotes') }}
                     </label>
                     <input
                         type="text"
@@ -843,7 +843,7 @@ accept=".jpg,.jpeg,.png,.bmp"                    />
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="exhibits_material">
-                        材质
+                        {{ t('fields.material') }}
                     </label>
                     <input
                         type="text"
@@ -860,7 +860,7 @@ accept=".jpg,.jpeg,.png,.bmp"                    />
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="exhibits_period">
-                        period
+                        {{ t('fields.period') }}
                     </label>
                     <input
                         type="text"
@@ -877,7 +877,7 @@ accept=".jpg,.jpeg,.png,.bmp"                    />
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="exhibits_conservationStatus">
-                        保护状态
+                        {{ t('fields.conservationStatus') }}
                     </label>
                     <input
                         type="text"

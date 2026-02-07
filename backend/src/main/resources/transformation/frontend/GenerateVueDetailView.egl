@@ -36,118 +36,93 @@ export default {
     },
     template: `
         <div class="detail-view">
-            <div class="detail-header">
-                <div class="detail-title-section">
-                    <h1 class="detail-title">{{ displayName }}</h1>
-                    [% if (hasAttribute(eClass, "conservationStatus")) { %]
-                    <span class="badge" :class="'badge-' + ([%=classNameLower%].conservationStatus || 'unknown').toLowerCase()">
-                        {{ [%=classNameLower%].conservationStatus ? t('conservationStatus.' + [%=classNameLower%].conservationStatus.toLowerCase()) : t('conservationStatus.unknown') }}
-                    </span>
+            <!-- Title with Badge -->
+            <div class="detail-title-bar">
+                <h2 class="detail-title">{{ displayName }}</h2>
+                [% if (hasAttribute(eClass, "conservationStatus")) { %]
+                <span class="badge badge-lg" :class="'badge-' + ([%=classNameLower%].conservationStatus || 'unknown').toLowerCase()">
+                    {{ [%=classNameLower%].conservationStatus ? t('conservationStatus.' + [%=classNameLower%].conservationStatus.toLowerCase()) : t('conservationStatus.unknown') }}
+                </span>
+                [% } %]
+            </div>
+
+            <!-- Basic Information Section -->
+            <div class="info-section">
+                <h3 class="section-header">{{ t('detail.basicInfo') }}</h3>
+                <div class="info-grid">
+                    [% for (attr in displayAttrs) { %]
+                    <div class="info-row">
+                        <span class="info-label">{{ t('fields.[%=attr.name%]') }}</span>
+                        <span class="info-value">
+                            [% if (isBoolean(attr)) { %]
+                            <span :class="[%=classNameLower%].[%=attr.name%] ? 'value-yes' : 'value-no'">
+                                {{ [%=classNameLower%].[%=attr.name%] ? t('common.yes') : t('common.no') }}
+                            </span>
+                            [% } else if (isNumber(attr)) { %]
+                            {{ [%=classNameLower%].[%=attr.name%] != null ? [%=classNameLower%].[%=attr.name%].toLocaleString() : 'N/A' }}
+                            [% } else { %]
+                            {{ [%=classNameLower%].[%=attr.name%] || 'N/A' }}
+                            [% } %]
+                        </span>
+                    </div>
                     [% } %]
                 </div>
-                <div class="detail-actions">
-                    <button @click="$emit('edit', [%=classNameLower%])" class="btn btn-primary" :title="t('common.edit')">
-                        ✏️ {{ t('common.edit') }}
-                    </button>
-                    <button @click="$emit('delete', [%=classNameLower%])" class="btn btn-error" :title="t('common.delete')">
-                        🗑️ {{ t('common.delete') }}
-                    </button>
-                    <button @click="$emit('close')" class="btn btn-outline" :title="t('common.close')">
-                        ✕ {{ t('common.close') }}
-                    </button>
-                </div>
             </div>
 
-            <div class="detail-content">
-                <!-- Basic Information Section -->
-                <div class="detail-section info-section">
-                    <h2 class="section-title">{{ t('detail.basicInfo') }}</h2>
-                    <dl class="detail-list">
-                        [% for (attr in displayAttrs) { %]
-                        <div class="detail-item">
-                            <dt class="detail-label">[%=getFieldLabel(attr.name)%]</dt>
-                            <dd class="detail-value">
-                                [% if (isBoolean(attr)) { %]
-                                {{ [%=classNameLower%].[%=attr.name%] ? t('common.yes') : t('common.no') }}
-                                [% } else if (isNumber(attr)) { %]
-                                {{ [%=classNameLower%].[%=attr.name%] != null ? [%=classNameLower%].[%=attr.name%].toLocaleString() : 'N/A' }}
-                                [% } else { %]
-                                {{ [%=classNameLower%].[%=attr.name%] || 'N/A' }}
-                                [% } %]
-                            </dd>
-                        </div>
-                        [% } %]
-                    </dl>
+            [% if (hasAssetRef) { %]
+            <!-- Asset Reference Section -->
+            <div v-if="[%=classNameLower%].reference" class="info-section">
+                <h3 class="section-header">{{ t('detail.assetReference') }}</h3>
+                <div class="info-grid">
+                    <div class="info-row" v-if="[%=classNameLower%].reference.modelLocation">
+                        <span class="info-label">{{ t('detail.modelPath') }}</span>
+                        <span class="info-value info-path">{{ [%=classNameLower%].reference.modelLocation }}</span>
+                    </div>
+                    <div class="info-row" v-if="[%=classNameLower%].reference.metadataLocation">
+                        <span class="info-label">{{ t('detail.metadataPath') }}</span>
+                        <span class="info-value info-path">{{ [%=classNameLower%].reference.metadataLocation }}</span>
+                    </div>
+                    <div class="info-row" v-if="[%=classNameLower%].reference.textureLocation">
+                        <span class="info-label">{{ t('detail.texturePath') }}</span>
+                        <span class="info-value info-path">{{ [%=classNameLower%].reference.textureLocation }}</span>
+                    </div>
                 </div>
+            </div>
+            [% } %]
 
-                [% if (hasAssetRef) { %]
-                <!-- Asset Reference Information -->
-                <div v-if="[%=classNameLower%].reference" class="detail-section asset-section">
-                    <h2 class="section-title">{{ t('detail.assetReference') }}</h2>
-                    <dl class="detail-list">
-                        <div class="detail-item" v-if="[%=classNameLower%].reference.modelLocation">
-                            <dt class="detail-label">{{ t('detail.modelPath') }}</dt>
-                            <dd class="detail-value detail-path">{{ [%=classNameLower%].reference.modelLocation }}</dd>
+            [% // Add Defects Section for Exhibits %]
+            [% var hasDefects = references.exists(r | r.name = "defects"); %]
+            [% if (hasDefects) { %]
+            <!-- Defects Section -->
+            <div v-if="[%=classNameLower%].defects && [%=classNameLower%].defects.length > 0" class="info-section defects-section">
+                <h3 class="section-header">
+                    {{ t('entities.defects') }}
+                    <span class="count-badge">{{ [%=classNameLower%].defects.length }}</span>
+                </h3>
+                <div class="defects-list">
+                    <div v-for="defect in [%=classNameLower%].defects" :key="defect.gid" class="defect-card">
+                        <div class="defect-card-header">
+                            <strong class="defect-name">{{ defect.name || defect.gid }}</strong>
+                            <span v-if="defect.severity" class="badge" :class="'badge-' + (defect.severity || 'unknown').toLowerCase()">
+                                {{ defect.severity }}
+                            </span>
                         </div>
-                        <div class="detail-item" v-if="[%=classNameLower%].reference.metadataLocation">
-                            <dt class="detail-label">{{ t('detail.metadataPath') }}</dt>
-                            <dd class="detail-value detail-path">{{ [%=classNameLower%].reference.metadataLocation }}</dd>
-                        </div>
-                        <div class="detail-item" v-if="[%=classNameLower%].reference.textureLocation">
-                            <dt class="detail-label">{{ t('detail.texturePath') }}</dt>
-                            <dd class="detail-value detail-path">{{ [%=classNameLower%].reference.textureLocation }}</dd>
-                        </div>
-                    </dl>
-                </div>
-
-                [% } %]
-
-                [% // Add Defects Section for Exhibits %]
-                [% var hasDefects = references.exists(r | r.name = "defects"); %]
-                [% if (hasDefects) { %]
-                <!-- Defects Section -->
-                <div v-if="[%=classNameLower%].defects && [%=classNameLower%].defects.length > 0" class="detail-section defects-section">
-                    <h2 class="section-title">{{ t('entities.defects') }} ({{ [%=classNameLower%].defects.length }})</h2>
-                    <div class="defects-list">
-                        <div v-for="defect in [%=classNameLower%].defects" :key="defect.gid" class="defect-item" style="border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--spacing-md); margin-bottom: var(--spacing-sm);">
-                            <div class="defect-header" style="display: flex; justify-content: space-between; align-items: start; margin-bottom: var(--spacing-sm);">
-                                <strong style="font-size: 1.1em;">{{ defect.name || defect.gid }}</strong>
-                                <span v-if="defect.severity" class="badge" :class="'badge-' + (defect.severity || 'unknown').toLowerCase()" style="font-size: 0.85em;">
-                                    {{ defect.severity }}
-                                </span>
-                            </div>
-                            <p v-if="defect.description" style="margin-bottom: var(--spacing-sm); color: var(--text-secondary);">{{ defect.description }}</p>
-                            <div class="defect-meta" style="font-size: 0.9em; color: var(--text-secondary); display: flex; flex-wrap: wrap; gap: var(--spacing-md);">
-                                <span v-if="defect.defectType">
-                                    <strong>{{ t('detail.type') }}:</strong> {{ defect.defectType }}
-                                </span>
-                                <span v-if="defect.affectedArea">
-                                    <strong>{{ t('detail.affectedArea') }}:</strong> {{ defect.affectedArea }} m²
-                                </span>
-                                <span v-if="defect.requiresImmediateAction" style="color: var(--error-color); font-weight: bold;">
-                                    ⚠️ {{ t('detail.urgent') }}
-                                </span>
-                            </div>
+                        <p v-if="defect.description" class="defect-description">{{ defect.description }}</p>
+                        <div class="defect-meta">
+                            <span v-if="defect.defectType" class="meta-item">
+                                <strong>{{ t('detail.type') }}:</strong> {{ defect.defectType }}
+                            </span>
+                            <span v-if="defect.affectedArea" class="meta-item">
+                                <strong>{{ t('detail.affectedArea') }}:</strong> {{ defect.affectedArea }} m²
+                            </span>
+                            <span v-if="defect.requiresImmediateAction" class="meta-item meta-urgent">
+                                ⚠️ {{ t('detail.urgent') }}
+                            </span>
                         </div>
                     </div>
                 </div>
-
-                [% } %]
-                [% // Add sections for nested references if they exist %]
-                [% var nestedRefs = references.select(r | not isAssetReference(r) and not r.name.startsWith("environment") and not r.name.startsWith("defect")); %]
-                [% if (nestedRefs.size() > 0) { %]
-                [% for (ref in nestedRefs) { %]
-                <!-- [%=ref.name%] Section -->
-                <div v-if="[%=classNameLower%].[%=ref.name%]" class="detail-section">
-                    <h2 class="section-title">[%=getFieldLabel(ref.name)%]</h2>
-                    <div class="nested-content">
-                        <pre>{{ [%=classNameLower%].[%=ref.name%] }}</pre>
-                    </div>
-                </div>
-
-                [% } %]
-                [% } %]
             </div>
+            [% } %]
         </div>
     `
 };

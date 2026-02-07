@@ -25,7 +25,7 @@ export default {
     template: `
         <div class="card cave-card"
              :class="{ 'selected': isSelected }"
-             @click="$emit('select', cave)">
+             @click="handleCardClick">
             <div class="card-header">
                 <h3 class="card-title">{{ cave.name || '洞窟' }}</h3>
             </div>
@@ -33,9 +33,6 @@ export default {
                 <p class="card-description">{{ cave.description || t('common.noDescription') }}</p>
             </div>
             <div class="card-footer">
-                <button class="btn btn-sm btn-primary" @click.stop="$emit('view-detail', cave)" :title="t('actions.viewDetail')">
-                    {{ t('actions.viewDetail') }}
-                </button>
                 <button class="btn btn-sm" @click.stop="$emit('edit', cave)" :title="t('common.edit')">
                     {{ t('common.edit') }}
                 </button>
@@ -45,6 +42,12 @@ export default {
             </div>
         </div>
     `,
+    methods: {
+        handleCardClick() {
+            this.$emit('select', this.cave);
+            this.$emit('view-detail', this.cave);
+        }
+    },
     computed: {
         isSelected() {
             return this.selectedGid === this.cave.gid;

@@ -30,7 +30,9 @@ import java.util.UUID;
 public class FileUploadController {
 
     private static final Logger LOG = LoggerFactory.getLogger(FileUploadController.class);
-    private static final String UPLOAD_DIR = "src/main/resources/exhibit_models/";
+    // Save to classes for immediate serving (relative to target/), and ../src for persistence
+    private static final String CLASSPATH_DIR = "classes/exhibit_models/";
+    private static final String SOURCE_DIR = "../src/main/resources/exhibit_models/";
 
     @Post(consumes = MediaType.MULTIPART_FORM_DATA, produces = MediaType.APPLICATION_JSON)
     public Map<String, String> upload(CompletedFileUpload file, String category) {
@@ -55,16 +57,22 @@ public class FileUploadController {
             }
             String uniqueFilename = UUID.randomUUID().toString() + extension;
 
-            // Create directory structure
-            Path uploadPath = Paths.get(UPLOAD_DIR, subDir);
-            Files.createDirectories(uploadPath);
+            byte[] fileBytes = file.getBytes();
 
-            // Save file
-            Path filePath = uploadPath.resolve(uniqueFilename);
-            File targetFile = filePath.toFile();
+            // Save to target/classes for immediate serving
+            Path classpathPath = Paths.get(CLASSPATH_DIR, subDir);
+            Files.createDirectories(classpathPath);
+            Path classpathFile = classpathPath.resolve(uniqueFilename);
+            try (FileOutputStream fos = new FileOutputStream(classpathFile.toFile())) {
+                fos.write(fileBytes);
+            }
 
-            try (FileOutputStream fos = new FileOutputStream(targetFile)) {
-                fos.write(file.getBytes());
+            // Also save to src/main/resources for persistence across rebuilds
+            Path sourcePath = Paths.get(SOURCE_DIR, subDir);
+            Files.createDirectories(sourcePath);
+            Path sourceFile = sourcePath.resolve(uniqueFilename);
+            try (FileOutputStream fos = new FileOutputStream(sourceFile.toFile())) {
+                fos.write(fileBytes);
             }
 
             // Return the server path

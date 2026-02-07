@@ -23,6 +23,7 @@
         <emf.version>2.23.0</emf.version>
         <!-- Micronaut version -->
         <micronaut.version>4.2.3</micronaut.version>
+        <micronaut.test.resources.version>2.2.0</micronaut.test.resources.version>
     </properties>
 
     <dependencies>
@@ -193,6 +194,14 @@
                 <configuration>
                     <mainClass>digital.twin.mogao.Application</mainClass>
                     <testResourcesEnabled>false</testResourcesEnabled>
+                    <watchDirectories>
+                        <watchDirectory>
+                            <directory>${project.basedir}/src/main/java</directory>
+                        </watchDirectory>
+                        <watchDirectory>
+                            <directory>${project.basedir}/src/main/resources</directory>
+                        </watchDirectory>
+                    </watchDirectories>
                 </configuration>
             </plugin>
         </plugins>

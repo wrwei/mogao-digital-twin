@@ -25,10 +25,11 @@ export default {
     template: `
         <div class="card statue-card"
              :class="{ 'selected': isSelected }"
-             @click="$emit('select', statue)">
+             @click="handleCardClick">
             <div class="card-header">
                 <h3 class="card-title">{{ statue.name || '雕像' }}</h3>
-                <span class="badge" :class="'badge-' + (statue.conservationStatus || 'unknown').toLowerCase()">
+                <span class="badge" :class="'badge-' + (statue.conservationStatus || 'unknown').toLowerCase()" :title="t('fields.conservationStatus')">
+                    <span style="opacity: 0.8; font-size: 0.9em;">🏛️</span>
                     {{ statue.conservationStatus ? t('conservationStatus.' + statue.conservationStatus.toLowerCase()) : t('conservationStatus.unknown') }}
                 </span>
             </div>
@@ -36,9 +37,6 @@ export default {
                 <p class="card-description">{{ statue.description || t('common.noDescription') }}</p>
             </div>
             <div class="card-footer">
-                <button class="btn btn-sm btn-primary" @click.stop="$emit('view-detail', statue)" :title="t('actions.viewDetail')">
-                    {{ t('actions.viewDetail') }}
-                </button>
                 <button class="btn btn-sm" @click.stop="$emit('edit', statue)" :title="t('common.edit')">
                     {{ t('common.edit') }}
                 </button>
@@ -48,6 +46,12 @@ export default {
             </div>
         </div>
     `,
+    methods: {
+        handleCardClick() {
+            this.$emit('select', this.statue);
+            this.$emit('view-detail', this.statue);
+        }
+    },
     computed: {
         isSelected() {
             return this.selectedGid === this.statue.gid;
