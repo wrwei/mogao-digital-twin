@@ -244,6 +244,7 @@ export default {
                                 v-model:autoRotate="autoRotate"
                                 :width="viewerWidth"
                                 :height="viewerHeight"
+                                :simulation-data="simulationData"
                             ></model-viewer>
                             <!-- Auto Rotate Control (styled button below viewer) -->
                             <div style="margin-top: 16px; padding: 10px 20px; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
