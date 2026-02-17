@@ -45,3 +45,14 @@ Thumbs.db
 
 # Test data
 kneeling-attendant-bodhisattva/
+
+# Python
+__pycache__/
+*.pyc
+
+# Large ML model files
+backend/models/
+*.pth
+
+# Windows artifacts
+nul
