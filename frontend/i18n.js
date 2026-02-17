@@ -457,27 +457,23 @@ export function t(key, locale = defaultLocale, params = {}) {
     return value || key;
 }
 
+// Shared global locale ref (singleton across all components)
+const savedLocale = localStorage.getItem('locale');
+const globalLocale = ref((savedLocale && messages[savedLocale]) ? savedLocale : defaultLocale);
+
 // Composable for Vue components
 export function useI18n() {
-    const locale = ref(defaultLocale);
-
-    const translate = (key, params) => t(key, locale.value, params);
+    const translate = (key, params) => t(key, globalLocale.value, params);
 
     const setLocale = (newLocale) => {
         if (messages[newLocale]) {
-            locale.value = newLocale;
+            globalLocale.value = newLocale;
             localStorage.setItem('locale', newLocale);
         }
     };
 
-    // Load saved locale from localStorage
-    const savedLocale = localStorage.getItem('locale');
-    if (savedLocale && messages[savedLocale]) {
-        locale.value = savedLocale;
-    }
-
     return {
-        locale,
+        locale: globalLocale,
         t: translate,
         setLocale
     };
