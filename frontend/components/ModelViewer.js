@@ -44,6 +44,11 @@ export default {
             originalTexture: null,  // Store original texture for reset
             textureCanvas: null,    // Canvas for texture manipulation
             textureContext: null,   // Canvas 2D context
+            // Multi-model deterioration results
+            mouldResult: null,      // VTT mould growth model output
+            enabledChemical: true,  // Whether chemical fading model is active
+            chemicalDegradationFactor: 1.0,  // Pre-computed from SimulationPanel
+            chemicalRateConstant: 0,         // Pre-computed from SimulationPanel
             // Notification system
             notification: null,     // Current notification message
             notificationType: 'info', // 'info', 'success', 'warning', 'error'
@@ -94,11 +99,18 @@ export default {
                     this.simMonths = newData.deterioration.months;
                     this.simYears = newData.deterioration.years;
                     this.simLight = newData.deterioration.lightIntensity;
+                    // Store per-model results if available (null = disabled)
+                    this.mouldResult = newData.deterioration.mould || null;
+                    this.enabledChemical = newData.deterioration.chemical !== null;
+                    // Store pre-computed degradation factor from SimulationPanel
+                    this.chemicalDegradationFactor = newData.deterioration.degradationFactor;
+                    this.chemicalRateConstant = newData.deterioration.rateConstant;
                     this.degradationEnabled = true;
                     this.applyDeteriorationToTexture();
                 } else if (newData === null || !newData) {
                     // Reset to original texture when simulation stops
                     this.degradationEnabled = false;
+                    this.mouldResult = null;
                     this.resetTexture();
                 }
             }
@@ -435,15 +447,12 @@ export default {
             console.log('Applying deterioration to texture:', img.width, 'x', img.height);
 
             try {
-                // Calculate degradation based on environmental parameters
-                const k = this.calculateRateConstant(this.simTemp, this.simRH, this.simLight);
+                // Use pre-computed degradation factor from SimulationPanel (with configurable params)
+                let k = this.enabledChemical ? (this.chemicalRateConstant || 0) : 0;
+                let degradationFactor = this.enabledChemical ? (this.chemicalDegradationFactor || 1.0) : 1.0;
                 const t_days = this.getTotalDays();
 
-                // First-order kinetics: C(t) = C₀ · exp(−k·t)
-                // For color: fraction remaining after degradation
-                const degradationFactor = Math.exp(-k * t_days);
-
-                console.log('Degradation params:', { k, t_days, degradationFactor });
+                console.log('Degradation params:', { k, t_days, degradationFactor, chemicalEnabled: this.enabledChemical });
 
                 // Create canvas for texture manipulation if not exists
                 if (!this.textureCanvas) {
@@ -510,6 +519,11 @@ export default {
                 // Alpha channel (i+3) unchanged
             }
 
+            // ── Phase 2: Apply mould spots (VTT model) ─────────────────
+            if (this.mouldResult && this.mouldResult.mouldIndex > 0.1) {
+                this.applyMouldEffect(data, img.width, img.height, this.mouldResult);
+            }
+
             // Put modified pixel data back
             this.textureContext.putImageData(imageData, 0, 0);
 
@@ -567,6 +581,79 @@ export default {
                     }
                 }
             });
+        },
+
+        /**
+         * Apply procedural mould spots to texture pixel data.
+         * Uses deterministic seeded noise so spots are stable between frames.
+         * Spots are dark green-black blotches biased toward darker pixels
+         * (recesses hold more moisture).
+         *
+         * @param {Uint8ClampedArray} data  RGBA pixel data (mutated in place)
+         * @param {number} width   Texture width
+         * @param {number} height  Texture height
+         * @param {object} mouldResult  Output from DeteriorationEngine.mouldGrowth()
+         */
+        applyMouldEffect(data, width, height, mouldResult) {
+            const coverage = mouldResult.visualEffect.coverage;   // 0-1
+            const intensity = mouldResult.visualEffect.intensity; // 0-1
+            if (coverage <= 0) return;
+
+            // Deterministic hash function for seeded pseudo-random spots
+            const hash = (x, y, seed) => {
+                let h = (x * 374761393 + y * 668265263 + seed * 1274126177) | 0;
+                h = ((h ^ (h >> 13)) * 1103515245) | 0;
+                return ((h ^ (h >> 16)) & 0x7fffffff) / 0x7fffffff; // 0-1
+            };
+
+            // Generate spots at a grid resolution (every 8px)
+            const gridSize = 8;
+            const spotRadius = 12; // pixels
+
+            // Mould colour: dark green-black
+            const mouldR = 20, mouldG = 40, mouldB = 15;
+
+            for (let gy = 0; gy < height; gy += gridSize) {
+                for (let gx = 0; gx < width; gx += gridSize) {
+                    // Decide if this grid cell has a mould spot
+                    const spotChance = hash(gx, gy, 42);
+                    if (spotChance > coverage * 1.5) continue; // More spots as coverage grows
+
+                    // Spot center with slight jitter
+                    const cx = gx + hash(gx, gy, 7) * gridSize;
+                    const cy = gy + hash(gx, gy, 13) * gridSize;
+
+                    // Apply spot to nearby pixels
+                    const r2 = spotRadius * spotRadius;
+                    const startX = Math.max(0, Math.floor(cx - spotRadius));
+                    const endX = Math.min(width - 1, Math.ceil(cx + spotRadius));
+                    const startY = Math.max(0, Math.floor(cy - spotRadius));
+                    const endY = Math.min(height - 1, Math.ceil(cy + spotRadius));
+
+                    for (let py = startY; py <= endY; py++) {
+                        for (let px = startX; px <= endX; px++) {
+                            const dx = px - cx;
+                            const dy = py - cy;
+                            const dist2 = dx * dx + dy * dy;
+                            if (dist2 > r2) continue;
+
+                            // Soft-edged falloff
+                            const falloff = 1 - Math.sqrt(dist2) / spotRadius;
+                            const idx = (py * width + px) * 4;
+
+                            // Bias: darker original pixels are more susceptible
+                            const brightness = (data[idx] + data[idx + 1] + data[idx + 2]) / (3 * 255);
+                            const darkBias = 1 - brightness * 0.6; // 0.4 - 1.0
+
+                            const blend = falloff * intensity * darkBias * 0.8;
+
+                            data[idx]     = Math.round(data[idx]     * (1 - blend) + mouldR * blend);
+                            data[idx + 1] = Math.round(data[idx + 1] * (1 - blend) + mouldG * blend);
+                            data[idx + 2] = Math.round(data[idx + 2] * (1 - blend) + mouldB * blend);
+                        }
+                    }
+                }
+            }
         },
 
         /**

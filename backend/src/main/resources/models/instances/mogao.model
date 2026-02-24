@@ -17,7 +17,7 @@
     </defects>
   </exhibits>
   <exhibits xsi:type="dtm:Statue" xmi:id="statue-001" gid="statue-001" name="Central Buddha Statue" description="Large seated Buddha statue in meditation pose." label="Seated Buddha - Tang Dynasty" lastInspectionDate="1704326400000" inspectionNotes="Excellent condition. Regular dust removal maintained." material="Painted clay over wooden armature" period="Tang Dynasty (8th century)" conservationStatus="good" width="180.0" depth="150.0" height="350.0" subject="Shakyamuni Buddha">
-    <reference xsi:type="dtm:AssetReference" modelLocation="/exhibit_models/kneeling-attendant-bodhisattva/source/obj/obj/1924_70_Bodhisattva-1mil.obj" metadataLocation="/exhibit_models/kneeling-attendant-bodhisattva/source/obj/obj/1924_70_Bodhisattva-1mil.mtl" textureLocation="/exhibit_models/kneeling-attendant-bodhisattva/source/obj/obj/1924_70_Bodhisattva-1mil.jpg"/>
+    <reference xsi:type="dtm:AssetReference" modelLocation="/exhibit_models/model/c8319ba3-60e7-47af-ba04-113d5ce8b21f.obj" textureLocation="/exhibit_models/texture/361acd3e-2fb0-47fc-92cd-563d5b68d227.jpg"/>
     <coordinates xsi:type="dtm:Coordinates" xmi:id="coord-statue-001" gid="coord-statue-001" x="0.0" y="0.0" z="1.5" roll="0.0" pitch="0.0" yaw="0.0"/>
   </exhibits>
   <exhibits xsi:type="dtm:Statue" xmi:id="statue-002" gid="statue-002" name="Manually Added Test Statue" description="Manually added to XML file for testing" label="Manual Test Statue">
