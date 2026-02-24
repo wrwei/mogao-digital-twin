@@ -2,8 +2,14 @@
  * Simulation Panel Component
  * Manual component for environmental simulation
  * Allows users to configure temperature and relative humidity
+ *
+ * Uses DeteriorationEngine for scientific model calculations:
+ *   - Chemical pigment fading (Arrhenius + first-order kinetics)
+ *   - Michalski lifetime multiplier (Climate for Culture eLM)
+ *   - VTT / Finnish mould growth model (Hukka & Viitanen 1999)
  */
 import { useI18n } from '../i18n.js';
+import * as Engine from '../deterioration/DeteriorationEngine.js';
 
 export default {
     name: 'SimulationPanel',
@@ -32,37 +38,52 @@ export default {
             simMonths: 0,    // Exposure time in months
             simYears: 0,     // Exposure time in years
             simLight: 0,     // Light intensity in klux
+            // Mould growth tracking
+            mouldIndex: 0,   // Running mould index (0-6)
             // Time progression
             simulationTimer: null,
             timeSeriesData: [],  // Historical data points
             chartInstance: null,
             maxDataPoints: 100,   // Limit chart data for performance
-            isApplyingTexture: false  // For notification
+            isApplyingTexture: false,  // For notification
+            // Model selection toggles
+            enabledModels: {
+                chemical: true,
+                lifetime: true,
+                mould: true
+            },
+            // Model configuration (expandable)
+            showConfig: { chemical: false, lifetime: false, mould: false },
+            // Configurable model parameters (initialized from engine defaults)
+            chemicalParams: { ...Engine.CHEMICAL_DEFAULTS },
+            lifetimeParams: { ...Engine.LIFETIME_DEFAULTS },
+            mouldParams: { ...Engine.MOULD_DEFAULTS }
         };
     },
     computed: {
         temperatureK() {
-            // Convert to Kelvin for storage
             if (this.temperatureUnit === 'C') {
                 return this.temperature + 273.15;
             } else {
                 return (this.temperature - 32) * 5/9 + 273.15;
             }
         },
+        temperatureCelsius() {
+            if (this.temperatureUnit === 'C') return this.temperature;
+            return (this.temperature - 32) * 5/9;
+        },
         temperatureColor() {
-            // Visual feedback based on temperature
-            if (this.temperature < 10) return '#3b82f6'; // Cold - blue
-            if (this.temperature < 20) return '#10b981'; // Cool - green
-            if (this.temperature < 25) return '#f59e0b'; // Warm - orange
-            return '#ef4444'; // Hot - red
+            if (this.temperature < 10) return '#3b82f6';
+            if (this.temperature < 20) return '#10b981';
+            if (this.temperature < 25) return '#f59e0b';
+            return '#ef4444';
         },
         humidityColor() {
-            // Visual feedback based on humidity
-            if (this.humidity < 30) return '#ef4444'; // Too dry - red
-            if (this.humidity < 40) return '#f59e0b'; // Dry - orange
-            if (this.humidity < 60) return '#10b981'; // Optimal - green
-            if (this.humidity < 70) return '#f59e0b'; // Humid - orange
-            return '#ef4444'; // Too humid - red
+            if (this.humidity < 30) return '#ef4444';
+            if (this.humidity < 40) return '#f59e0b';
+            if (this.humidity < 60) return '#10b981';
+            if (this.humidity < 70) return '#f59e0b';
+            return '#ef4444';
         },
         temperatureStatus() {
             if (this.temperature < 10) return this.t('simulation.status.tooCold');
@@ -77,59 +98,75 @@ export default {
             if (this.humidity < 60) return this.t('simulation.status.optimal');
             if (this.humidity < 70) return this.t('simulation.status.humid');
             return this.t('simulation.status.tooHumid');
+        },
+        // ── Deterioration model results (computed, reactive) ────────────
+        assessmentResults() {
+            return Engine.assess({
+                T_celsius: this.temperatureCelsius,
+                RH_percent: this.humidity,
+                light_klux: this.simLight,
+                totalDays: this.getTotalDays(),
+                prevMouldIndex: this.mouldIndex,
+                chemicalParams: this.chemicalParams,
+                lifetimeParams: this.lifetimeParams,
+                mouldParams: this.mouldParams
+            });
+        },
+        lifetimeResult() {
+            return this.assessmentResults.lifetime;
+        },
+        mouldResult() {
+            return this.assessmentResults.mould;
+        },
+        chemicalResult() {
+            return this.assessmentResults.chemical;
+        },
+        displayMouldIndex() {
+            // Use assessment result (correct in both static and play modes)
+            // During play, this.mouldIndex accumulator feeds into assessmentResults anyway
+            return this.mouldResult.mouldIndex;
+        },
+        mouldStatusColor() {
+            if (!this.mouldResult.isAboveThreshold && this.humidity < this.mouldResult.rhCritical - 5) return '#10b981';
+            if (!this.mouldResult.isAboveThreshold) return '#f59e0b';
+            return '#ef4444';
+        },
+        mouldStatusLabel() {
+            if (!this.mouldResult.isAboveThreshold && this.humidity < this.mouldResult.rhCritical - 5) return this.t('simulation.mould.safe');
+            if (!this.mouldResult.isAboveThreshold) return this.t('simulation.mould.warning');
+            return this.t('simulation.mould.active');
         }
     },
     watch: {
-        temperature(newVal) {
-            this.emitSimulation();
-        },
-        humidity(newVal) {
-            this.emitSimulation();
-        },
+        temperature() { this.emitSimulation(); },
+        humidity() { this.emitSimulation(); },
         simDays() { this.emitSimulation(); },
         simMonths() { this.emitSimulation(); },
         simYears() { this.emitSimulation(); },
-        simLight() { this.emitSimulation(); }
+        simLight() { this.emitSimulation(); },
+        enabledModels: {
+            deep: true,
+            handler() { this.emitSimulation(); }
+        },
+        chemicalParams: {
+            deep: true,
+            handler() { this.emitSimulation(); }
+        },
+        lifetimeParams: {
+            deep: true,
+            handler() { this.emitSimulation(); }
+        },
+        mouldParams: {
+            deep: true,
+            handler() { this.emitSimulation(); }
+        }
     },
     methods: {
-        /**
-         * Strlič dose-response framework: Calculate moisture content
-         */
-        calculateMoistureContent(RH_fraction, T_kelvin) {
-            const RH_safe = Math.min(Math.max(RH_fraction, 0.01), 0.999);
-            const numerator = Math.log(1 - RH_safe);
-            const denominator = 1.67 * T_kelvin - 285.655;
-            const base = Math.abs(numerator / denominator);
-            const exponent = 1 / (2.491 - 0.012 * T_kelvin);
-            return Math.pow(base, exponent);
-        },
-
-        /**
-         * Calculate degradation rate constant
-         */
+        // Keep inline versions for template expressions that call them directly
         calculateRateConstant(T_celsius, RH_percent, light_klux) {
-            const T_kelvin = T_celsius + 273.15;
-            const RH_fraction = RH_percent / 100.0;
-            const R = 8.314;
-            const Ea_dark = 70000;
-            const Ea_light = 25000;
-            const k0_dark = 0.0001;
-            const k0_light = 0.001;
-            const q = 0.8;
-            const p = 0.9;
-
-            const H2O = this.calculateMoistureContent(RH_fraction, T_kelvin);
-            const k_dark = k0_dark * Math.pow(Math.abs(H2O), q) * Math.exp(-Ea_dark / (R * T_kelvin));
-            const k_light = light_klux > 0
-                ? k0_light * Math.pow(light_klux, p) * Math.pow(Math.abs(H2O), q) * Math.exp(-Ea_light / (R * T_kelvin))
-                : 0;
-
-            return k_dark + k_light;
+            return Engine.calculateRateConstant(T_celsius, RH_percent, light_klux, this.chemicalParams);
         },
 
-        /**
-         * Get total exposure time in days
-         */
         getTotalDays() {
             return this.simDays + (this.simMonths * 30.44) + (this.simYears * 365.25);
         },
@@ -137,40 +174,46 @@ export default {
         emitSimulation() {
             if (!this.isSimulating) return;
 
-            const rateConstant = this.calculateRateConstant(this.temperature, this.humidity, this.simLight);
+            const results = this.assessmentResults;
             const totalDays = this.getTotalDays();
-            const degradationFactor = Math.exp(-rateConstant * totalDays);
 
             this.$emit('simulation-changed', {
                 temperature: {
                     value: this.temperatureK,
                     unit: 'K',
-                    celsius: this.temperature
+                    celsius: this.temperatureCelsius
                 },
                 humidity: {
                     value: this.humidity,
                     unit: 'RH'
                 },
                 deterioration: {
+                    // Legacy fields for backward compatibility with ModelViewer
                     days: this.simDays,
                     months: this.simMonths,
                     years: this.simYears,
                     lightIntensity: this.simLight,
                     totalDays: totalDays,
-                    rateConstant: rateConstant,
-                    degradationFactor: degradationFactor,
-                    scientificDegradation: (1 - degradationFactor) * 100
+                    rateConstant: this.enabledModels.chemical ? results.chemical.rateConstant : 0,
+                    degradationFactor: this.enabledModels.chemical ? results.chemical.degradationFactor : 1.0,
+                    scientificDegradation: this.enabledModels.chemical ? results.chemical.scientificDegradation : 0,
+                    // Per-model results (null when disabled)
+                    chemical: this.enabledModels.chemical ? results.chemical : null,
+                    lifetime: this.enabledModels.lifetime ? results.lifetime : null,
+                    mould: this.enabledModels.mould ? results.mould : null
                 },
                 timestamp: Date.now(),
                 speed: this.simulationSpeed
             });
         },
+
         toggleSimulation() {
             this.isSimulating = !this.isSimulating;
             if (this.isSimulating) {
                 this.emitSimulation();
             }
         },
+
         resetDefaults() {
             this.temperature = 20;
             this.humidity = 50;
@@ -179,11 +222,15 @@ export default {
             this.simMonths = 0;
             this.simYears = 0;
             this.simLight = 0;
+            this.mouldIndex = 0;
         },
 
-        /**
-         * Apply preset scenario
-         */
+        resetModelParams(model) {
+            if (model === 'chemical') this.chemicalParams = { ...Engine.CHEMICAL_DEFAULTS };
+            else if (model === 'lifetime') this.lifetimeParams = { ...Engine.LIFETIME_DEFAULTS };
+            else if (model === 'mould') this.mouldParams = { ...Engine.MOULD_DEFAULTS };
+        },
+
         applyPreset(preset) {
             const presets = {
                 museum: { temp: 20, rh: 50, days: 0, months: 0, years: 100, light: 0.15 },
@@ -192,7 +239,6 @@ export default {
                 poorStorage: { temp: 30, rh: 80, days: 0, months: 0, years: 50, light: 5 },
                 extreme: { temp: 40, rh: 100, days: 0, months: 0, years: 10, light: 30 }
             };
-
             const p = presets[preset];
             if (p) {
                 this.temperature = p.temp;
@@ -201,23 +247,21 @@ export default {
                 this.simMonths = p.months;
                 this.simYears = p.years;
                 this.simLight = p.light;
+                this.mouldIndex = 0; // Reset mould on preset change
             }
         },
+
         convertTemperature() {
             if (this.temperatureUnit === 'C') {
-                // Convert to Fahrenheit
                 this.temperature = (this.temperature * 9/5) + 32;
                 this.temperatureUnit = 'F';
             } else {
-                // Convert to Celsius
                 this.temperature = (this.temperature - 32) * 5/9;
                 this.temperatureUnit = 'C';
             }
         },
 
-        /**
-         * Time Progression System
-         */
+        // ── Time Progression ────────────────────────────────────────────
         toggleTimeProgression() {
             this.isPlaying = !this.isPlaying;
             if (this.isPlaying) {
@@ -229,12 +273,9 @@ export default {
 
         startTimeProgression() {
             if (this.simulationTimer) return;
-
-            // Tick every 100ms (10 times per second)
             this.simulationTimer = setInterval(() => {
                 this.tickSimulation();
             }, 100);
-
             this.recordDataPoint();
         },
 
@@ -246,26 +287,27 @@ export default {
         },
 
         tickSimulation() {
-            // Increment time based on simulation speed
-            // 1 day of simulation per second at 1× speed
-            const daysPerTick = (this.simulationSpeed * 1.0) / 10; // 0.1 days per tick at 1× speed
-
+            const daysPerTick = (this.simulationSpeed * 1.0) / 10;
             this.simDays += daysPerTick;
 
-            // Normalize days into months/years
+            // Update mould index incrementally (only if mould model enabled)
+            if (this.enabledModels.mould) {
+                const mouldResult = Engine.mouldGrowth(this.temperatureCelsius, this.humidity, 0, this.mouldIndex, this.mouldParams);
+                this.mouldIndex = Math.max(0, Math.min(6, this.mouldIndex + mouldResult.growthRate * daysPerTick));
+            }
+
+            // Normalize days → months → years
             if (this.simDays >= 30.44) {
                 const monthsToAdd = Math.floor(this.simDays / 30.44);
                 this.simMonths += monthsToAdd;
                 this.simDays -= monthsToAdd * 30.44;
             }
-
             if (this.simMonths >= 12) {
                 const yearsToAdd = Math.floor(this.simMonths / 12);
                 this.simYears += yearsToAdd;
                 this.simMonths -= yearsToAdd * 12;
             }
 
-            // Record data every second (10 ticks)
             if (Math.random() < 0.1) {
                 this.recordDataPoint();
             }
@@ -273,37 +315,29 @@ export default {
 
         recordDataPoint() {
             const totalDays = this.getTotalDays();
-            const rateConstant = this.calculateRateConstant(this.temperature, this.humidity, this.simLight);
-            const degradationFactor = Math.exp(-rateConstant * totalDays);
+            const results = this.assessmentResults;
 
-            const dataPoint = {
+            this.timeSeriesData.push({
                 time: totalDays,
-                temperature: this.temperature,
+                temperature: this.temperatureCelsius,
                 humidity: this.humidity,
                 light: this.simLight,
-                degradation: (1 - degradationFactor) * 100
-            };
+                degradation: results.chemical.scientificDegradation,
+                mouldIndex: this.mouldIndex
+            });
 
-            this.timeSeriesData.push(dataPoint);
-
-            // Limit data points for performance
             if (this.timeSeriesData.length > this.maxDataPoints) {
                 this.timeSeriesData.shift();
             }
-
             this.updateChart();
         },
 
-        /**
-         * Chart.js Integration
-         */
+        // ── Chart.js ────────────────────────────────────────────────────
         initChart() {
             const canvas = this.$refs.timeSeriesCanvas;
             if (!canvas) return;
 
-            const ctx = canvas.getContext('2d');
-
-            this.chartInstance = new Chart(ctx, {
+            this.chartInstance = new Chart(canvas.getContext('2d'), {
                 type: 'line',
                 data: {
                     labels: [],
@@ -339,24 +373,27 @@ export default {
                             backgroundColor: 'rgba(139, 92, 246, 0.1)',
                             yAxisID: 'y2',
                             tension: 0.4
+                        },
+                        {
+                            label: 'Mould Index (0-6)',
+                            data: [],
+                            borderColor: '#059669',
+                            backgroundColor: 'rgba(5, 150, 105, 0.1)',
+                            yAxisID: 'y3',
+                            tension: 0.4,
+                            borderDash: [5, 5]
                         }
                     ]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    interaction: {
-                        mode: 'index',
-                        intersect: false
-                    },
+                    interaction: { mode: 'index', intersect: false },
                     plugins: {
                         legend: {
                             display: true,
                             position: 'top',
-                            labels: {
-                                boxWidth: 12,
-                                font: { size: 10 }
-                            }
+                            labels: { boxWidth: 12, font: { size: 10 } }
                         },
                         title: {
                             display: true,
@@ -366,44 +403,22 @@ export default {
                     },
                     scales: {
                         x: {
-                            title: {
-                                display: true,
-                                text: 'Simulated Time (days)',
-                                font: { size: 10 }
-                            },
+                            title: { display: true, text: 'Simulated Time (days)', font: { size: 10 } },
                             ticks: { font: { size: 9 } }
                         },
                         y: {
-                            type: 'linear',
-                            display: true,
-                            position: 'left',
-                            title: {
-                                display: true,
-                                text: 'Temp (°C) / Humidity (% RH)',
-                                font: { size: 10 }
-                            },
+                            type: 'linear', display: true, position: 'left',
+                            title: { display: true, text: 'Temp (°C) / Humidity (% RH)', font: { size: 10 } },
                             ticks: { font: { size: 9 } }
                         },
                         y1: {
-                            type: 'linear',
-                            display: true,
-                            position: 'right',
-                            title: {
-                                display: true,
-                                text: 'Light (klux)',
-                                font: { size: 10 }
-                            },
+                            type: 'linear', display: true, position: 'right',
+                            title: { display: true, text: 'Light (klux)', font: { size: 10 } },
                             ticks: { font: { size: 9 } },
-                            grid: {
-                                drawOnChartArea: false
-                            }
+                            grid: { drawOnChartArea: false }
                         },
-                        y2: {
-                            type: 'linear',
-                            display: false,
-                            position: 'right',
-                            max: 100
-                        }
+                        y2: { type: 'linear', display: false, position: 'right', max: 100 },
+                        y3: { type: 'linear', display: false, position: 'right', min: 0, max: 6 }
                     }
                 }
             });
@@ -413,18 +428,14 @@ export default {
             if (!this.chartInstance) return;
 
             const labels = this.timeSeriesData.map(d => d.time.toFixed(0));
-            const tempData = this.timeSeriesData.map(d => d.temperature);
-            const humidityData = this.timeSeriesData.map(d => d.humidity);
-            const lightData = this.timeSeriesData.map(d => d.light);
-            const degradationData = this.timeSeriesData.map(d => d.degradation);
-
             this.chartInstance.data.labels = labels;
-            this.chartInstance.data.datasets[0].data = tempData;
-            this.chartInstance.data.datasets[1].data = humidityData;
-            this.chartInstance.data.datasets[2].data = lightData;
-            this.chartInstance.data.datasets[3].data = degradationData;
+            this.chartInstance.data.datasets[0].data = this.timeSeriesData.map(d => d.temperature);
+            this.chartInstance.data.datasets[1].data = this.timeSeriesData.map(d => d.humidity);
+            this.chartInstance.data.datasets[2].data = this.timeSeriesData.map(d => d.light);
+            this.chartInstance.data.datasets[3].data = this.timeSeriesData.map(d => d.degradation);
+            this.chartInstance.data.datasets[4].data = this.timeSeriesData.map(d => d.mouldIndex);
 
-            this.chartInstance.update('none'); // No animation for performance
+            this.chartInstance.update('none');
         },
 
         clearHistory() {
@@ -434,20 +445,17 @@ export default {
     },
 
     mounted() {
-        // Initialize Chart.js
-        this.$nextTick(() => {
-            this.initChart();
-        });
+        this.$nextTick(() => { this.initChart(); });
     },
 
     beforeUnmount() {
-        // Cleanup
         this.stopTimeProgression();
         if (this.chartInstance) {
             this.chartInstance.destroy();
             this.chartInstance = null;
         }
     },
+
     template: `
         <div class="simulation-panel" :class="{ 'simulation-active': isSimulating }">
             <div class="simulation-header">
@@ -481,6 +489,30 @@ export default {
             </div>
 
             <div class="simulation-body">
+                <!-- ── Deterioration Models Card ─────────────────────── -->
+                <div v-if="isSimulating" class="deterioration-card" style="margin-top: 0;">
+                    <div class="deterioration-card-header">
+                        <span>📐 {{ t('simulation.modelsCard.title') }}</span>
+                        <span style="font-size: 10px; color: #888; font-weight: normal;">
+                            {{ [enabledModels.chemical, enabledModels.lifetime, enabledModels.mould].filter(Boolean).length }} / 3
+                        </span>
+                    </div>
+                    <div class="deterioration-card-body" style="padding: 8px 12px;">
+                        <label class="model-toggle-label" style="margin-bottom: 6px;">
+                            <input type="checkbox" v-model="enabledModels.chemical" />
+                            {{ t('simulation.models.chemical') }}
+                        </label>
+                        <label class="model-toggle-label" style="margin-bottom: 6px;">
+                            <input type="checkbox" v-model="enabledModels.lifetime" />
+                            {{ t('simulation.models.lifetime') }}
+                        </label>
+                        <label class="model-toggle-label">
+                            <input type="checkbox" v-model="enabledModels.mould" />
+                            {{ t('simulation.models.mould') }}
+                        </label>
+                    </div>
+                </div>
+
                 <!-- Temperature Control -->
                 <div class="simulation-control">
                     <div class="control-header">
@@ -535,6 +567,161 @@ export default {
                     </div>
                 </div>
 
+                <!-- ── Chemical Fading Card ──────────────────────────────── -->
+                <div v-if="isSimulating && enabledModels.chemical" class="deterioration-card">
+                    <div class="deterioration-card-header">
+                        <span>⚗️ {{ t('simulation.models.chemical') }}</span>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <span class="deterioration-badge" :style="{
+                                background: chemicalResult.label === 'critical' ? '#ef4444' : chemicalResult.label === 'high' ? '#f59e0b' : chemicalResult.label === 'moderate' ? '#eab308' : '#10b981',
+                                color: 'white'
+                            }">{{ chemicalResult.label }}</span>
+                            <button class="config-toggle-btn" @click="showConfig.chemical = !showConfig.chemical">
+                                {{ t('simulation.params.configure') }}
+                            </button>
+                        </div>
+                    </div>
+                    <div class="deterioration-card-body" style="text-align: center;">
+                        <div style="font-size: 22px; font-weight: 700; line-height: 1.2;"
+                             :style="{ color: chemicalResult.label === 'low' ? '#10b981' : chemicalResult.label === 'moderate' ? '#eab308' : '#ef4444' }">
+                            {{ chemicalResult.scientificDegradation.toFixed(1) }}%
+                        </div>
+                        <div style="font-size: 11px; color: #888; margin-top: 2px;">
+                            k = {{ chemicalResult.rateConstant.toExponential(2) }} /day
+                        </div>
+                        <!-- Config Section -->
+                        <div v-if="showConfig.chemical" class="param-config">
+                            <div class="param-config-grid">
+                                <div class="param-field">
+                                    <label>{{ t('simulation.params.chemical.Ea_dark') }}</label>
+                                    <input type="number" v-model.number="chemicalParams.Ea_dark" step="1000" />
+                                </div>
+                                <div class="param-field">
+                                    <label>{{ t('simulation.params.chemical.Ea_light') }}</label>
+                                    <input type="number" v-model.number="chemicalParams.Ea_light" step="1000" />
+                                </div>
+                                <div class="param-field">
+                                    <label>{{ t('simulation.params.chemical.k0_dark') }}</label>
+                                    <input type="number" v-model.number="chemicalParams.k0_dark" step="0.00001" />
+                                </div>
+                                <div class="param-field">
+                                    <label>{{ t('simulation.params.chemical.k0_light') }}</label>
+                                    <input type="number" v-model.number="chemicalParams.k0_light" step="0.0001" />
+                                </div>
+                                <div class="param-field">
+                                    <label>{{ t('simulation.params.chemical.q') }}</label>
+                                    <input type="number" v-model.number="chemicalParams.q" step="0.1" min="0" max="2" />
+                                </div>
+                                <div class="param-field">
+                                    <label>{{ t('simulation.params.chemical.p') }}</label>
+                                    <input type="number" v-model.number="chemicalParams.p" step="0.1" min="0" max="2" />
+                                </div>
+                            </div>
+                            <button class="param-reset-btn" @click="resetModelParams('chemical')">{{ t('simulation.params.resetDefaults') }}</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── Lifetime Multiplier Card ────────────────────────── -->
+                <div v-if="isSimulating && enabledModels.lifetime" class="deterioration-card">
+                    <div class="deterioration-card-header">
+                        <span>⏳ {{ t('simulation.models.lifetime') }}</span>
+                        <button class="config-toggle-btn" @click="showConfig.lifetime = !showConfig.lifetime">
+                            {{ t('simulation.params.configure') }}
+                        </button>
+                    </div>
+                    <div class="deterioration-card-body" style="text-align: center;">
+                        <div class="lifetime-value" :style="{ color: lifetimeResult.color }">
+                            {{ lifetimeResult.multiplier.toFixed(2) }}×
+                        </div>
+                        <div class="lifetime-label" :style="{ color: lifetimeResult.color }">
+                            {{ lifetimeResult.label === 'longer' ? t('simulation.lifetime.longer') : t('simulation.lifetime.shorter') }}
+                        </div>
+                        <div style="font-size: 10px; color: #888; margin-top: 4px;">
+                            {{ t('simulation.lifetime.reference') }}
+                        </div>
+                        <!-- Config Section -->
+                        <div v-if="showConfig.lifetime" class="param-config">
+                            <div class="param-config-grid">
+                                <div class="param-field">
+                                    <label>{{ t('simulation.params.lifetime.Ea') }}</label>
+                                    <input type="number" v-model.number="lifetimeParams.Ea" step="1000" />
+                                </div>
+                                <div class="param-field">
+                                    <label>{{ t('simulation.params.lifetime.n') }}</label>
+                                    <input type="number" v-model.number="lifetimeParams.n" step="0.1" min="0" max="5" />
+                                </div>
+                                <div class="param-field">
+                                    <label>{{ t('simulation.params.lifetime.T0') }}</label>
+                                    <input type="number" v-model.number="lifetimeParams.T0" step="1" />
+                                </div>
+                                <div class="param-field">
+                                    <label>{{ t('simulation.params.lifetime.RH0') }}</label>
+                                    <input type="number" v-model.number="lifetimeParams.RH0" step="1" min="1" max="100" />
+                                </div>
+                            </div>
+                            <button class="param-reset-btn" @click="resetModelParams('lifetime')">{{ t('simulation.params.resetDefaults') }}</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── Mould Risk Card ─────────────────────────────────── -->
+                <div v-if="isSimulating && enabledModels.mould" class="deterioration-card">
+                    <div class="deterioration-card-header">
+                        <span>🦠 {{ t('simulation.models.mould') }}</span>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <span class="deterioration-badge" :style="{ background: mouldStatusColor, color: 'white' }">
+                                {{ mouldStatusLabel }}
+                            </span>
+                            <button class="config-toggle-btn" @click="showConfig.mould = !showConfig.mould">
+                                {{ t('simulation.params.configure') }}
+                            </button>
+                        </div>
+                    </div>
+                    <div class="deterioration-card-body">
+                        <!-- Mould Index Gauge (0-6) -->
+                        <div style="margin-bottom: 8px;">
+                            <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 4px;">
+                                <span>{{ t('simulation.mould.index') }}: <strong>{{ displayMouldIndex.toFixed(1) }}</strong> / 6</span>
+                                <span style="color: #888;">{{ t('simulation.mould.scale.' + Math.min(6, Math.floor(displayMouldIndex))) }}</span>
+                            </div>
+                            <div class="mould-gauge-track">
+                                <div
+                                    class="mould-gauge-fill"
+                                    :style="{
+                                        width: (displayMouldIndex / 6 * 100) + '%',
+                                        background: displayMouldIndex < 2 ? '#10b981' : displayMouldIndex < 4 ? '#f59e0b' : '#ef4444'
+                                    }">
+                                </div>
+                                <div class="mould-gauge-labels">
+                                    <span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Threshold Info -->
+                        <div style="font-size: 11px; color: #666;">
+                            {{ t('simulation.mould.threshold', { rh: mouldResult.rhCritical.toFixed(0) }) }}
+                            <span v-if="mouldResult.isAboveThreshold" style="color: #ef4444; font-weight: 600;">
+                                ({{ t('simulation.mould.exceeded') }})
+                            </span>
+                        </div>
+                        <!-- Config Section -->
+                        <div v-if="showConfig.mould" class="param-config">
+                            <div class="param-config-grid">
+                                <div class="param-field">
+                                    <label>{{ t('simulation.params.mould.growthCoeff') }}</label>
+                                    <input type="number" v-model.number="mouldParams.growthCoeff" step="0.01" min="0" />
+                                </div>
+                                <div class="param-field">
+                                    <label>{{ t('simulation.params.mould.declineRate') }}</label>
+                                    <input type="number" v-model.number="mouldParams.declineRate" step="0.01" max="0" />
+                                </div>
+                            </div>
+                            <button class="param-reset-btn" @click="resetModelParams('mould')">{{ t('simulation.params.resetDefaults') }}</button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Advanced Settings -->
                 <div v-if="showAdvanced" class="simulation-advanced">
                     <hr style="margin: 16px 0; border: none; border-top: 1px solid #e0e0e0;" />
@@ -551,36 +738,29 @@ export default {
                         </div>
                     </div>
 
-                    <!-- Exposure Time Controls -->
-                    <div class="control-group" style="margin-bottom: 16px;">
-                        <label class="control-label" style="font-weight: 600;">
-                            ⏱️ Exposure Time: {{ getTotalDays().toFixed(0) }} days
-                            <small style="font-weight: normal;">({{ (getTotalDays() / 365.25).toFixed(1) }} years)</small>
-                        </label>
-
-                        <label class="control-label" style="font-size: 12px; margin-top: 8px; font-weight: normal;">
-                            Days: {{ simDays }}
-                            <input type="range" v-model.number="simDays"
-                                   min="0" max="365" step="1"
-                                   class="simulation-slider"
-                                   :disabled="!isSimulating" />
-                        </label>
-
-                        <label class="control-label" style="font-size: 12px; font-weight: normal;">
-                            Months: {{ simMonths }}
-                            <input type="range" v-model.number="simMonths"
-                                   min="0" max="24" step="1"
-                                   class="simulation-slider"
-                                   :disabled="!isSimulating" />
-                        </label>
-
-                        <label class="control-label" style="font-size: 12px; font-weight: normal;">
-                            Years: {{ simYears }}
-                            <input type="range" v-model.number="simYears"
-                                   min="0" max="200" step="5"
-                                   class="simulation-slider"
-                                   :disabled="!isSimulating" />
-                        </label>
+                    <!-- Exposure Time Control -->
+                    <div class="simulation-control" style="margin-bottom: 16px;">
+                        <div class="control-header">
+                            <label class="control-label" style="font-weight: 600;">
+                                ⏱️ Exposure Time
+                            </label>
+                            <div class="control-value-display">
+                                {{ simYears }} years
+                                <small style="font-weight: normal; color: #888;">
+                                    ({{ Math.floor(getTotalDays() / 30.44) }} months / {{ getTotalDays().toFixed(0) }} days)
+                                </small>
+                            </div>
+                        </div>
+                        <input type="range" v-model.number="simYears"
+                               min="0" max="200" step="1"
+                               class="simulation-slider"
+                               :disabled="!isSimulating" />
+                        <div style="display: flex; justify-content: space-between; font-size: 10px; color: #888; margin-top: 4px;">
+                            <span>0</span>
+                            <span>50</span>
+                            <span>100</span>
+                            <span>200 years</span>
+                        </div>
                     </div>
 
                     <!-- Light Intensity -->
@@ -647,11 +827,13 @@ export default {
                     <div class="simulation-info" style="margin-top: 16px;">
                         <p><strong>⚗️ Scientific Metrics</strong></p>
                         <ul style="margin: 8px 0; padding-left: 20px; font-size: 12px; line-height: 1.6;">
-                            <li><strong>Rate constant:</strong> {{ calculateRateConstant(temperature, humidity, simLight).toExponential(3) }} /day</li>
-                            <li><strong>Scientific degradation:</strong> {{ (100 * (1 - Math.exp(-calculateRateConstant(temperature, humidity, simLight) * getTotalDays()))).toFixed(1) }}%</li>
+                            <li><strong>Rate constant:</strong> {{ calculateRateConstant(temperatureCelsius, humidity, simLight).toExponential(3) }} /day</li>
+                            <li><strong>Scientific degradation:</strong> {{ chemicalResult.scientificDegradation.toFixed(1) }}%</li>
                             <li><strong>Visual amplification:</strong> 10× for demonstration</li>
-                            <li><strong>Color remaining:</strong> {{ (100 * Math.exp(-calculateRateConstant(temperature, humidity, simLight) * getTotalDays())).toFixed(1) }}%</li>
+                            <li><strong>Color remaining:</strong> {{ (chemicalResult.degradationFactor * 100).toFixed(1) }}%</li>
                             <li><strong>Kelvin temperature:</strong> {{ temperatureK.toFixed(2) }} K</li>
+                            <li><strong>Lifetime multiplier:</strong> {{ lifetimeResult.multiplier.toFixed(3) }}×</li>
+                            <li><strong>Mould index:</strong> {{ displayMouldIndex.toFixed(2) }} / 6 (RH_crit: {{ mouldResult.rhCritical }}%)</li>
                         </ul>
                     </div>
 

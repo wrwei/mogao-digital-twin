@@ -30,9 +30,9 @@ import java.util.UUID;
 public class FileUploadController {
 
     private static final Logger LOG = LoggerFactory.getLogger(FileUploadController.class);
-    // Save to classes for immediate serving (relative to target/), and ../src for persistence
-    private static final String CLASSPATH_DIR = "classes/exhibit_models/";
-    private static final String SOURCE_DIR = "../src/main/resources/exhibit_models/";
+    // Save to target/classes for immediate serving, and src/main/resources for persistence
+    private static final String CLASSPATH_DIR = "target/classes/exhibit_models/";
+    private static final String SOURCE_DIR = "src/main/resources/exhibit_models/";
 
     @Post(consumes = MediaType.MULTIPART_FORM_DATA, produces = MediaType.APPLICATION_JSON)
     public Map<String, String> upload(CompletedFileUpload file, String category) {

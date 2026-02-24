@@ -135,33 +135,7 @@ export default {
             return this.statues.find(item => item.gid === this.selectedGid);
         }
     },
-    mounted() {
-        // Debug logging for layout sizes
-        this.$nextTick(() => {
-            setTimeout(() => {
-                const container = document.querySelector('.statue-list-container');
-                const viewerPanel = document.querySelector('.entity-viewer-panel');
-
-                console.log('=== Statue List Layout Debug ===');
-                if (container) {
-                    console.log('Grid Container:', {
-                        width: container.offsetWidth,
-                        height: container.offsetHeight,
-                        computedWidth: window.getComputedStyle(container).width
-                    });
-                }
-                if (viewerPanel) {
-                    console.log('Viewer Panel:', {
-                        width: viewerPanel.offsetWidth,
-                        height: viewerPanel.offsetHeight,
-                        computedWidth: window.getComputedStyle(viewerPanel).width
-                    });
-                }
-                console.log('Viewport width:', window.innerWidth);
-                console.log('Expected viewer width:', window.innerWidth - 280);
-            }, 500);
-        });
-    },
+    mounted() {},
     template: `
         <div class="statue-list-container" style="display: grid; grid-template-columns: 280px 1fr; width: 100%; height: calc(100vh - 140px); gap: 0;">
             <!-- Left Panel: List -->
@@ -224,8 +198,8 @@ export default {
             </div>
 
             <!-- Right Panel: 3D Viewer + Simulation (Side by Side with Resizer) -->
-            <div class="entity-viewer-panel" style="display: flex; align-items: stretch; width: 100%; height: 100%; background: #fafafa; padding: 0;">
-                <div v-if="selectedItem && selectedItem.reference && selectedItem.reference.modelLocation" style="flex: 1; display: flex; flex-direction: row; padding: 16px; height: 100%; overflow: hidden;">
+            <div class="entity-viewer-panel" style="display: flex; align-items: stretch; width: 100%; height: 100%; min-height: 0; overflow: hidden; background: #fafafa; padding: 0;">
+                <div v-if="selectedItem && selectedItem.reference && selectedItem.reference.modelLocation" style="flex: 1; display: flex; flex-direction: row; padding: 16px; height: 100%; min-height: 0; overflow: hidden;">
                     <!-- Left: 3D Model Viewer (takes remaining space) -->
                     <div style="flex: 1; display: flex; flex-direction: column; align-items: center; padding-right: 8px; overflow-y: auto;">
                         <div style="flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; margin: auto 0;">
@@ -264,15 +238,12 @@ export default {
                         <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 4px; height: 40px; background: white; border-radius: 2px; opacity: 0.7;"></div>
                     </div>
 
-                    <!-- Right: Simulation Panel (resizable width) -->
+                    <!-- Right: Simulation Panel (resizable width, scrollable) -->
                     <div :style="{
                         width: simulationPanelWidth + 'px',
                         flexShrink: 0,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        height: '100%',
+                        maxHeight: 'calc(100vh - 172px)',
                         overflowY: 'auto',
-                        scrollBehavior: 'smooth',
                         paddingLeft: '8px'
                     }">
                         <simulation-panel

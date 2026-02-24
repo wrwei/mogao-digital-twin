@@ -193,6 +193,65 @@ export const messages = {
                 warning: '警告',
                 warningText: '极端条件可能损害文物',
                 kelvin: '开尔文温度'
+            },
+            lifetime: {
+                title: '寿命倍数',
+                longer: '更长寿命',
+                shorter: '更短寿命',
+                reference: '相对博物馆参考条件 (20°C / 50% RH)'
+            },
+            mould: {
+                title: '霉菌风险',
+                index: '霉菌指数',
+                threshold: '霉菌阈值: {rh}% RH',
+                exceeded: '已超过阈值',
+                safe: '安全',
+                warning: '警告',
+                active: '活跃生长',
+                scale: {
+                    0: '无生长',
+                    1: '微观可见',
+                    2: '显微镜下可见',
+                    3: '覆盖 <10%',
+                    4: '覆盖 10-50%',
+                    5: '覆盖 50-100%',
+                    6: '完全覆盖'
+                }
+            },
+            toggles: {
+                chemical: '化学褪色',
+                lifetime: '寿命倍数',
+                mould: '霉菌生长'
+            },
+            modelsCard: {
+                title: '劣化模型'
+            },
+            models: {
+                chemical: 'Arrhenius (化学褪色)',
+                lifetime: 'Michalski eLM (寿命倍数)',
+                mould: 'VTT Hukka-Viitanen (霉菌生长)'
+            },
+            params: {
+                configure: '⚙ 参数',
+                resetDefaults: '恢复默认',
+                chemical: {
+                    Ea_dark: '暗反应活化能 (J/mol)',
+                    Ea_light: '光反应活化能 (J/mol)',
+                    k0_dark: '暗反应前因子',
+                    k0_light: '光反应前因子',
+                    q: '水反应级数',
+                    p: '光互易指数'
+                },
+                lifetime: {
+                    Ea: '活化能 (J/mol)',
+                    n: '湿度指数',
+                    T0: '参考温度 (°C)',
+                    RH0: '参考湿度 (%)'
+                },
+                mould: {
+                    growthCoeff: '生长系数',
+                    declineRate: '衰减速率 (/天)'
+                }
             }
         },
 
@@ -404,6 +463,65 @@ export const messages = {
                 warning: 'Warning',
                 warningText: 'Extreme conditions may damage artifacts',
                 kelvin: 'Kelvin Temperature'
+            },
+            lifetime: {
+                title: 'Lifetime Multiplier',
+                longer: 'longer lifetime',
+                shorter: 'shorter lifetime',
+                reference: 'vs. museum reference (20°C / 50% RH)'
+            },
+            mould: {
+                title: 'Mould Risk',
+                index: 'Mould Index',
+                threshold: 'Mould threshold: {rh}% RH',
+                exceeded: 'threshold exceeded',
+                safe: 'Safe',
+                warning: 'Warning',
+                active: 'Active Growth',
+                scale: {
+                    0: 'No growth',
+                    1: 'Microscopic',
+                    2: 'Visible under microscope',
+                    3: 'Coverage <10%',
+                    4: 'Coverage 10-50%',
+                    5: 'Coverage 50-100%',
+                    6: 'Tight coverage'
+                }
+            },
+            toggles: {
+                chemical: 'Chemical Fading',
+                lifetime: 'Lifetime Multiplier',
+                mould: 'Mould Growth'
+            },
+            modelsCard: {
+                title: 'Deterioration Models'
+            },
+            models: {
+                chemical: 'Arrhenius (Chemical Fading)',
+                lifetime: 'Michalski eLM (Lifetime Multiplier)',
+                mould: 'VTT Hukka-Viitanen (Mould Growth)'
+            },
+            params: {
+                configure: '⚙ Params',
+                resetDefaults: 'Reset Defaults',
+                chemical: {
+                    Ea_dark: 'Dark Reaction Ea (J/mol)',
+                    Ea_light: 'Light Reaction Ea (J/mol)',
+                    k0_dark: 'Dark Pre-exponential',
+                    k0_light: 'Light Pre-exponential',
+                    q: 'Water Reaction Order',
+                    p: 'Light Reciprocity'
+                },
+                lifetime: {
+                    Ea: 'Activation Energy (J/mol)',
+                    n: 'Humidity Exponent',
+                    T0: 'Reference Temp (°C)',
+                    RH0: 'Reference RH (%)'
+                },
+                mould: {
+                    growthCoeff: 'Growth Coefficient',
+                    declineRate: 'Decline Rate (/day)'
+                }
             }
         },
 
