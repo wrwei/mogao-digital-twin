@@ -73,6 +73,21 @@
     padding: 0 2px;
 }
 
+/* Salt damage gauge */
+.salt-damage-track {
+    position: relative;
+    height: 10px;
+    background: #e0e0e0;
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.salt-damage-fill {
+    height: 100%;
+    border-radius: 5px;
+    transition: width 0.3s ease, background 0.3s ease;
+}
+
 /* Model toggles */
 .model-toggles {
     display: flex;
@@ -195,7 +210,8 @@
         color: #ccc;
     }
 
-    .mould-gauge-track {
+    .mould-gauge-track,
+    .salt-damage-track {
         background: #444;
     }
 

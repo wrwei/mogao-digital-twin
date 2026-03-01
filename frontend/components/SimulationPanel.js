@@ -7,6 +7,7 @@
  *   - Chemical pigment fading (Arrhenius + first-order kinetics)
  *   - Michalski lifetime multiplier (Climate for Culture eLM)
  *   - VTT / Finnish mould growth model (Hukka & Viitanen 1999)
+ *   - Salt crystallization pressure (Scherer 1999 / Steiger 2005)
  */
 import { useI18n } from '../i18n.js';
 import * as Engine from '../deterioration/DeteriorationEngine.js';
@@ -50,14 +51,16 @@ export default {
             enabledModels: {
                 chemical: true,
                 lifetime: true,
-                mould: true
+                mould: true,
+                saltCryst: true
             },
             // Model configuration (expandable)
-            showConfig: { chemical: false, lifetime: false, mould: false },
+            showConfig: { chemical: false, lifetime: false, mould: false, saltCryst: false },
             // Configurable model parameters (initialized from engine defaults)
             chemicalParams: { ...Engine.CHEMICAL_DEFAULTS },
             lifetimeParams: { ...Engine.LIFETIME_DEFAULTS },
-            mouldParams: { ...Engine.MOULD_DEFAULTS }
+            mouldParams: { ...Engine.MOULD_DEFAULTS },
+            saltCrystParams: { ...Engine.SALT_DEFAULTS }
         };
     },
     computed: {
@@ -109,7 +112,8 @@ export default {
                 prevMouldIndex: this.mouldIndex,
                 chemicalParams: this.chemicalParams,
                 lifetimeParams: this.lifetimeParams,
-                mouldParams: this.mouldParams
+                mouldParams: this.mouldParams,
+                saltCrystParams: this.saltCrystParams
             });
         },
         lifetimeResult() {
@@ -120,6 +124,9 @@ export default {
         },
         chemicalResult() {
             return this.assessmentResults.chemical;
+        },
+        saltCrystResult() {
+            return this.assessmentResults.saltCryst;
         },
         displayMouldIndex() {
             // Use assessment result (correct in both static and play modes)
@@ -157,6 +164,10 @@ export default {
             handler() { this.emitSimulation(); }
         },
         mouldParams: {
+            deep: true,
+            handler() { this.emitSimulation(); }
+        },
+        saltCrystParams: {
             deep: true,
             handler() { this.emitSimulation(); }
         }
@@ -200,7 +211,8 @@ export default {
                     // Per-model results (null when disabled)
                     chemical: this.enabledModels.chemical ? results.chemical : null,
                     lifetime: this.enabledModels.lifetime ? results.lifetime : null,
-                    mould: this.enabledModels.mould ? results.mould : null
+                    mould: this.enabledModels.mould ? results.mould : null,
+                    saltCryst: this.enabledModels.saltCryst ? results.saltCryst : null
                 },
                 timestamp: Date.now(),
                 speed: this.simulationSpeed
@@ -229,6 +241,7 @@ export default {
             if (model === 'chemical') this.chemicalParams = { ...Engine.CHEMICAL_DEFAULTS };
             else if (model === 'lifetime') this.lifetimeParams = { ...Engine.LIFETIME_DEFAULTS };
             else if (model === 'mould') this.mouldParams = { ...Engine.MOULD_DEFAULTS };
+            else if (model === 'saltCryst') this.saltCrystParams = { ...Engine.SALT_DEFAULTS };
         },
 
         applyPreset(preset) {
@@ -494,7 +507,7 @@ export default {
                     <div class="deterioration-card-header">
                         <span>📐 {{ t('simulation.modelsCard.title') }}</span>
                         <span style="font-size: 10px; color: #888; font-weight: normal;">
-                            {{ [enabledModels.chemical, enabledModels.lifetime, enabledModels.mould].filter(Boolean).length }} / 3
+                            {{ [enabledModels.chemical, enabledModels.lifetime, enabledModels.mould, enabledModels.saltCryst].filter(Boolean).length }} / 4
                         </span>
                     </div>
                     <div class="deterioration-card-body" style="padding: 8px 12px;">
@@ -506,9 +519,13 @@ export default {
                             <input type="checkbox" v-model="enabledModels.lifetime" />
                             {{ t('simulation.models.lifetime') }}
                         </label>
-                        <label class="model-toggle-label">
+                        <label class="model-toggle-label" style="margin-bottom: 6px;">
                             <input type="checkbox" v-model="enabledModels.mould" />
                             {{ t('simulation.models.mould') }}
+                        </label>
+                        <label class="model-toggle-label">
+                            <input type="checkbox" v-model="enabledModels.saltCryst" />
+                            {{ t('simulation.models.saltCryst') }}
                         </label>
                     </div>
                 </div>
@@ -722,6 +739,87 @@ export default {
                     </div>
                 </div>
 
+                <!-- ── Salt Crystallization Card ────────────────────── -->
+                <div v-if="isSimulating && enabledModels.saltCryst" class="deterioration-card">
+                    <div class="deterioration-card-header">
+                        <span>🧂 {{ t('simulation.models.saltCryst') }}</span>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <span class="deterioration-badge" :style="{
+                                background: saltCrystResult.label === 'critical' ? '#ef4444' : saltCrystResult.label === 'high' ? '#f59e0b' : saltCrystResult.label === 'moderate' ? '#eab308' : '#10b981',
+                                color: 'white'
+                            }">{{ saltCrystResult.label }}</span>
+                            <button class="config-toggle-btn" @click="showConfig.saltCryst = !showConfig.saltCryst">
+                                {{ t('simulation.params.configure') }}
+                            </button>
+                        </div>
+                    </div>
+                    <div class="deterioration-card-body">
+                        <!-- Pressure display -->
+                        <div style="text-align: center; margin-bottom: 8px;">
+                            <div style="font-size: 22px; font-weight: 700; line-height: 1.2;"
+                                 :style="{ color: saltCrystResult.damageRatio >= 1.5 ? '#ef4444' : saltCrystResult.damageRatio >= 0.5 ? '#f59e0b' : '#10b981' }">
+                                {{ saltCrystResult.pressure_MPa.toFixed(1) }} MPa
+                            </div>
+                            <div style="font-size: 11px; color: #888; margin-top: 2px;">
+                                {{ t('simulation.saltCryst.pressure') }}
+                            </div>
+                        </div>
+                        <!-- Damage gauge -->
+                        <div style="margin-bottom: 8px;">
+                            <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 4px;">
+                                <span>{{ t('simulation.saltCryst.damageRatio') }}: <strong>{{ saltCrystResult.damageRatio.toFixed(2) }}×</strong></span>
+                                <span style="color: #888;">{{ t('simulation.saltCryst.ofTensile') }}</span>
+                            </div>
+                            <div class="salt-damage-track">
+                                <div class="salt-damage-fill" :style="{
+                                    width: Math.min(100, saltCrystResult.damageRatio / 4 * 100) + '%',
+                                    background: saltCrystResult.damageRatio < 0.5 ? '#10b981' : saltCrystResult.damageRatio < 1.5 ? '#f59e0b' : '#ef4444'
+                                }"></div>
+                            </div>
+                        </div>
+                        <!-- Threshold info -->
+                        <div style="font-size: 11px; color: #666;">
+                            {{ t('simulation.saltCryst.threshold', { drh: saltCrystResult.DRH.toFixed(0) }) }}
+                            <span v-if="saltCrystResult.isCrystallizing" style="color: #ef4444; font-weight: 600;">
+                                ({{ t('simulation.saltCryst.crystallizing') }})
+                            </span>
+                            <span v-else style="color: #10b981; font-weight: 600;">
+                                ({{ t('simulation.saltCryst.dissolved') }})
+                            </span>
+                        </div>
+                        <!-- Config Section -->
+                        <div v-if="showConfig.saltCryst" class="param-config">
+                            <div class="param-config-grid">
+                                <div class="param-field">
+                                    <label>{{ t('simulation.params.saltCryst.Vm') }}</label>
+                                    <input type="number" v-model.number="saltCrystParams.Vm" step="0.00001" />
+                                </div>
+                                <div class="param-field">
+                                    <label>{{ t('simulation.params.saltCryst.DRH_ref') }}</label>
+                                    <input type="number" v-model.number="saltCrystParams.DRH_ref" step="0.1" min="0" max="100" />
+                                </div>
+                                <div class="param-field">
+                                    <label>{{ t('simulation.params.saltCryst.DRH_slope') }}</label>
+                                    <input type="number" v-model.number="saltCrystParams.DRH_slope" step="0.01" />
+                                </div>
+                                <div class="param-field">
+                                    <label>{{ t('simulation.params.saltCryst.tensileStrength') }}</label>
+                                    <input type="number" v-model.number="saltCrystParams.tensileStrength" step="0.5" min="0.1" />
+                                </div>
+                                <div class="param-field">
+                                    <label>{{ t('simulation.params.saltCryst.cyclesPerYear') }}</label>
+                                    <input type="number" v-model.number="saltCrystParams.cyclesPerYear" step="10" min="1" />
+                                </div>
+                                <div class="param-field">
+                                    <label>{{ t('simulation.params.saltCryst.T_ref') }}</label>
+                                    <input type="number" v-model.number="saltCrystParams.T_ref" step="1" />
+                                </div>
+                            </div>
+                            <button class="param-reset-btn" @click="resetModelParams('saltCryst')">{{ t('simulation.params.resetDefaults') }}</button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Advanced Settings -->
                 <div v-if="showAdvanced" class="simulation-advanced">
                     <hr style="margin: 16px 0; border: none; border-top: 1px solid #e0e0e0;" />
@@ -834,6 +932,7 @@ export default {
                             <li><strong>Kelvin temperature:</strong> {{ temperatureK.toFixed(2) }} K</li>
                             <li><strong>Lifetime multiplier:</strong> {{ lifetimeResult.multiplier.toFixed(3) }}×</li>
                             <li><strong>Mould index:</strong> {{ displayMouldIndex.toFixed(2) }} / 6 (RH_crit: {{ mouldResult.rhCritical }}%)</li>
+                            <li><strong>Salt pressure:</strong> {{ saltCrystResult.pressure_MPa.toFixed(2) }} MPa (DRH: {{ saltCrystResult.DRH }}%, ratio: {{ saltCrystResult.damageRatio }}×)</li>
                         </ul>
                     </div>
 
