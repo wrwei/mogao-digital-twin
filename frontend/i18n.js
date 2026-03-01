@@ -229,7 +229,16 @@ export const messages = {
             models: {
                 chemical: 'Arrhenius (化学褪色)',
                 lifetime: 'Michalski eLM (寿命倍数)',
-                mould: 'VTT Hukka-Viitanen (霉菌生长)'
+                mould: 'VTT Hukka-Viitanen (霉菌生长)',
+                saltCryst: 'Scherer-Steiger (盐结晶)'
+            },
+            saltCryst: {
+                pressure: '结晶压力',
+                damageRatio: '损伤比',
+                ofTensile: '抗拉强度',
+                threshold: 'DRH阈值: {drh}% RH',
+                crystallizing: '正在结晶',
+                dissolved: '已溶解'
             },
             params: {
                 configure: '⚙ 参数',
@@ -251,6 +260,14 @@ export const messages = {
                 mould: {
                     growthCoeff: '生长系数',
                     declineRate: '衰减速率 (/天)'
+                },
+                saltCryst: {
+                    Vm: '摩尔体积 (m³/mol)',
+                    DRH_ref: '参考DRH (%)',
+                    DRH_slope: 'DRH温度系数 (%/°C)',
+                    T_ref: '参考温度 (°C)',
+                    tensileStrength: '抗拉强度 (MPa)',
+                    cyclesPerYear: '年干湿循环次数'
                 }
             }
         },
@@ -499,7 +516,16 @@ export const messages = {
             models: {
                 chemical: 'Arrhenius (Chemical Fading)',
                 lifetime: 'Michalski eLM (Lifetime Multiplier)',
-                mould: 'VTT Hukka-Viitanen (Mould Growth)'
+                mould: 'VTT Hukka-Viitanen (Mould Growth)',
+                saltCryst: 'Scherer-Steiger (Salt Crystallization)'
+            },
+            saltCryst: {
+                pressure: 'Crystallization Pressure',
+                damageRatio: 'Damage Ratio',
+                ofTensile: 'of tensile strength',
+                threshold: 'DRH threshold: {drh}% RH',
+                crystallizing: 'Crystallizing',
+                dissolved: 'Dissolved'
             },
             params: {
                 configure: '⚙ Params',
@@ -521,6 +547,14 @@ export const messages = {
                 mould: {
                     growthCoeff: 'Growth Coefficient',
                     declineRate: 'Decline Rate (/day)'
+                },
+                saltCryst: {
+                    Vm: 'Molar Volume (m³/mol)',
+                    DRH_ref: 'Reference DRH (%)',
+                    DRH_slope: 'DRH Temp Coefficient (%/°C)',
+                    T_ref: 'Reference Temp (°C)',
+                    tensileStrength: 'Tensile Strength (MPa)',
+                    cyclesPerYear: 'Wet-Dry Cycles/Year'
                 }
             }
         },

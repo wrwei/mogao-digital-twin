@@ -2,12 +2,13 @@
 
 ## Overview
 
-This document describes the **modular deterioration engine** added to the Mogao Digital Twin simulation system. The engine extracts and extends the original Strlič dose-response chemical fading model into a standalone module (`DeteriorationEngine.js`), and adds two new scientifically-grounded models:
+This document describes the **modular deterioration engine** added to the Mogao Digital Twin simulation system. The engine extracts and extends the original Strlič dose-response chemical fading model into a standalone module (`DeteriorationEngine.js`), and adds three additional scientifically-grounded models:
 
 1. **Michalski Lifetime Multiplier** (Climate for Culture eLM variant)
 2. **VTT / Finnish Mould Growth Model** (Hukka & Viitanen 1999)
+3. **Salt Crystallization Pressure** (Scherer 1999 / Steiger 2005)
 
-All three models run in the simulation panel and feed into the 3D model viewer for real-time visual feedback on the texture.
+All four models run in the simulation panel and feed into the 3D model viewer for real-time visual feedback on the texture.
 
 ---
 
@@ -30,12 +31,15 @@ DeteriorationEngine.js
   ├─ chemicalFading()               First-order pigment fading
   ├─ lifetimeMultiplier()           Michalski / eLM
   ├─ mouldGrowth()                  VTT Finnish model
+  ├─ saltDeliquescenceRH()          Temperature-dependent DRH
+  ├─ saltCrystallization()          Scherer/Steiger pressure model
   └─ assess()                       Run all models, return combined results
 
 SimulationPanel.js  ──(per-model results)──>  ModelViewer.js
   └─ imports Engine                            └─ chemical fading (texture)
   └─ Lifetime Multiplier card                  └─ mould spots (procedural)
   └─ Mould Risk card
+  └─ Salt Crystallization card
   └─ Chart.js (mould index dataset)
 ```
 
@@ -238,6 +242,114 @@ hash(x, y, seed) → 0-1
 
 ---
 
+## Model 4: Salt Crystallization Pressure
+
+### Scientific Basis
+
+The Scherer/Steiger crystallization pressure model (Scherer 1999, *Cement and Concrete Research* 29:1347; Steiger 2005, *Journal of Crystal Growth* 282:455) predicts mechanical stress exerted on pore walls by growing salt crystals. Salt damage — manifesting as efflorescence, granular disintegration, flaking, and spalling — is the **single most destructive deterioration mechanism** at the Mogao Caves, primarily driven by Na₂SO₄ (thenardite/mirabilite) under the dramatic diurnal RH swings of the Gobi desert.
+
+### Deliquescence RH Threshold
+
+Each salt species has a temperature-dependent **deliquescence RH (DRH)** — above this humidity the salt dissolves, below it the salt crystallizes:
+
+```
+DRH(T) = DRH_ref + DRH_slope · (T − T_ref)
+```
+
+For Na₂SO₄ (thenardite): DRH ≈ 84.2% at 25°C, with a slope of −0.17 %/°C.
+
+| Temperature | DRH (Na₂SO₄) |
+|-------------|---------------|
+| 10°C | ~87% |
+| 20°C | ~85% |
+| 25°C | ~84% |
+| 30°C | ~83% |
+| 40°C | ~82% |
+
+### Crystallization Pressure Equation
+
+When RH drops below DRH, the solution supersaturates and crystallization pressure builds:
+
+```
+ΔP = (R · T / Vm) · ln(S)
+```
+
+| Symbol | Value | Meaning |
+|--------|-------|---------|
+| R | 8.314 J/(mol·K) | Universal gas constant |
+| T | Temperature in K | Absolute temperature |
+| Vm | 5.33 × 10⁻⁵ m³/mol | Molar volume of Na₂SO₄ (thenardite) |
+| S | DRH/RH | Supersaturation ratio (water activity ratio) |
+
+The supersaturation ratio S is approximated as the ratio of water activities at the deliquescence point vs. the current RH:
+
+```
+S = (DRH / 100) / (RH / 100) = DRH / RH
+```
+
+### Damage Assessment
+
+**Damage ratio** — crystallization pressure relative to substrate tensile strength:
+
+```
+damageRatio = ΔP / tensileStrength
+```
+
+- Default tensile strength: **3.0 MPa** (typical for plaster/sandstone at Mogao)
+- damageRatio > 1.0 means the pressure exceeds what the substrate can bear
+
+**Cumulative damage** — accounts for repeated wet-dry cycling over exposure time:
+
+```
+cumulativeDamage = damageRatio × totalCycles × 0.5
+totalCycles = (totalDays / 365.25) × cyclesPerYear
+```
+
+Default: **120 cycles/year** (estimated from Gobi desert diurnal RH oscillations).
+
+### Risk Classification
+
+| Condition | Label |
+|-----------|-------|
+| RH ≥ DRH (salt dissolved) | Safe |
+| damageRatio < 0.5 | Low |
+| damageRatio 0.5–1.5 | Moderate |
+| damageRatio 1.5–3.0 | High |
+| damageRatio ≥ 3.0 | Critical |
+
+### Configurable Parameters
+
+| Parameter | Default | Units | Description |
+|-----------|---------|-------|-------------|
+| Vm | 5.33 × 10⁻⁵ | m³/mol | Molar volume of salt crystal |
+| DRH_ref | 84.2 | % | Deliquescence RH at reference temperature |
+| DRH_slope | −0.17 | %/°C | Temperature coefficient of DRH |
+| T_ref | 25 | °C | Reference temperature for DRH |
+| tensileStrength | 3.0 | MPa | Tensile strength of substrate |
+| cyclesPerYear | 120 | — | Estimated wet-dry cycles per year |
+
+### UI
+
+A **Salt Crystallization card** in the simulation panel showing:
+
+- **Pressure value** — crystallization pressure in MPa, color-coded by severity
+- **Damage gauge** — visual bar showing damageRatio from 0 to 4× tensile strength
+- **DRH threshold** — current deliquescence RH for the temperature
+- **Status indicator** — "Crystallizing" (red) when RH < DRH, "Dissolved" (green) when RH ≥ DRH
+- **Risk badge** — Safe / Low / Moderate / High / Critical
+
+### Example Values
+
+| Conditions | Pressure | Damage Ratio | Status |
+|------------|----------|--------------|--------|
+| 20°C / 50% RH | ~8.1 MPa | ~2.7× | Critical — crystallizing |
+| 20°C / 70% RH | ~2.9 MPa | ~1.0× | Moderate — crystallizing |
+| 20°C / 85% RH | 0 MPa | 0× | Safe — dissolved |
+| 30°C / 50% RH | ~7.7 MPa | ~2.6× | Critical — crystallizing |
+| 30°C / 90% RH | 0 MPa | 0× | Safe — dissolved |
+
+---
+
 ## Composite Texture Pipeline
 
 The ModelViewer applies deterioration effects in sequence:
@@ -278,6 +390,12 @@ The simulation panel emits enriched events with per-model breakdowns:
             mouldIndex, rhCritical, isAboveThreshold,
             risk, label, growthRate,
             visualEffect: { coverage, intensity }
+        },
+        saltCryst: {
+            pressure_MPa, DRH, isCrystallizing,
+            damageRatio, cumulativeDamage,
+            risk, label,
+            visualEffect: { spalling }
         }
     },
     timestamp: Date.now(),
@@ -311,6 +429,13 @@ New translation keys added for both Chinese (zh) and English (en):
 | `simulation.mould.warning` | 警告 | Warning |
 | `simulation.mould.active` | 活跃生长 | Active Growth |
 | `simulation.mould.scale.0-6` | 无生长...完全覆盖 | No growth...Tight coverage |
+| `simulation.saltCryst.pressure` | 结晶压力 | Crystallization Pressure |
+| `simulation.saltCryst.damageRatio` | 损伤比 | Damage Ratio |
+| `simulation.saltCryst.ofTensile` | 抗拉强度 | of tensile strength |
+| `simulation.saltCryst.threshold` | DRH阈值: {drh}% RH | DRH threshold: {drh}% RH |
+| `simulation.saltCryst.crystallizing` | 正在结晶 | Crystallizing |
+| `simulation.saltCryst.dissolved` | 已溶解 | Dissolved |
+| `simulation.models.saltCryst` | Scherer-Steiger (盐结晶) | Scherer-Steiger (Salt Crystallization) |
 
 ---
 
@@ -323,12 +448,14 @@ New translation keys added for both Chinese (zh) and English (en):
 
 | Test | Expected |
 |------|----------|
-| Sliders at 20°C / 50% RH | Lifetime ≈ 1.0×, Mould = Safe |
-| Lower temp to 10°C, RH to 30% | Lifetime > 1× (green, "longer") |
+| Sliders at 20°C / 50% RH | Lifetime ≈ 1.0×, Mould = Safe, Salt = Critical (crystallizing) |
+| Lower temp to 10°C, RH to 30% | Lifetime > 1× (green, "longer"), Salt pressure high |
 | Raise temp to 35°C, RH to 80% | Lifetime < 1× (red, "shorter"), Mould switches to "Active Growth" |
+| Raise RH to 90% | Salt switches to "Dissolved" (safe), pressure = 0 MPa |
 | Press Play at high RH | Mould index rises over time, green-black spots appear on texture |
 | Lower RH below threshold | Mould status returns to Safe, index declines |
 | Apply preset "Museum (100y)" | Chemical fading visible, mould stays at 0 |
+| Toggle salt model off | Salt card hides, 4/4 counter becomes 3/4 |
 | Switch to Chinese language | All new labels display in Chinese |
 
 ---
@@ -342,4 +469,6 @@ New translation keys added for both Chinese (zh) and English (en):
 - Kowalski, S. et al. (2017). Thermal-oxidative stability of linseed oil by PDSC. *Journal of Thermal Analysis and Calorimetry*, 130:53-60.
 - Feller, R. (1994). *Accelerated Aging: Photochemical and Thermal Aspects*. Getty Conservation Institute.
 - Johnston-Feller, R. et al. (1984). The kinetics of fading: opaque paint films pigmented with alizarin lake and titanium dioxide. *JAIC*, 23(2):114-129.
+- Scherer, G.W. (1999). Crystallization in pores. *Cement and Concrete Research*, 29(8):1347-1358.
+- Steiger, M. (2005). Crystal growth in porous materials — I: The crystallization pressure of large crystals. *Journal of Crystal Growth*, 282(3-4):455-469.
 - Strlič, M. et al. (2015). Damage function for historic paper. *Heritage Science*, 3:40.
