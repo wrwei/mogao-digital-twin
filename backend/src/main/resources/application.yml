@@ -5,7 +5,7 @@ micronaut:
     watch:
       enabled: false
   server:
-    port: 8080
+    port: 8008
     max-request-size: 500MB
     multipart:
       enabled: true
@@ -15,10 +15,10 @@ micronaut:
       configurations:
         web:
           allowedOrigins:
-            - http://localhost:8000
-            - http://localhost:8080
-            - http://127.0.0.1:8000
-            - http://127.0.0.1:8080
+            - http://localhost:8009
+            - http://localhost:8008
+            - http://127.0.0.1:8009
+            - http://127.0.0.1:8008
           allowedMethods:
             - GET
             - POST
@@ -33,7 +33,9 @@ micronaut:
       exhibit-models:
         enabled: true
         mapping: /exhibit_models/**
-        paths: classpath:exhibit_models
+        paths:
+          - classpath:exhibit_models
+          - file:exhibit_models
 
 jackson:
   serialization:

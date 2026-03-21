@@ -50,7 +50,7 @@ cd backend
 ./start-backend.sh    # Linux/Mac
 ```
 
-Backend will be available at: **http://localhost:8080**
+Backend will be available at: **http://localhost:8008**
 
 ### 3. Start Frontend Server
 
@@ -63,13 +63,13 @@ cd frontend
 ./start-frontend.sh    # Linux/Mac
 ```
 
-Frontend will be available at: **http://localhost:8000**
+Frontend will be available at: **http://localhost:8009**
 
 ### 4. Access the Application
 
 Open your browser and navigate to:
-- **Frontend**: http://localhost:8000
-- **Backend API**: http://localhost:8080/api
+- **Frontend**: http://localhost:8009
+- **Backend API**: http://localhost:8008/api
 
 ## 📁 Project Structure
 
@@ -221,7 +221,7 @@ Similar endpoints exist for:
 ## 🐛 Troubleshooting
 
 ### Backend fails to start
-- Check if port 8080 is already in use
+- Check if port 8008 is already in use
 - Verify Java 17+ is installed: `java -version`
 - Check Maven installation: `mvn -version`
 

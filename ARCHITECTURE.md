@@ -135,7 +135,7 @@ HTTP Request → Micronaut Controller → Service → EMF Model (in-memory)
 - **Persistence:** EMF models are loaded from classpath resources using Flexmi format and serialised back as XMI
 - **File uploads:** 3D model files (.obj) and texture files (.jpg) are uploaded via multipart endpoints and stored on disk with UUID filenames
 - **CORS:** Enabled for cross-origin frontend access
-- **Port:** 8080 (default)
+- **Port:** 8008 (default)
 
 ### 3.2 Frontend
 

@@ -30,9 +30,8 @@ import java.util.UUID;
 public class FileUploadController {
 
     private static final Logger LOG = LoggerFactory.getLogger(FileUploadController.class);
-    // Save to target/classes for immediate serving, and src/main/resources for persistence
-    private static final String CLASSPATH_DIR = "target/classes/exhibit_models/";
-    private static final String SOURCE_DIR = "src/main/resources/exhibit_models/";
+    // Upload directory - served via file:exhibit_models in application.yml
+    private static final String UPLOAD_DIR = "exhibit_models/";
 
     @Post(consumes = MediaType.MULTIPART_FORM_DATA, produces = MediaType.APPLICATION_JSON)
     public Map<String, String> upload(CompletedFileUpload file, String category) {
@@ -59,19 +58,11 @@ public class FileUploadController {
 
             byte[] fileBytes = file.getBytes();
 
-            // Save to target/classes for immediate serving
-            Path classpathPath = Paths.get(CLASSPATH_DIR, subDir);
-            Files.createDirectories(classpathPath);
-            Path classpathFile = classpathPath.resolve(uniqueFilename);
-            try (FileOutputStream fos = new FileOutputStream(classpathFile.toFile())) {
-                fos.write(fileBytes);
-            }
-
-            // Also save to src/main/resources for persistence across rebuilds
-            Path sourcePath = Paths.get(SOURCE_DIR, subDir);
-            Files.createDirectories(sourcePath);
-            Path sourceFile = sourcePath.resolve(uniqueFilename);
-            try (FileOutputStream fos = new FileOutputStream(sourceFile.toFile())) {
+            // Save to exhibit_models/ directory (served via file:exhibit_models)
+            Path uploadPath = Paths.get(UPLOAD_DIR, subDir);
+            Files.createDirectories(uploadPath);
+            Path uploadFile = uploadPath.resolve(uniqueFilename);
+            try (FileOutputStream fos = new FileOutputStream(uploadFile.toFile())) {
                 fos.write(fileBytes);
             }
 

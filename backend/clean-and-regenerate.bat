@@ -4,10 +4,10 @@ echo Mogao Digital Twin - Clean and Regenerate
 echo ============================================
 echo.
 
-REM Kill any processes using port 8080
-echo Checking for processes on port 8080...
-for /f "tokens=5" %%a in ('netstat -ano ^| findstr :8080 ^| findstr LISTENING') do (
-    echo Killing process %%a on port 8080...
+REM Kill any processes using port 8008
+echo Checking for processes on port 8008...
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr :8008 ^| findstr LISTENING') do (
+    echo Killing process %%a on port 8008...
     taskkill /F /PID %%a >nul 2>&1
 )
 

@@ -56,6 +56,26 @@ export const messages = {
             inscriptions: '铭文列表'
         },
 
+        // Navigation
+        nav: {
+            dashboard: '仪表盘',
+            heritage: '文物资产',
+            backendOnline: '后端在线',
+            backendOffline: '后端离线'
+        },
+
+        // Dashboard
+        dashboard: {
+            welcome: '欢迎回来！',
+            subtitle: 'M-Gemini 模型驱动数字孪生平台',
+            quickActions: '快捷操作',
+            viewCaves: '查看洞窟',
+            viewStatues: '查看雕像',
+            viewMurals: '查看壁画',
+            viewPaintings: '查看绘画',
+            viewInscriptions: '查看铭文'
+        },
+
         // Field Labels
         fields: {
             affectedArea: 'affectedArea',
@@ -174,6 +194,7 @@ export const messages = {
             advanced: '高级设置',
             temperature: '温度',
             humidity: '相对湿度',
+            light: '光照强度',
             speed: '模拟速度',
             clickToConvert: '点击切换单位',
             status: {
@@ -185,7 +206,11 @@ export const messages = {
                 tooDry: '过干',
                 dry: '偏干',
                 humid: '偏湿',
-                tooHumid: '过湿'
+                tooHumid: '过湿',
+                dark: '暗存储',
+                museum: '博物馆级',
+                moderate: '中等曝光',
+                excessive: '过度曝光'
             },
             info: {
                 title: '信息',
@@ -343,6 +368,26 @@ export const messages = {
             inscriptions: 'Inscription List'
         },
 
+        // Navigation
+        nav: {
+            dashboard: 'Dashboard',
+            heritage: 'Heritage Assets',
+            backendOnline: 'Backend Online',
+            backendOffline: 'Backend Offline'
+        },
+
+        // Dashboard
+        dashboard: {
+            welcome: 'Welcome back!',
+            subtitle: 'M-Gemini Model-Driven Digital Twin Platform',
+            quickActions: 'Quick Actions',
+            viewCaves: 'View Caves',
+            viewStatues: 'View Statues',
+            viewMurals: 'View Murals',
+            viewPaintings: 'View Paintings',
+            viewInscriptions: 'View Inscriptions'
+        },
+
         // Field Labels
         fields: {
             affectedArea: 'Affected Area',
@@ -461,6 +506,7 @@ export const messages = {
             advanced: 'Advanced Settings',
             temperature: 'Temperature',
             humidity: 'Relative Humidity',
+            light: 'Light Intensity',
             speed: 'Simulation Speed',
             clickToConvert: 'Click to toggle unit',
             status: {
@@ -472,7 +518,11 @@ export const messages = {
                 tooDry: 'Too Dry',
                 dry: 'Dry',
                 humid: 'Humid',
-                tooHumid: 'Too Humid'
+                tooHumid: 'Too Humid',
+                dark: 'Dark storage',
+                museum: 'Museum level',
+                moderate: 'Moderate exposure',
+                excessive: 'Excessive'
             },
             info: {
                 title: 'Information',

@@ -5,11 +5,11 @@ echo "Mogao Digital Twin - Clean and Regenerate"
 echo "============================================"
 echo
 
-# Kill any processes using port 8080
-echo "Checking for processes on port 8080..."
-PID=$(netstat -ano | grep :8080 | grep LISTENING | awk '{print $NF}' | head -1)
+# Kill any processes using port 8008
+echo "Checking for processes on port 8008..."
+PID=$(netstat -ano | grep :8008 | grep LISTENING | awk '{print $NF}' | head -1)
 if [ ! -z "$PID" ]; then
-    echo "Killing process $PID on port 8080..."
+    echo "Killing process $PID on port 8008..."
     taskkill //F //PID $PID 2>/dev/null || true
 fi
 

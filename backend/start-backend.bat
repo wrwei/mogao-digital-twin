@@ -3,7 +3,7 @@ echo ============================================
 echo Mogao Digital Twin - Backend Server
 echo ============================================
 echo.
-echo Starting Micronaut server on port 8080...
+echo Starting Micronaut server on port 8008...
 echo.
 call mvn compile exec:java
 

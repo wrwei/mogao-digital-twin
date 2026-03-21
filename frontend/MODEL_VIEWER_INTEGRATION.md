@@ -37,13 +37,13 @@ To test the viewer immediately:
 ```bash
 # Option 1: Using Python
 cd frontend
-python -m http.server 8000
+python -m http.server 8009
 
 # Option 2: Using Node.js http-server
-npx http-server frontend -p 8000
+npx http-server frontend -p 8009
 ```
 
-3. Navigate to `http://localhost:8000/model-viewer-demo.html`
+3. Navigate to `http://localhost:8009/model-viewer-demo.html`
 
 ## Integration into Existing Components
 

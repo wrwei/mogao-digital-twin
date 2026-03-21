@@ -52,52 +52,171 @@ import { useInscriptions } from './composables/useInscriptions.js';
 // ============================================
 // Shared UI Components
 // ============================================
-const AppHeader = {
-    props: ['currentView', 'locale'],
-    emits: ['change-view', 'change-locale'],
+const AppSidebar = {
+    props: ['currentView', 'backendOnline'],
+    emits: ['change-view'],
     setup() {
         const { t } = useI18n();
         return { t };
     },
     template: `
-        <div class="app-header" style="background: var(--primary-color); color: white; padding: var(--spacing-md);">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-sm);">
-                <h1 style="margin: 0; font-size: 24px;">🏛️ {{ locale === 'zh' ? '莫高窟数字孪生' : 'Mogao Digital Twin' }}</h1>
-                <div>
-                    <select @change="$emit('change-locale', $event.target.value)"
-                            :value="locale"
-                            style="padding: 8px 12px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); color: white; cursor: pointer; font-size: 14px;">
-                        <option value="zh" style="color: #333;">🇨🇳 中文</option>
-                        <option value="en" style="color: #333;">🇬🇧 English</option>
-                    </select>
+        <div class="app-sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">🏛️</div>
+                <span class="sidebar-brand">M-Gemini</span>
+            </div>
+            <div class="sidebar-nav">
+                <div class="sidebar-nav-item" :class="{ active: currentView === 'dashboard' }" @click="$emit('change-view', 'dashboard')">
+                    <span class="sidebar-nav-icon">📊</span>
+                    <span>{{ t('nav.dashboard') }}</span>
+                </div>
+                <div class="sidebar-nav-item" :class="{ active: currentView === 'caves' || currentView === 'statues' || currentView === 'murals' || currentView === 'paintings' || currentView === 'inscriptions' }" @click="$emit('change-view', 'caves')">
+                    <span class="sidebar-nav-icon">🏛️</span>
+                    <span>{{ t('entities.caves') }}</span>
                 </div>
             </div>
-            <div style="display: flex; gap: var(--spacing-sm); flex-wrap: wrap;">
-                <button @click="$emit('change-view', 'caves')"
-                        class="btn btn-sm"
-                        :class="currentView === 'caves' ? 'btn-secondary' : 'btn-outline'">
-                    {{ t('entities.caves') }}
-                </button>
-                <button @click="$emit('change-view', 'statues')"
-                        class="btn btn-sm"
-                        :class="currentView === 'statues' ? 'btn-secondary' : 'btn-outline'">
-                    {{ t('entities.statues') }}
-                </button>
-                <button @click="$emit('change-view', 'murals')"
-                        class="btn btn-sm"
-                        :class="currentView === 'murals' ? 'btn-secondary' : 'btn-outline'">
-                    {{ t('entities.murals') }}
-                </button>
-                <button @click="$emit('change-view', 'paintings')"
-                        class="btn btn-sm"
-                        :class="currentView === 'paintings' ? 'btn-secondary' : 'btn-outline'">
-                    {{ t('entities.paintings') }}
-                </button>
-                <button @click="$emit('change-view', 'inscriptions')"
-                        class="btn btn-sm"
-                        :class="currentView === 'inscriptions' ? 'btn-secondary' : 'btn-outline'">
-                    {{ t('entities.inscriptions') }}
-                </button>
+            <div class="sidebar-footer">
+                <span class="status-dot" :class="backendOnline ? 'online' : 'offline'"></span>
+                <span>{{ backendOnline ? t('nav.backendOnline') : t('nav.backendOffline') }}</span>
+            </div>
+        </div>
+    `
+};
+
+const AppTopbar = {
+    props: ['locale', 'theme'],
+    emits: ['change-locale', 'change-theme'],
+    setup() {
+        const { t } = useI18n();
+        return { t };
+    },
+    data() {
+        return {
+            showThemePicker: false,
+            themes: [
+                { id: 'mogao',    name: 'Mogao Sand',     sidebar: '#5C3D2E', primary: '#D4A574', accent: '#8B4513', icon: '🏛️' },
+                { id: 'ocean',    name: 'Ocean Blue',     sidebar: '#1e3a5f', primary: '#5b9bd5', accent: '#2c5f8a', icon: '🌊' },
+                { id: 'forest',   name: 'Forest Green',   sidebar: '#2d4a3e', primary: '#6db58a', accent: '#3a7d5c', icon: '🌿' },
+                { id: 'slate',    name: 'Modern Slate',   sidebar: '#2d3748', primary: '#a0aec0', accent: '#4a5568', icon: '🖥️' },
+                { id: 'plum',     name: 'Royal Plum',     sidebar: '#3d2b4e', primary: '#b39ddb', accent: '#6a4c93', icon: '👑' },
+                { id: 'ember',    name: 'Warm Ember',     sidebar: '#4a2020', primary: '#e07a5f', accent: '#8b3a3a', icon: '🔥' },
+                { id: 'midnight', name: 'Midnight Dark',  sidebar: '#1a1a2e', primary: '#7c83db', accent: '#3a3a5c', icon: '🌙' },
+                { id: 'sakura',   name: 'Sakura Blossom', sidebar: '#4a3040', primary: '#e8a0bf', accent: '#8b4f6e', icon: '🌸' }
+            ]
+        };
+    },
+    methods: {
+        selectTheme(themeId) {
+            this.$emit('change-theme', themeId);
+            this.showThemePicker = false;
+        }
+    },
+    template: `
+        <div class="app-topbar">
+            <span class="topbar-title">{{ locale === 'zh' ? 'M-Gemini 数字孪生平台' : 'M-Gemini Digital Twin Platform' }}</span>
+            <div class="topbar-actions">
+                <!-- Theme picker -->
+                <div class="theme-picker-wrapper">
+                    <button class="topbar-icon-btn" @click="showThemePicker = !showThemePicker" title="Theme">
+                        🎨
+                    </button>
+                    <div v-if="showThemePicker" class="theme-picker-dropdown">
+                        <div class="theme-picker-title">Theme</div>
+                        <div
+                            v-for="t in themes"
+                            :key="t.id"
+                            class="theme-picker-item"
+                            :class="{ active: theme === t.id }"
+                            @click="selectTheme(t.id)"
+                        >
+                            <span class="theme-picker-swatch" :style="{ background: t.sidebar }">
+                                <span class="theme-picker-swatch-dot" :style="{ background: t.primary }"></span>
+                            </span>
+                            <span>{{ t.icon }} {{ t.name }}</span>
+                            <span v-if="theme === t.id" style="margin-left: auto; color: var(--primary-color);">✓</span>
+                        </div>
+                    </div>
+                </div>
+                <!-- Locale -->
+                <select class="topbar-locale-select"
+                        @change="$emit('change-locale', $event.target.value)"
+                        :value="locale">
+                    <option value="en">🌐 English</option>
+                    <option value="zh">🌐 中文</option>
+                </select>
+            </div>
+        </div>
+    `
+};
+
+const DashboardView = {
+    props: ['caveCount', 'statueCount', 'muralCount', 'paintingCount', 'inscriptionCount'],
+    emits: ['navigate'],
+    setup() {
+        const { t, locale } = useI18n();
+        const today = new Date();
+        const dateStr = today.toLocaleDateString(locale.value === 'zh' ? 'zh-CN' : 'en-US', {
+            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+        });
+        return { t, locale, dateStr };
+    },
+    template: `
+        <div class="dashboard-view">
+            <div class="welcome-banner">
+                <div>
+                    <h2>{{ t('dashboard.welcome') }}</h2>
+                    <p>{{ t('dashboard.subtitle') }}</p>
+                </div>
+                <div class="welcome-banner-date">{{ dateStr }}</div>
+            </div>
+
+            <div class="dashboard-stats">
+                <div class="stat-card caves" @click="$emit('navigate', 'caves')">
+                    <div class="stat-card-icon">🏛️</div>
+                    <div class="stat-card-info">
+                        <h3>{{ caveCount }}</h3>
+                        <p>{{ t('entities.caves') }}</p>
+                    </div>
+                </div>
+                <div class="stat-card statues" @click="$emit('navigate', 'statues')">
+                    <div class="stat-card-icon">🗿</div>
+                    <div class="stat-card-info">
+                        <h3>{{ statueCount }}</h3>
+                        <p>{{ t('entities.statues') }}</p>
+                    </div>
+                </div>
+                <div class="stat-card murals" @click="$emit('navigate', 'murals')">
+                    <div class="stat-card-icon">🎨</div>
+                    <div class="stat-card-info">
+                        <h3>{{ muralCount }}</h3>
+                        <p>{{ t('entities.murals') }}</p>
+                    </div>
+                </div>
+                <div class="stat-card paintings" @click="$emit('navigate', 'paintings')">
+                    <div class="stat-card-icon">🖼️</div>
+                    <div class="stat-card-info">
+                        <h3>{{ paintingCount }}</h3>
+                        <p>{{ t('entities.paintings') }}</p>
+                    </div>
+                </div>
+                <div class="stat-card inscriptions" @click="$emit('navigate', 'inscriptions')">
+                    <div class="stat-card-icon">✍️</div>
+                    <div class="stat-card-info">
+                        <h3>{{ inscriptionCount }}</h3>
+                        <p>{{ t('entities.inscriptions') }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dashboard-section">
+                <div class="dashboard-section-title">⚡ {{ t('dashboard.quickActions') }}</div>
+                <div class="quick-actions">
+                    <button class="quick-action-btn" @click="$emit('navigate', 'caves')">🏛️ {{ t('dashboard.viewCaves') }}</button>
+                    <button class="quick-action-btn" @click="$emit('navigate', 'statues')">🗿 {{ t('dashboard.viewStatues') }}</button>
+                    <button class="quick-action-btn" @click="$emit('navigate', 'murals')">🎨 {{ t('dashboard.viewMurals') }}</button>
+                    <button class="quick-action-btn" @click="$emit('navigate', 'paintings')">🖼️ {{ t('dashboard.viewPaintings') }}</button>
+                    <button class="quick-action-btn" @click="$emit('navigate', 'inscriptions')">✍️ {{ t('dashboard.viewInscriptions') }}</button>
+                </div>
             </div>
         </div>
     `
@@ -809,7 +928,9 @@ const InscriptionView = {
 // ============================================
 const app = createApp({
     components: {
-        AppHeader,
+        AppSidebar,
+        AppTopbar,
+        DashboardView,
         LoadingSpinner,
         ErrorMessage,
         ModalDialog,
@@ -821,12 +942,24 @@ const app = createApp({
     },
     setup() {
         const { locale, t, setLocale } = useI18n();
-        return { locale, t, setLocale };
+        const cavesComposable = useCaves();
+        const statuesComposable = useStatues();
+        const muralsComposable = useMurals();
+        const paintingsComposable = usePaintings();
+        const inscriptionsComposable = useInscriptions();
+        return {
+            locale, t, setLocale,
+            dashCaves: cavesComposable,
+            dashStatues: statuesComposable,
+            dashMurals: muralsComposable,
+            dashPaintings: paintingsComposable,
+            dashInscriptions: inscriptionsComposable,
+        };
     },
     data() {
         return {
             // Application state
-            currentView: 'caves',
+            currentView: 'dashboard',
             loading: false,
             error: null,
             message: null,
@@ -834,6 +967,9 @@ const app = createApp({
 
             // Backend connection status
             backendOnline: false,
+
+            // Theme
+            currentTheme: localStorage.getItem('mgemini-theme') || 'mogao',
         };
     },
 
@@ -846,6 +982,16 @@ const app = createApp({
         changeLocale(newLocale) {
             console.log('Changing locale to:', newLocale);
             this.setLocale(newLocale);
+        },
+
+        changeTheme(themeId) {
+            this.currentTheme = themeId;
+            localStorage.setItem('mgemini-theme', themeId);
+            this.applyTheme(themeId);
+        },
+
+        applyTheme(themeId) {
+            document.documentElement.setAttribute('data-theme', themeId);
         },
 
         showMessage(message, type = 'info') {
@@ -874,12 +1020,18 @@ const app = createApp({
     },
 
     mounted() {
-        console.log('🏛️ Mogao Digital Twin - Vue App Mounted');
+        this.applyTheme(this.currentTheme);
+        console.log('🏛️ M-Gemini Digital Twin - Vue App Mounted');
         console.log('📍 Current working directory:', window.location.href);
-        console.log('🔌 Backend API:', window.API_BASE_URL || 'http://localhost:8080');
+        console.log('🔌 Backend API:', window.API_BASE_URL || 'http://localhost:8008');
 
-        // Check backend connection
+        // Check backend connection and fetch dashboard counts
         this.checkBackendConnection();
+        this.dashCaves.fetchCaves();
+        this.dashStatues.fetchStatues();
+        this.dashMurals.fetchMurals();
+        this.dashPaintings.fetchPaintings();
+        this.dashInscriptions.fetchInscriptions();
 
         // Set up periodic backend health check
         setInterval(() => {
@@ -890,54 +1042,67 @@ const app = createApp({
     },
 
     template: `
-        <div id="app-container">
-            <app-header
+        <div id="app-container" style="display: flex; height: 100vh;">
+            <app-sidebar
                 :current-view="currentView"
-                :locale="locale"
+                :backend-online="backendOnline"
                 @change-view="changeView"
-                @change-locale="changeLocale"
-            ></app-header>
+            ></app-sidebar>
 
-            <error-message
-                v-if="error || message"
-                :message="error || message"
-                @dismiss="dismissError"
-            ></error-message>
+            <div class="app-main">
+                <app-topbar
+                    :locale="locale"
+                    :theme="currentTheme"
+                    @change-locale="changeLocale"
+                    @change-theme="changeTheme"
+                ></app-topbar>
 
-            <div class="main-content">
-                <loading-spinner v-if="loading"></loading-spinner>
+                <error-message
+                    v-if="error || message"
+                    :message="error || message"
+                    @dismiss="dismissError"
+                ></error-message>
 
-                <div v-else class="content-area">
+                <div class="main-content">
+                    <loading-spinner v-if="loading"></loading-spinner>
 
-                    <cave-view
-                        v-if="currentView === 'caves'"
-                        @show-message="showMessage"
-                        @item-selected="(item) => console.log('Cave selected:', item)"
-                    ></cave-view>
-                    <statue-view
-                        v-if="currentView === 'statues'"
-                        @show-message="showMessage"
-                        @item-selected="(item) => console.log('Statue selected:', item)"
-                    ></statue-view>
-                    <mural-view
-                        v-if="currentView === 'murals'"
-                        @show-message="showMessage"
-                        @item-selected="(item) => console.log('Mural selected:', item)"
-                    ></mural-view>
-                    <painting-view
-                        v-if="currentView === 'paintings'"
-                        @show-message="showMessage"
-                        @item-selected="(item) => console.log('Painting selected:', item)"
-                    ></painting-view>
-                    <inscription-view
-                        v-if="currentView === 'inscriptions'"
-                        @show-message="showMessage"
-                        @item-selected="(item) => console.log('Inscription selected:', item)"
-                    ></inscription-view>                </div>
-            </div>
-
-            <div class="status-bar" :class="backendOnline ? 'status-online' : 'status-offline'">
-                <span>{{ backendOnline ? (locale === 'zh' ? '✅ 后端在线' : '✅ Backend Online') : (locale === 'zh' ? '❌ 后端离线' : '❌ Backend Offline') }}</span>
+                    <div v-else class="content-area" style="flex: 1; overflow: hidden;">
+                        <dashboard-view
+                            v-if="currentView === 'dashboard'"
+                            :cave-count="dashCaves.caves.value ? dashCaves.caves.value.length : 0"
+                            :statue-count="dashStatues.statues.value ? dashStatues.statues.value.length : 0"
+                            :mural-count="dashMurals.murals.value ? dashMurals.murals.value.length : 0"
+                            :painting-count="dashPaintings.paintings.value ? dashPaintings.paintings.value.length : 0"
+                            :inscription-count="dashInscriptions.inscriptions.value ? dashInscriptions.inscriptions.value.length : 0"
+                            @navigate="changeView"
+                        ></dashboard-view>
+                        <cave-view
+                            v-if="currentView === 'caves'"
+                            @show-message="showMessage"
+                            @item-selected="(item) => console.log('Cave selected:', item)"
+                        ></cave-view>
+                        <statue-view
+                            v-if="currentView === 'statues'"
+                            @show-message="showMessage"
+                            @item-selected="(item) => console.log('Statue selected:', item)"
+                        ></statue-view>
+                        <mural-view
+                            v-if="currentView === 'murals'"
+                            @show-message="showMessage"
+                            @item-selected="(item) => console.log('Mural selected:', item)"
+                        ></mural-view>
+                        <painting-view
+                            v-if="currentView === 'paintings'"
+                            @show-message="showMessage"
+                            @item-selected="(item) => console.log('Painting selected:', item)"
+                        ></painting-view>
+                        <inscription-view
+                            v-if="currentView === 'inscriptions'"
+                            @show-message="showMessage"
+                            @item-selected="(item) => console.log('Inscription selected:', item)"
+                        ></inscription-view>
+                    </div>
+                </div>
             </div>
         </div>
     `

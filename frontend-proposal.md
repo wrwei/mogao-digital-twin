@@ -9,7 +9,7 @@
 - **Vanilla JavaScript** - No React/Vue/Angular
 - **Chart.js** (for signal visualization)
 - **Python HTTP Server** - Simple static file server (port 8001)
-- **REST API Integration** - Connects to backend at `http://localhost:8080/api/resolver`
+- **REST API Integration** - Connects to backend at `http://localhost:8008/api/resolver`
 
 **Key Features:**
 1. **3D Visualization** - A-Frame scene displaying 3D models (.obj/.mtl files)
@@ -49,7 +49,7 @@ frontend/
 - **Python HTTP Server** - Port 8002 (8001 is used by resolver)
 
 ### Backend Integration
-- **REST API**: `http://localhost:8080/caves`, `/defects`, `/statues`, etc.
+- **REST API**: `http://localhost:8008/caves`, `/defects`, `/statues`, etc.
 - **Micronaut Controllers**: Use the generated REST endpoints
 
 ### Why Vue.js?

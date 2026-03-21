@@ -1,11 +1,14 @@
 /**
  * Cave List Component
- * Auto-generated from mogao_dt.ecore
- * Displays list of 洞窟 with search and filter
+ * Full-page card layout for caves, with heritage assets detail view
  */
 import CaveCard from './CaveCard.js';
 import ModelViewer from './ModelViewer.js';
 import SimulationPanel from './SimulationPanel.js';
+import StatueForm from './StatueForm.js';
+import MuralForm from './MuralForm.js';
+import PaintingForm from './PaintingForm.js';
+import InscriptionForm from './InscriptionForm.js';
 import { useI18n } from '../i18n.js';
 
 export default {
@@ -15,30 +18,18 @@ export default {
         return { t };
     },
     components: {
-        CaveCard,
-        ModelViewer,
-        SimulationPanel
+        CaveCard, ModelViewer, SimulationPanel,
+        StatueForm, MuralForm, PaintingForm, InscriptionForm
     },
     props: {
-        caves: {
-            type: Array,
-            default: () => []
-        },
-        loading: {
-            type: Boolean,
-            default: false
-        },
-        selectedGid: {
-            type: String,
-            default: null
-        }
+        caves: { type: Array, default: () => [] },
+        loading: { type: Boolean, default: false },
+        selectedGid: { type: String, default: null }
     },
     emits: ['select', 'edit', 'delete', 'create', 'view-detail'],
     data() {
         return {
             searchQuery: '',
-            sortBy: 'name',
-            sortDesc: false,
             autoRotate: false,
             simulationData: null,
             windowWidth: window.innerWidth,
@@ -46,250 +37,284 @@ export default {
             simulationPanelWidth: 480,
             isDragging: false,
             dragStartX: 0,
-            dragStartWidth: 0
+            dragStartWidth: 0,
+            statues: [], murals: [], paintings: [], inscriptions: [],
+            assetsLoading: false,
+            mode: 'list', // 'list' | 'cave' | '3d'
+            openedCave: null,
+            selectedExhibit: null,
+            // Edit modal
+            editModal: false,
+            editType: null,
+            editItem: null
         };
     },
     mounted() {
-        // Update viewer dimensions on window resize
-        this.handleResize = () => {
-            this.windowWidth = window.innerWidth;
-            this.windowHeight = window.innerHeight;
-        };
+        this.handleResize = () => { this.windowWidth = window.innerWidth; this.windowHeight = window.innerHeight; };
         window.addEventListener('resize', this.handleResize);
     },
     beforeUnmount() {
-        if (this.handleResize) {
-            window.removeEventListener('resize', this.handleResize);
-        }
+        if (this.handleResize) window.removeEventListener('resize', this.handleResize);
     },
     methods: {
-        handleSimulationChanged(data) {
-            this.simulationData = data;
-            console.log('=== Cave Simulation Data ===', data);
-            // Emit to parent or update environmental conditions
-            // Future: Apply visual effects to 3D model based on simulation data
+        openCave(cave) {
+            this.openedCave = cave;
+            this.mode = 'cave';
+            this.$emit('select', cave);
+            this.fetchAllAssets();
         },
-        startDrag(event) {
-            this.isDragging = true;
-            this.dragStartX = event.clientX;
-            this.dragStartWidth = this.simulationPanelWidth;
-            document.addEventListener('mousemove', this.onDrag);
-            document.addEventListener('mouseup', this.stopDrag);
-            event.preventDefault();
-        },
-        onDrag(event) {
-            if (!this.isDragging) return;
-            const deltaX = this.dragStartX - event.clientX;
-            const newWidth = Math.max(300, Math.min(800, this.dragStartWidth + deltaX));
-            this.simulationPanelWidth = newWidth;
-        },
-        stopDrag() {
-            this.isDragging = false;
-            document.removeEventListener('mousemove', this.onDrag);
-            document.removeEventListener('mouseup', this.stopDrag);
-        },
-        onResizerMouseLeave(event) {
-            if (!this.isDragging) {
-                event.target.style.background = '#ddd';
+        backToList() { this.mode = 'list'; this.openedCave = null; this.selectedExhibit = null; this.closeEdit(); },
+        openExhibit3D(exhibit) { this.selectedExhibit = exhibit; this.mode = '3d'; this.closeEdit(); },
+        backToCave() { this.mode = 'cave'; this.selectedExhibit = null; },
+        openEdit(type, item) { this.editType = type; this.editItem = item; this.editModal = true; },
+        closeEdit() { this.editModal = false; this.editType = null; this.editItem = null; },
+        async handleEditSubmit(data) {
+            const listMap = { statue: this.statues, mural: this.murals, painting: this.paintings, inscription: this.inscriptions };
+            const list = listMap[this.editType];
+            if (list && this.editItem) {
+                const idx = list.findIndex(i => i.gid === this.editItem.gid);
+                if (idx !== -1) list[idx] = { ...list[idx], ...data };
             }
+            this.closeEdit();
+        },
+        async fetchAllAssets() {
+            this.assetsLoading = true;
+            try {
+                const [s, m, p, i] = await Promise.all([
+                    window.api.statues.getAll(), window.api.murals.getAll(),
+                    window.api.paintings.getAll(), window.api.inscriptions.getAll()
+                ]);
+                this.statues = s.data || []; this.murals = m.data || [];
+                this.paintings = p.data || []; this.inscriptions = i.data || [];
+            } catch (err) { console.error('Failed to fetch heritage assets:', err); }
+            finally { this.assetsLoading = false; }
+        },
+        handleSimulationChanged(data) { this.simulationData = data; },
+        statusColor(status) {
+            return { excellent: '#10b981', good: '#3b82f6', fair: '#f59e0b', poor: '#ef4444', critical: '#dc2626' }[status] || '#6b7280';
+        },
+        startDrag(e) {
+            this.isDragging = true; this.dragStartX = e.clientX; this.dragStartWidth = this.simulationPanelWidth;
+            document.addEventListener('mousemove', this.onDrag); document.addEventListener('mouseup', this.stopDrag); e.preventDefault();
+        },
+        onDrag(e) { if (!this.isDragging) return; this.simulationPanelWidth = Math.max(300, Math.min(800, this.dragStartWidth + (this.dragStartX - e.clientX))); },
+        stopDrag() { this.isDragging = false; document.removeEventListener('mousemove', this.onDrag); document.removeEventListener('mouseup', this.stopDrag); },
+        onResizerMouseLeave(e) { if (!this.isDragging) e.target.style.background = '#e0dcd7'; },
+        editTypeLabel() {
+            const map = { statue: this.t('entities.statue'), mural: this.t('entities.mural'), painting: this.t('entities.painting'), inscription: this.t('entities.inscription') };
+            return map[this.editType] || '';
         }
     },
     computed: {
-        viewerWidth() {
-            // Container width minus left panel (280px), simulation panel (dynamic), gaps and padding (96px)
-            return Math.max(500, this.windowWidth - 280 - this.simulationPanelWidth - 96);
-        },
-        viewerHeight() {
-            // Container height minus header (140px), controls (40px), and padding (64px)
-            // Full height available since panels are side by side
-            return Math.max(400, this.windowHeight - 140 - 40 - 64);
-        },
+        viewerWidth() { return Math.max(500, this.windowWidth - 240 - this.simulationPanelWidth - 80); },
+        viewerHeight() { return Math.max(400, this.windowHeight - 56 - 52 - 64); },
         filteredCaves() {
-            let results = [...this.caves];
-
-            // Filter by search query
+            let r = [...this.caves];
             if (this.searchQuery) {
-                const query = this.searchQuery.toLowerCase();
-                results = results.filter(item =>
-                    (item.name && item.name.toLowerCase().includes(query)) ||
-                    (item.description && item.description.toLowerCase().includes(query)) ||
-                    (item.gid && item.gid.toLowerCase().includes(query))
-                );
+                const q = this.searchQuery.toLowerCase();
+                r = r.filter(i => (i.name && i.name.toLowerCase().includes(q)) || (i.description && i.description.toLowerCase().includes(q)));
             }
-
-            // Sort
-            results.sort((a, b) => {
-                const aVal = a[this.sortBy] || '';
-                const bVal = b[this.sortBy] || '';
-                const comparison = aVal.toString().localeCompare(bVal.toString());
-                return this.sortDesc ? -comparison : comparison;
-            });
-
-            return results;
+            return r;
         },
-        isEmpty() {
-            return this.caves.length === 0;
-        },
-        selectedItem() {
-            if (!this.selectedGid) return null;
-            return this.caves.find(item => item.gid === this.selectedGid);
+        totalAssets() { return this.statues.length + this.murals.length + this.paintings.length + this.inscriptions.length; },
+        assetCategories() {
+            return [
+                { key: 'statues', type: 'statue', icon: '🗿', label: this.t('entities.statues'), items: this.statues, color: '#10b981' },
+                { key: 'murals', type: 'mural', icon: '🎨', label: this.t('entities.murals'), items: this.murals, color: '#3b82f6' },
+                { key: 'paintings', type: 'painting', icon: '🖼️', label: this.t('entities.paintings'), items: this.paintings, color: '#f59e0b' },
+                { key: 'inscriptions', type: 'inscription', icon: '✍️', label: this.t('entities.inscriptions'), items: this.inscriptions, color: '#8b5cf6' }
+            ];
         }
     },
-    mounted() {
-        // Debug logging for layout sizes
-        this.$nextTick(() => {
-            setTimeout(() => {
-                const container = document.querySelector('.cave-list-container');
-                const viewerPanel = document.querySelector('.entity-viewer-panel');
-
-                console.log('=== Cave List Layout Debug ===');
-                if (container) {
-                    console.log('Grid Container:', {
-                        width: container.offsetWidth,
-                        height: container.offsetHeight,
-                        computedWidth: window.getComputedStyle(container).width
-                    });
-                }
-                if (viewerPanel) {
-                    console.log('Viewer Panel:', {
-                        width: viewerPanel.offsetWidth,
-                        height: viewerPanel.offsetHeight,
-                        computedWidth: window.getComputedStyle(viewerPanel).width
-                    });
-                }
-                console.log('Viewport width:', window.innerWidth);
-                console.log('Expected viewer width:', window.innerWidth - 280);
-            }, 500);
-        });
-    },
     template: `
-        <div class="cave-list-container" style="display: grid; grid-template-columns: 280px 1fr; width: 100%; height: calc(100vh - 140px); gap: 0;">
-            <!-- Left Panel: List -->
-            <div class="entity-list-panel" style="border-right: 1px solid var(--border); overflow-y: auto; display: flex; flex-direction: column; background: white;">
-                <div class="list-header" style="padding: var(--spacing-md); border-bottom: 1px solid var(--border);">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-md);">
-                        <h2 style="margin: 0; font-size: 1.2em;">{{ t('entities.caves') }}</h2>
-                        <button class="btn btn-sm btn-primary" @click="$emit('create')">
-                            ➕
-                        </button>
+        <div class="page-view">
+
+            <!-- ═══ EDIT MODAL (Principia-style centered dialog) ═══ -->
+            <div v-if="editModal" class="modal-backdrop" @click.self="closeEdit">
+                <div class="edit-modal">
+                    <div class="edit-modal-header">
+                        <div class="edit-modal-header-icon">📝</div>
+                        <div>
+                            <div class="edit-modal-header-title">{{ t('common.edit') }} {{ editTypeLabel() }}</div>
+                            <div class="edit-modal-header-sub">{{ editItem ? editItem.name || editItem.gid : '' }}</div>
+                        </div>
+                        <button class="edit-modal-close" @click="closeEdit">&times;</button>
                     </div>
-
-                    <div class="search-bar">
-                        <span class="search-icon">🔍</span>
-                        <input
-                            type="text"
-                            v-model="searchQuery"
-                            class="search-input"
-                            :placeholder="t('common.search')"
-                        />
+                    <div class="edit-modal-body">
+                        <statue-form v-if="editType === 'statue'" :statue="editItem" mode="edit"
+                            @updated="handleEditSubmit" @cancel="closeEdit" @error="(msg) => console.error(msg)"></statue-form>
+                        <mural-form v-if="editType === 'mural'" :mural="editItem" mode="edit"
+                            @updated="handleEditSubmit" @cancel="closeEdit" @error="(msg) => console.error(msg)"></mural-form>
+                        <painting-form v-if="editType === 'painting'" :painting="editItem" mode="edit"
+                            @updated="handleEditSubmit" @cancel="closeEdit" @error="(msg) => console.error(msg)"></painting-form>
+                        <inscription-form v-if="editType === 'inscription'" :inscription="editItem" mode="edit"
+                            @updated="handleEditSubmit" @cancel="closeEdit" @error="(msg) => console.error(msg)"></inscription-form>
                     </div>
-                </div>
-
-                <div class="list-body" style="flex: 1; overflow-y: auto; padding: var(--spacing-sm);">
-                    <div v-if="loading" class="loading-overlay">
-                        <div class="spinner"></div>
-                        <p style="margin-top: var(--spacing-md); color: var(--text-secondary);">{{ t('common.loading') }}</p>
-                    </div>
-
-                    <div v-else-if="isEmpty" class="empty-state">
-                        <div class="empty-state-icon">📭</div>
-                        <div class="empty-state-text">{{ t('common.noData') }}</div>
-                        <button class="btn btn-primary" @click="$emit('create')">
-                            {{ t('actions.createNew', { entity: t('entities.cave') }) }}
-                        </button>
-                    </div>
-
-                    <div v-else-if="filteredCaves.length === 0" class="empty-state">
-                        <div class="empty-state-icon">🔍</div>
-                        <div class="empty-state-text">{{ t('common.noData') }}</div>
-                    </div>
-
-                    <div v-else class="entity-cards" style="display: flex; flex-direction: column; gap: var(--spacing-sm);">
-                        <cave-card
-                            v-for="item in filteredCaves"
-                            :key="item.gid"
-                            :cave="item"
-                            :selected-gid="selectedGid"
-                            @select="$emit('select', item)"
-                            @view-detail="$emit('view-detail', item)"
-                            @edit="$emit('edit', item)"
-                            @delete="$emit('delete', item)"
-                        ></cave-card>                    </div>
-                </div>
-
-                <div class="list-footer" style="padding: var(--spacing-sm); border-top: 1px solid var(--border); text-align: center; color: var(--text-secondary); font-size: 0.9em;">
-                    {{ filteredCaves.length }} {{ t('entities.cave') }}
-                    <span v-if="searchQuery">({{ t('common.filtered') }})</span>
                 </div>
             </div>
 
-            <!-- Right Panel: 3D Viewer + Simulation (Side by Side with Resizer) -->
-            <div class="entity-viewer-panel" style="display: flex; align-items: stretch; width: 100%; height: 100%; background: #fafafa; padding: 0;">
-                <div v-if="selectedItem && selectedItem.reference && selectedItem.reference.modelLocation" style="flex: 1; display: flex; flex-direction: row; padding: 16px; height: 100%; overflow: hidden;">
-                    <!-- Left: 3D Model Viewer (takes remaining space) -->
+            <!-- ═══ LIST MODE ═══ -->
+            <template v-if="mode === 'list'">
+                <div class="page-breadcrumb">
+                    <span class="breadcrumb-item">{{ t('nav.dashboard') }}</span>
+                    <span class="breadcrumb-sep">/</span>
+                    <span class="breadcrumb-current">{{ t('entities.caves') }}</span>
+                </div>
+                <div class="page-header">
+                    <div>
+                        <h1 class="page-title">{{ t('entities.caves') }}</h1>
+                        <p class="page-subtitle">{{ filteredCaves.length }} {{ t('entities.caves').toLowerCase() }} total</p>
+                    </div>
+                    <div class="page-header-actions">
+                        <div class="page-search">
+                            <span class="page-search-icon">🔍</span>
+                            <input type="text" v-model="searchQuery" class="page-search-input" :placeholder="t('common.search') + '...'" />
+                        </div>
+                        <button class="btn" style="background: var(--secondary-color); color: white;" @click="$emit('create')">
+                            + {{ t('actions.createNew', { entity: t('entities.cave') }) }}
+                        </button>
+                    </div>
+                </div>
+                <div class="page-section-label">{{ t('entities.caves').toUpperCase() }}</div>
+                <div v-if="loading" style="display: flex; align-items: center; justify-content: center; padding: 80px;"><div class="spinner"></div></div>
+                <div v-else-if="filteredCaves.length === 0" style="text-align: center; padding: 60px; color: var(--text-secondary);">
+                    <div style="font-size: 48px; margin-bottom: 12px; opacity: 0.3;">🏛️</div><p>{{ t('common.noData') }}</p>
+                </div>
+                <div v-else class="project-cards-grid">
+                    <div v-for="cave in filteredCaves" :key="cave.gid" class="project-card" @click="openCave(cave)" style="cursor: pointer;">
+                        <div class="project-card-badges">
+                            <span class="project-badge project-badge-active">Active</span>
+                            <span v-if="cave.creationPeriod" class="project-badge project-badge-neutral">{{ cave.creationPeriod }}</span>
+                        </div>
+                        <h3 class="project-card-title">{{ cave.name || t('entities.cave') }}</h3>
+                        <p class="project-card-desc">{{ cave.description || t('common.noDescription') }}</p>
+                        <div v-if="cave.label" class="project-card-meta"><span>🏷️ {{ cave.label }}</span></div>
+                        <div v-if="cave.lastInspectionDate" class="project-card-meta"><span>📅 {{ new Date(cave.lastInspectionDate).toLocaleDateString() }}</span></div>
+                        <div class="project-card-footer">
+                            <div class="project-card-actions">
+                                <button class="project-action-btn project-action-open" @click.stop="openCave(cave)">{{ t('common.detail') || 'Open' }}</button>
+                                <button class="project-action-btn" @click.stop="$emit('edit', cave)">{{ t('common.edit') }}</button>
+                                <button class="project-action-btn project-action-delete" @click.stop="$emit('delete', cave)">{{ t('common.delete') }}</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </template>
+
+            <!-- ═══ CAVE DETAIL MODE (Principia project-style) ═══ -->
+            <template v-if="mode === 'cave' && openedCave">
+                <!-- Top buttons -->
+                <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                    <button class="project-action-btn" @click="backToList" style="padding: 6px 16px;">← {{ t('common.back') }}</button>
+                    <button class="project-action-btn" style="color: var(--secondary-color); border-color: var(--secondary-color); padding: 6px 16px;" @click="$emit('edit', openedCave)">{{ t('common.edit') }}</button>
+                </div>
+
+                <!-- Cave Info Card -->
+                <div class="cave-detail-card">
+                    <div class="cave-detail-card-inner">
+                        <div class="cave-detail-avatar">{{ (openedCave.name || 'C')[0] }}</div>
+                        <div style="flex: 1;">
+                            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                                <h2 style="margin: 0; font-size: 22px; font-weight: 700;">{{ openedCave.name }}</h2>
+                                <span class="project-badge project-badge-active">Active</span>
+                                <span v-if="openedCave.creationPeriod" class="project-badge project-badge-neutral">{{ openedCave.creationPeriod }}</span>
+                            </div>
+                            <p style="margin: 6px 0 0; color: var(--text-secondary); font-size: 14px;">{{ openedCave.description }}</p>
+                            <div style="margin-top: 10px; display: flex; gap: 20px; font-size: 12px; color: var(--text-secondary);">
+                                <span v-if="openedCave.label">🏷️ {{ openedCave.label }}</span>
+                                <span v-if="openedCave.lastInspectionDate">📅 {{ new Date(openedCave.lastInspectionDate).toLocaleDateString() }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stat cards row -->
+                <div class="cave-stat-row">
+                    <div class="cave-stat" v-for="cat in assetCategories" :key="cat.key">
+                        <div class="cave-stat-icon" :style="{ background: cat.color + '15' }">
+                            <span style="font-size: 22px;">{{ cat.icon }}</span>
+                        </div>
+                        <div>
+                            <div class="cave-stat-num">{{ cat.items.length }}</div>
+                            <div class="cave-stat-label">{{ cat.label }}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Asset category sections -->
+                <div v-if="assetsLoading" style="display: flex; align-items: center; justify-content: center; padding: 60px;"><div class="spinner"></div></div>
+                <template v-else>
+                    <div v-for="cat in assetCategories" :key="cat.key" class="cave-detail-section">
+                        <div class="cave-detail-section-header">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <span style="font-size: 20px;">{{ cat.icon }}</span>
+                                <span style="font-weight: 600; font-size: 15px;">{{ cat.label }}</span>
+                                <span class="asset-category-count" :style="{ background: cat.color + '18', color: cat.color }">{{ cat.items.length }}</span>
+                            </div>
+                            <button class="project-action-btn" style="font-size: 12px;">+ Add</button>
+                        </div>
+
+                        <div v-if="cat.items.length === 0" style="padding: 24px; text-align: center; color: var(--text-secondary); font-size: 13px; font-style: italic;">
+                            {{ t('common.noData') }}
+                        </div>
+
+                        <div v-else class="project-cards-grid">
+                            <div v-for="item in cat.items" :key="item.gid" class="project-card">
+                                <div class="project-card-badges">
+                                    <span v-if="item.conservationStatus" class="project-badge" :style="{ background: statusColor(item.conservationStatus), color: 'white' }">{{ item.conservationStatus }}</span>
+                                    <span v-if="item.reference && item.reference.modelLocation" class="project-badge" style="background: var(--secondary-color); color: white;">3D</span>
+                                </div>
+                                <h3 class="project-card-title">{{ item.name || item.gid }}</h3>
+                                <p class="project-card-desc">{{ item.description || t('common.noDescription') }}</p>
+                                <div class="project-card-meta">
+                                    <span v-if="item.period">📅 {{ item.period }}</span>
+                                    <span v-if="item.material">🧱 {{ item.material }}</span>
+                                    <span v-if="item.technique">🖌️ {{ item.technique }}</span>
+                                    <span v-if="item.language">🔤 {{ item.language }}</span>
+                                    <span v-if="item.width && item.height">📐 {{ item.width }}×{{ item.height }}{{ item.depth ? '×'+item.depth : '' }}</span>
+                                </div>
+                                <div class="project-card-footer">
+                                    <div></div>
+                                    <div class="project-card-actions">
+                                        <button v-if="item.reference && item.reference.modelLocation" class="project-action-btn project-action-open" @click="openExhibit3D(item)">🔬 3D View</button>
+                                        <button class="project-action-btn" @click="openEdit(cat.type, item)">✏️ {{ t('common.edit') }}</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </template>
+
+            <!-- ═══ 3D VIEWER MODE ═══ -->
+            <template v-if="mode === '3d' && selectedExhibit">
+                <div class="page-breadcrumb">
+                    <span class="breadcrumb-link" @click="backToList">{{ t('entities.caves') }}</span>
+                    <span class="breadcrumb-sep">/</span>
+                    <span class="breadcrumb-link" @click="backToCave">{{ openedCave ? openedCave.name : '' }}</span>
+                    <span class="breadcrumb-sep">/</span>
+                    <span class="breadcrumb-current">{{ selectedExhibit.name }}</span>
+                </div>
+                <div style="flex: 1; display: flex; flex-direction: row; padding: 16px; overflow: hidden;">
                     <div style="flex: 1; display: flex; flex-direction: column; align-items: center; padding-right: 8px; overflow-y: auto;">
                         <div style="flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; margin: auto 0;">
-                            <model-viewer
-                                :asset-reference="selectedItem.reference"
-                                v-model:autoRotate="autoRotate"
-                                :width="viewerWidth"
-                                :height="viewerHeight"
-                            ></model-viewer>
-                            <!-- Auto Rotate Control (styled button below viewer) -->
-                            <div style="margin-top: 16px; padding: 10px 20px; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; font-size: 14px; font-weight: 500;">
-                                    <input type="checkbox" v-model="autoRotate" style="cursor: pointer; width: 18px; height: 18px;" />
+                            <model-viewer :asset-reference="selectedExhibit.reference" v-model:autoRotate="autoRotate" :width="viewerWidth" :height="viewerHeight"></model-viewer>
+                            <div style="margin-top: 12px; padding: 8px 16px; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 13px; font-weight: 500;">
+                                    <input type="checkbox" v-model="autoRotate" style="cursor: pointer; width: 16px; height: 16px; accent-color: #8B4513;" />
                                     <span>{{ t('viewer.autoRotate') }}</span>
                                 </label>
                             </div>
                         </div>
                     </div>
-
-                    <!-- Resizer Handle -->
-                    <div
-                        @mousedown="startDrag"
-                        :style="{
-                            width: '8px',
-                            cursor: 'col-resize',
-                            background: isDragging ? '#667eea' : '#ddd',
-                            transition: isDragging ? 'none' : 'background 0.2s',
-                            flexShrink: 0,
-                            position: 'relative',
-                            userSelect: 'none'
-                        }"
-                        @mouseenter="$event.target.style.background = '#667eea'"
-                        @mouseleave="onResizerMouseLeave"
-                    >
-                        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 4px; height: 40px; background: white; border-radius: 2px; opacity: 0.7;"></div>
+                    <div @mousedown="startDrag" :style="{ width: '6px', cursor: 'col-resize', background: isDragging ? 'var(--primary-color)' : '#e0dcd7', borderRadius: '3px', transition: isDragging ? 'none' : 'background 0.2s', flexShrink: 0, position: 'relative', userSelect: 'none', margin: '0 2px' }" @mouseenter="$event.target.style.background = 'var(--primary-color)'" @mouseleave="onResizerMouseLeave">
+                        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 3px; height: 32px; background: white; border-radius: 2px; opacity: 0.6;"></div>
                     </div>
-
-                    <!-- Right: Simulation Panel (resizable width) -->
-                    <div :style="{
-                        width: simulationPanelWidth + 'px',
-                        flexShrink: 0,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        height: '100%',
-                        overflowY: 'auto',
-                        scrollBehavior: 'smooth',
-                        paddingLeft: '8px'
-                    }">
-                        <simulation-panel
-                            :entity="selectedItem"
-                            @simulation-changed="handleSimulationChanged"
-                        ></simulation-panel>
+                    <div :style="{ width: simulationPanelWidth + 'px', flexShrink: 0, display: 'flex', flexDirection: 'column', height: '100%', overflowY: 'auto', scrollBehavior: 'smooth', paddingLeft: '8px' }">
+                        <simulation-panel :entity="selectedExhibit" @simulation-changed="handleSimulationChanged"></simulation-panel>
                     </div>
                 </div>
-                <div v-else-if="selectedItem" class="viewer-placeholder" style="text-align: center; color: var(--text-secondary);">
-                    <div style="font-size: 4em; margin-bottom: var(--spacing-md);">🏛️</div>
-                    <p>{{ t('viewer.noModel') }}</p>
-                    <p class="text-muted">{{ selectedItem.name }}</p>
-                </div>
-                <div v-else class="viewer-empty" style="text-align: center; color: var(--text-secondary);">
-                    <div style="font-size: 4em; margin-bottom: var(--spacing-md);">👈</div>
-                    <p>{{ t('viewer.selectItem') }}</p>
-                </div>
-            </div>
+            </template>
         </div>
     `
 };

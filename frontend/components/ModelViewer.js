@@ -198,7 +198,7 @@ export default {
                 const texturePath = this.assetReference.textureLocation;
 
                 // Construct full URLs for the backend
-                const baseURL = 'http://localhost:8080';
+                const baseURL = 'http://localhost:8008';
                 const fullModelPath = modelPath.startsWith('http') ? modelPath : baseURL + modelPath;
                 const fullMtlPath = mtlPath && !mtlPath.startsWith('http') ? baseURL + mtlPath : mtlPath;
 

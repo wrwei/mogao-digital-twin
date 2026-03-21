@@ -6,7 +6,7 @@ Vue.js-based frontend for the Mogao Digital Twin system.
 
 ### Prerequisites
 - Python 3.x (for local development server)
-- Backend server running on `http://localhost:8080`
+- Backend server running on `http://localhost:8008`
 
 ### Running the Frontend
 
@@ -59,7 +59,7 @@ frontend/
 
 The frontend connects to the Micronaut backend REST API:
 
-- **Base URL**: `http://localhost:8080`
+- **Base URL**: `http://localhost:8008`
 - **Endpoints**: `/caves`, `/defects`, `/statues`, `/murals`, `/paintings`, `/inscriptions`
 
 ## 📝 Development Notes

@@ -244,8 +244,8 @@ Open the interactive demo to test all translations:
 
 ```bash
 cd frontend
-python -m http.server 8000
-# Navigate to http://localhost:8000/i18n-demo.html
+python -m http.server 8009
+# Navigate to http://localhost:8009/i18n-demo.html
 ```
 
 ### In Components

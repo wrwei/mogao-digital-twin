@@ -29,7 +29,7 @@ export default {
         return {
             temperature: 20, // Celsius
             humidity: 50,    // Percentage
-            isSimulating: false,
+            isSimulating: true,   // Always active
             isPlaying: false,    // Time progression play/pause
             showAdvanced: false,
             temperatureUnit: 'C', // C or F
@@ -54,6 +54,8 @@ export default {
                 mould: true,
                 saltCryst: true
             },
+            // Active tab
+            activeTab: 'chemical',
             // Model configuration (expandable)
             showConfig: { chemical: false, lifetime: false, mould: false, saltCryst: false },
             // Configurable model parameters (initialized from engine defaults)
@@ -94,6 +96,18 @@ export default {
             if (this.temperature < 22) return this.t('simulation.status.optimal');
             if (this.temperature < 28) return this.t('simulation.status.warm');
             return this.t('simulation.status.tooHot');
+        },
+        lightColor() {
+            if (this.simLight <= 0) return '#6b7280';       // Dark - gray
+            if (this.simLight <= 0.2) return '#10b981';     // Museum - green
+            if (this.simLight <= 5) return '#f59e0b';       // Moderate - orange
+            return '#ef4444';                                // Excessive - red
+        },
+        lightStatus() {
+            if (this.simLight <= 0) return this.t('simulation.status.dark') || 'Dark storage';
+            if (this.simLight <= 0.2) return this.t('simulation.status.museum') || 'Museum level';
+            if (this.simLight <= 5) return this.t('simulation.status.moderate') || 'Moderate exposure';
+            return this.t('simulation.status.excessive') || 'Excessive';
         },
         humidityStatus() {
             if (this.humidity < 30) return this.t('simulation.status.tooDry');
@@ -458,7 +472,7 @@ export default {
     },
 
     mounted() {
-        this.$nextTick(() => { this.initChart(); });
+        this.$nextTick(() => { this.initChart(); this.emitSimulation(); });
     },
 
     beforeUnmount() {
@@ -470,353 +484,249 @@ export default {
     },
 
     template: `
-        <div class="simulation-panel" :class="{ 'simulation-active': isSimulating }">
-            <div class="simulation-header">
-                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-                    <h3 class="simulation-title">🧪 {{ t('simulation.title') }}</h3>
-                    <button
-                        @click="toggleSimulation"
-                        class="btn btn-sm"
-                        :class="isSimulating ? 'btn-danger' : 'btn-primary'">
-                        {{ isSimulating ? t('simulation.stop') : t('simulation.start') }}
-                    </button>
-                    <button
-                        @click="toggleTimeProgression"
-                        class="btn btn-sm"
-                        :class="isPlaying ? 'btn-warning' : 'btn-outline'"
-                        :disabled="!isSimulating"
-                        :title="isPlaying ? 'Pause time progression' : 'Play time progression'">
-                        {{ isPlaying ? '⏸️ Pause' : '▶️ Play' }}
-                    </button>
-                    <button @click="resetDefaults" class="btn btn-sm btn-outline">
-                        🔄 {{ t('simulation.reset') }}
-                    </button>
+        <div class="simulation-panel simulation-active">
+            <div class="sim-header">
+                <div class="sim-header-top">
+                    <h3 class="sim-title">🧪 {{ t('simulation.title') }}</h3>
+                    <button @click="showAdvanced = !showAdvanced" class="sim-gear-btn" :title="t('simulation.advanced')">⚙️</button>
                 </div>
-                <div v-if="isSimulating" style="font-size: 11px; color: #666; margin-top: 8px;">
-                    ⏱️ Simulated: {{ getTotalDays().toFixed(1) }} days ({{ (getTotalDays() / 365.25).toFixed(2) }} years)
-                    <span v-if="isPlaying" style="color: #f59e0b;"> ● PLAYING {{ simulationSpeed.toFixed(1) }}×</span>
+                <div class="sim-controls">
+                    <button @click="toggleTimeProgression" class="sim-play-btn" :class="{ playing: isPlaying }">
+                        <span v-if="isPlaying">⏸</span><span v-else>▶</span>
+                    </button>
+                    <div class="sim-time-display">
+                        <div class="sim-time-value">{{ (getTotalDays() / 365.25).toFixed(1) }} <small>years</small></div>
+                        <div class="sim-time-sub">{{ getTotalDays().toFixed(0) }} days
+                            <span v-if="isPlaying" class="sim-playing-dot">● {{ simulationSpeed.toFixed(0) }}×</span>
+                        </div>
+                    </div>
+                    <div class="sim-speed-btns">
+                        <button v-for="s in [1, 5, 10, 20]" :key="s"
+                                class="sim-speed-btn" :class="{ active: simulationSpeed === s }"
+                                @click="simulationSpeed = s">
+                            ×{{ s }}
+                        </button>
+                    </div>
+                    <button @click="resetDefaults" class="sim-reset-btn" title="Reset">↺</button>
                 </div>
-                <button @click="showAdvanced = !showAdvanced" class="btn btn-sm btn-outline">
-                    {{ showAdvanced ? '▼' : '▶' }} {{ t('simulation.advanced') }}
-                </button>
             </div>
 
             <div class="simulation-body">
-                <!-- ── Deterioration Models Card ─────────────────────── -->
-                <div v-if="isSimulating" class="deterioration-card" style="margin-top: 0;">
-                    <div class="deterioration-card-header">
-                        <span>📐 {{ t('simulation.modelsCard.title') }}</span>
-                        <span style="font-size: 10px; color: #888; font-weight: normal;">
-                            {{ [enabledModels.chemical, enabledModels.lifetime, enabledModels.mould, enabledModels.saltCryst].filter(Boolean).length }} / 4
-                        </span>
-                    </div>
-                    <div class="deterioration-card-body" style="padding: 8px 12px;">
-                        <label class="model-toggle-label" style="margin-bottom: 6px;">
-                            <input type="checkbox" v-model="enabledModels.chemical" />
-                            {{ t('simulation.models.chemical') }}
-                        </label>
-                        <label class="model-toggle-label" style="margin-bottom: 6px;">
-                            <input type="checkbox" v-model="enabledModels.lifetime" />
-                            {{ t('simulation.models.lifetime') }}
-                        </label>
-                        <label class="model-toggle-label" style="margin-bottom: 6px;">
-                            <input type="checkbox" v-model="enabledModels.mould" />
-                            {{ t('simulation.models.mould') }}
-                        </label>
-                        <label class="model-toggle-label">
-                            <input type="checkbox" v-model="enabledModels.saltCryst" />
-                            {{ t('simulation.models.saltCryst') }}
-                        </label>
-                    </div>
+                <!-- ── Model Tabs ─────────────────────────────────── -->
+                <div class="sim-tabs">
+                    <button class="sim-tab" :class="{ active: activeTab === 'chemical' }" @click="activeTab = 'chemical'">
+                        ⚗️ Chemical
+                    </button>
+                    <button class="sim-tab" :class="{ active: activeTab === 'lifetime' }" @click="activeTab = 'lifetime'">
+                        ⏳ Lifetime
+                    </button>
+                    <button class="sim-tab" :class="{ active: activeTab === 'mould' }" @click="activeTab = 'mould'">
+                        🦠 Mould
+                    </button>
+                    <button class="sim-tab" :class="{ active: activeTab === 'salt' }" @click="activeTab = 'salt'">
+                        🧂 Salt
+                    </button>
                 </div>
 
-                <!-- Temperature Control -->
-                <div class="simulation-control">
-                    <div class="control-header">
-                        <label class="control-label">
-                            🌡️ {{ t('simulation.temperature') }}
-                            <span class="control-unit" @click="convertTemperature" style="cursor: pointer;" :title="t('simulation.clickToConvert')">
-                                (°{{ temperatureUnit }})
-                            </span>
-                        </label>
-                        <div class="control-value-display" :style="{ color: temperatureColor }">
-                            {{ temperature.toFixed(1) }}°{{ temperatureUnit }}
+                <!-- ═══ CHEMICAL TAB ═══ -->
+                <!-- ═══ CHEMICAL TAB ═══ -->
+                <div v-if="activeTab === 'chemical'" class="sim-tab-content">
+                    <!-- Controls: Temperature, Humidity, Light, Exposure -->
+                    <div class="sim-tab-controls">
+                        <div class="sim-compact-control">
+                            <div class="sim-compact-control-header">
+                                <span class="sim-compact-label">🌡️ {{ t('simulation.temperature') }}</span>
+                                <span class="sim-compact-value" :style="{ color: temperatureColor }">{{ temperature.toFixed(1) }}°{{ temperatureUnit }}</span>
+                            </div>
+                            <input type="range" v-model.number="temperature" :min="temperatureUnit === 'C' ? -10 : 14" :max="temperatureUnit === 'C' ? 40 : 104" step="0.5" class="simulation-slider" :style="{ '--slider-color': temperatureColor }" />
+                        </div>
+                        <div class="sim-compact-control">
+                            <div class="sim-compact-control-header">
+                                <span class="sim-compact-label">💧 {{ t('simulation.humidity') }}</span>
+                                <span class="sim-compact-value" :style="{ color: humidityColor }">{{ humidity.toFixed(0) }}%</span>
+                            </div>
+                            <input type="range" v-model.number="humidity" min="10" max="90" step="1" class="simulation-slider" :style="{ '--slider-color': humidityColor }" />
+                        </div>
+                        <div class="sim-compact-control">
+                            <div class="sim-compact-control-header">
+                                <span class="sim-compact-label">💡 {{ t('simulation.light') }}</span>
+                                <span class="sim-compact-value" :style="{ color: lightColor }">{{ simLight.toFixed(1) }} klux</span>
+                            </div>
+                            <input type="range" v-model.number="simLight" min="0" max="50" step="0.5" class="simulation-slider" :style="{ '--slider-color': lightColor }" />
+                        </div>
+                        <div class="sim-compact-control">
+                            <div class="sim-compact-control-header">
+                                <span class="sim-compact-label">⏱️ Exposure</span>
+                                <span class="sim-compact-value">{{ simYears }} yr</span>
+                            </div>
+                            <input type="range" v-model.number="simYears" min="0" max="200" step="1" class="simulation-slider" />
                         </div>
                     </div>
-                    <input
-                        type="range"
-                        v-model.number="temperature"
-                        :min="temperatureUnit === 'C' ? -10 : 14"
-                        :max="temperatureUnit === 'C' ? 40 : 104"
-                        step="0.5"
-                        class="simulation-slider"
-                        :style="{ '--slider-color': temperatureColor }"
-                        :disabled="!isSimulating"
-                    />
-                    <div class="control-status" :style="{ color: temperatureColor }">
-                        {{ temperatureStatus }}
-                    </div>
-                </div>
-
-                <!-- Humidity Control -->
-                <div class="simulation-control">
-                    <div class="control-header">
-                        <label class="control-label">
-                            💧 {{ t('simulation.humidity') }}
-                            <span class="control-unit">(% RH)</span>
-                        </label>
-                        <div class="control-value-display" :style="{ color: humidityColor }">
-                            {{ humidity.toFixed(0) }}%
-                        </div>
-                    </div>
-                    <input
-                        type="range"
-                        v-model.number="humidity"
-                        min="10"
-                        max="90"
-                        step="1"
-                        class="simulation-slider"
-                        :style="{ '--slider-color': humidityColor }"
-                        :disabled="!isSimulating"
-                    />
-                    <div class="control-status" :style="{ color: humidityColor }">
-                        {{ humidityStatus }}
-                    </div>
-                </div>
-
-                <!-- ── Chemical Fading Card ──────────────────────────────── -->
-                <div v-if="isSimulating && enabledModels.chemical" class="deterioration-card">
-                    <div class="deterioration-card-header">
-                        <span>⚗️ {{ t('simulation.models.chemical') }}</span>
-                        <div style="display: flex; align-items: center; gap: 6px;">
-                            <span class="deterioration-badge" :style="{
-                                background: chemicalResult.label === 'critical' ? '#ef4444' : chemicalResult.label === 'high' ? '#f59e0b' : chemicalResult.label === 'moderate' ? '#eab308' : '#10b981',
-                                color: 'white'
-                            }">{{ chemicalResult.label }}</span>
-                            <button class="config-toggle-btn" @click="showConfig.chemical = !showConfig.chemical">
-                                {{ t('simulation.params.configure') }}
-                            </button>
-                        </div>
-                    </div>
-                    <div class="deterioration-card-body" style="text-align: center;">
-                        <div style="font-size: 22px; font-weight: 700; line-height: 1.2;"
-                             :style="{ color: chemicalResult.label === 'low' ? '#10b981' : chemicalResult.label === 'moderate' ? '#eab308' : '#ef4444' }">
+                    <!-- Result -->
+                    <div class="sim-tab-result">
+                        <div class="sim-result-main" :style="{ color: chemicalResult.label === 'low' ? '#10b981' : chemicalResult.label === 'moderate' ? '#eab308' : '#ef4444' }">
                             {{ chemicalResult.scientificDegradation.toFixed(1) }}%
                         </div>
-                        <div style="font-size: 11px; color: #888; margin-top: 2px;">
-                            k = {{ chemicalResult.rateConstant.toExponential(2) }} /day
+                        <div class="sim-result-sub">k = {{ chemicalResult.rateConstant.toExponential(2) }} /day</div>
+                        <span class="deterioration-badge" :style="{ background: chemicalResult.label === 'critical' ? '#ef4444' : chemicalResult.label === 'high' ? '#f59e0b' : chemicalResult.label === 'moderate' ? '#eab308' : '#10b981', color: 'white' }">{{ chemicalResult.label }}</span>
+                    </div>
+                    <!-- Params -->
+                    <button class="config-toggle-btn" style="margin-top: 8px; width: 100%;" @click="showConfig.chemical = !showConfig.chemical">{{ showConfig.chemical ? '▼' : '▶' }} {{ t('simulation.params.configure') }}</button>
+                    <div v-if="showConfig.chemical" class="param-config">
+                        <div class="param-config-grid">
+                            <div class="param-field"><label>{{ t('simulation.params.chemical.Ea_dark') }}</label><input type="number" v-model.number="chemicalParams.Ea_dark" step="1000" /></div>
+                            <div class="param-field"><label>{{ t('simulation.params.chemical.Ea_light') }}</label><input type="number" v-model.number="chemicalParams.Ea_light" step="1000" /></div>
+                            <div class="param-field"><label>{{ t('simulation.params.chemical.k0_dark') }}</label><input type="number" v-model.number="chemicalParams.k0_dark" step="0.00001" /></div>
+                            <div class="param-field"><label>{{ t('simulation.params.chemical.k0_light') }}</label><input type="number" v-model.number="chemicalParams.k0_light" step="0.0001" /></div>
+                            <div class="param-field"><label>{{ t('simulation.params.chemical.q') }}</label><input type="number" v-model.number="chemicalParams.q" step="0.1" min="0" max="2" /></div>
+                            <div class="param-field"><label>{{ t('simulation.params.chemical.p') }}</label><input type="number" v-model.number="chemicalParams.p" step="0.1" min="0" max="2" /></div>
                         </div>
-                        <!-- Config Section -->
-                        <div v-if="showConfig.chemical" class="param-config">
-                            <div class="param-config-grid">
-                                <div class="param-field">
-                                    <label>{{ t('simulation.params.chemical.Ea_dark') }}</label>
-                                    <input type="number" v-model.number="chemicalParams.Ea_dark" step="1000" />
-                                </div>
-                                <div class="param-field">
-                                    <label>{{ t('simulation.params.chemical.Ea_light') }}</label>
-                                    <input type="number" v-model.number="chemicalParams.Ea_light" step="1000" />
-                                </div>
-                                <div class="param-field">
-                                    <label>{{ t('simulation.params.chemical.k0_dark') }}</label>
-                                    <input type="number" v-model.number="chemicalParams.k0_dark" step="0.00001" />
-                                </div>
-                                <div class="param-field">
-                                    <label>{{ t('simulation.params.chemical.k0_light') }}</label>
-                                    <input type="number" v-model.number="chemicalParams.k0_light" step="0.0001" />
-                                </div>
-                                <div class="param-field">
-                                    <label>{{ t('simulation.params.chemical.q') }}</label>
-                                    <input type="number" v-model.number="chemicalParams.q" step="0.1" min="0" max="2" />
-                                </div>
-                                <div class="param-field">
-                                    <label>{{ t('simulation.params.chemical.p') }}</label>
-                                    <input type="number" v-model.number="chemicalParams.p" step="0.1" min="0" max="2" />
-                                </div>
-                            </div>
-                            <button class="param-reset-btn" @click="resetModelParams('chemical')">{{ t('simulation.params.resetDefaults') }}</button>
-                        </div>
+                        <button class="param-reset-btn" @click="resetModelParams('chemical')">{{ t('simulation.params.resetDefaults') }}</button>
                     </div>
                 </div>
 
-                <!-- ── Lifetime Multiplier Card ────────────────────────── -->
-                <div v-if="isSimulating && enabledModels.lifetime" class="deterioration-card">
-                    <div class="deterioration-card-header">
-                        <span>⏳ {{ t('simulation.models.lifetime') }}</span>
-                        <button class="config-toggle-btn" @click="showConfig.lifetime = !showConfig.lifetime">
-                            {{ t('simulation.params.configure') }}
-                        </button>
-                    </div>
-                    <div class="deterioration-card-body" style="text-align: center;">
-                        <div class="lifetime-value" :style="{ color: lifetimeResult.color }">
-                            {{ lifetimeResult.multiplier.toFixed(2) }}×
-                        </div>
-                        <div class="lifetime-label" :style="{ color: lifetimeResult.color }">
-                            {{ lifetimeResult.label === 'longer' ? t('simulation.lifetime.longer') : t('simulation.lifetime.shorter') }}
-                        </div>
-                        <div style="font-size: 10px; color: #888; margin-top: 4px;">
-                            {{ t('simulation.lifetime.reference') }}
-                        </div>
-                        <!-- Config Section -->
-                        <div v-if="showConfig.lifetime" class="param-config">
-                            <div class="param-config-grid">
-                                <div class="param-field">
-                                    <label>{{ t('simulation.params.lifetime.Ea') }}</label>
-                                    <input type="number" v-model.number="lifetimeParams.Ea" step="1000" />
-                                </div>
-                                <div class="param-field">
-                                    <label>{{ t('simulation.params.lifetime.n') }}</label>
-                                    <input type="number" v-model.number="lifetimeParams.n" step="0.1" min="0" max="5" />
-                                </div>
-                                <div class="param-field">
-                                    <label>{{ t('simulation.params.lifetime.T0') }}</label>
-                                    <input type="number" v-model.number="lifetimeParams.T0" step="1" />
-                                </div>
-                                <div class="param-field">
-                                    <label>{{ t('simulation.params.lifetime.RH0') }}</label>
-                                    <input type="number" v-model.number="lifetimeParams.RH0" step="1" min="1" max="100" />
-                                </div>
+                <!-- ═══ LIFETIME TAB ═══ -->
+                <div v-if="activeTab === 'lifetime'" class="sim-tab-content">
+                    <div class="sim-tab-controls">
+                        <div class="sim-compact-control">
+                            <div class="sim-compact-control-header">
+                                <span class="sim-compact-label">🌡️ {{ t('simulation.temperature') }}</span>
+                                <span class="sim-compact-value" :style="{ color: temperatureColor }">{{ temperature.toFixed(1) }}°{{ temperatureUnit }}</span>
                             </div>
-                            <button class="param-reset-btn" @click="resetModelParams('lifetime')">{{ t('simulation.params.resetDefaults') }}</button>
+                            <input type="range" v-model.number="temperature" :min="temperatureUnit === 'C' ? -10 : 14" :max="temperatureUnit === 'C' ? 40 : 104" step="0.5" class="simulation-slider" :style="{ '--slider-color': temperatureColor }" />
                         </div>
+                        <div class="sim-compact-control">
+                            <div class="sim-compact-control-header">
+                                <span class="sim-compact-label">💧 {{ t('simulation.humidity') }}</span>
+                                <span class="sim-compact-value" :style="{ color: humidityColor }">{{ humidity.toFixed(0) }}%</span>
+                            </div>
+                            <input type="range" v-model.number="humidity" min="10" max="90" step="1" class="simulation-slider" :style="{ '--slider-color': humidityColor }" />
+                        </div>
+                    </div>
+                    <div class="sim-tab-result">
+                        <div class="sim-result-main" :style="{ color: lifetimeResult.color }">{{ lifetimeResult.multiplier.toFixed(2) }}×</div>
+                        <div class="sim-result-sub" :style="{ color: lifetimeResult.color }">{{ lifetimeResult.label === 'longer' ? t('simulation.lifetime.longer') : t('simulation.lifetime.shorter') }}</div>
+                        <div style="font-size: 10px; color: #888; margin-top: 4px;">{{ t('simulation.lifetime.reference') }}</div>
+                    </div>
+                    <button class="config-toggle-btn" style="margin-top: 8px; width: 100%;" @click="showConfig.lifetime = !showConfig.lifetime">{{ showConfig.lifetime ? '▼' : '▶' }} {{ t('simulation.params.configure') }}</button>
+                    <div v-if="showConfig.lifetime" class="param-config">
+                        <div class="param-config-grid">
+                            <div class="param-field"><label>{{ t('simulation.params.lifetime.Ea') }}</label><input type="number" v-model.number="lifetimeParams.Ea" step="1000" /></div>
+                            <div class="param-field"><label>{{ t('simulation.params.lifetime.n') }}</label><input type="number" v-model.number="lifetimeParams.n" step="0.1" min="0" max="5" /></div>
+                            <div class="param-field"><label>{{ t('simulation.params.lifetime.T0') }}</label><input type="number" v-model.number="lifetimeParams.T0" step="1" /></div>
+                            <div class="param-field"><label>{{ t('simulation.params.lifetime.RH0') }}</label><input type="number" v-model.number="lifetimeParams.RH0" step="1" min="1" max="100" /></div>
+                        </div>
+                        <button class="param-reset-btn" @click="resetModelParams('lifetime')">{{ t('simulation.params.resetDefaults') }}</button>
                     </div>
                 </div>
 
-                <!-- ── Mould Risk Card ─────────────────────────────────── -->
-                <div v-if="isSimulating && enabledModels.mould" class="deterioration-card">
-                    <div class="deterioration-card-header">
-                        <span>🦠 {{ t('simulation.models.mould') }}</span>
-                        <div style="display: flex; align-items: center; gap: 6px;">
-                            <span class="deterioration-badge" :style="{ background: mouldStatusColor, color: 'white' }">
-                                {{ mouldStatusLabel }}
-                            </span>
-                            <button class="config-toggle-btn" @click="showConfig.mould = !showConfig.mould">
-                                {{ t('simulation.params.configure') }}
-                            </button>
+                <!-- ═══ MOULD TAB ═══ -->
+                <div v-if="activeTab === 'mould'" class="sim-tab-content">
+                    <div class="sim-tab-controls">
+                        <div class="sim-compact-control">
+                            <div class="sim-compact-control-header">
+                                <span class="sim-compact-label">🌡️ {{ t('simulation.temperature') }}</span>
+                                <span class="sim-compact-value" :style="{ color: temperatureColor }">{{ temperature.toFixed(1) }}°{{ temperatureUnit }}</span>
+                            </div>
+                            <input type="range" v-model.number="temperature" :min="temperatureUnit === 'C' ? -10 : 14" :max="temperatureUnit === 'C' ? 40 : 104" step="0.5" class="simulation-slider" :style="{ '--slider-color': temperatureColor }" />
+                        </div>
+                        <div class="sim-compact-control">
+                            <div class="sim-compact-control-header">
+                                <span class="sim-compact-label">💧 {{ t('simulation.humidity') }}</span>
+                                <span class="sim-compact-value" :style="{ color: humidityColor }">{{ humidity.toFixed(0) }}%</span>
+                            </div>
+                            <input type="range" v-model.number="humidity" min="10" max="90" step="1" class="simulation-slider" :style="{ '--slider-color': humidityColor }" />
+                        </div>
+                        <div class="sim-compact-control">
+                            <div class="sim-compact-control-header">
+                                <span class="sim-compact-label">⏱️ Exposure</span>
+                                <span class="sim-compact-value">{{ simYears }} yr</span>
+                            </div>
+                            <input type="range" v-model.number="simYears" min="0" max="200" step="1" class="simulation-slider" />
                         </div>
                     </div>
-                    <div class="deterioration-card-body">
-                        <!-- Mould Index Gauge (0-6) -->
-                        <div style="margin-bottom: 8px;">
-                            <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 4px;">
-                                <span>{{ t('simulation.mould.index') }}: <strong>{{ displayMouldIndex.toFixed(1) }}</strong> / 6</span>
-                                <span style="color: #888;">{{ t('simulation.mould.scale.' + Math.min(6, Math.floor(displayMouldIndex))) }}</span>
-                            </div>
-                            <div class="mould-gauge-track">
-                                <div
-                                    class="mould-gauge-fill"
-                                    :style="{
-                                        width: (displayMouldIndex / 6 * 100) + '%',
-                                        background: displayMouldIndex < 2 ? '#10b981' : displayMouldIndex < 4 ? '#f59e0b' : '#ef4444'
-                                    }">
-                                </div>
-                                <div class="mould-gauge-labels">
-                                    <span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span>
-                                </div>
-                            </div>
+                    <div class="sim-tab-result">
+                        <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px;">
+                            <span>{{ t('simulation.mould.index') }}: <strong>{{ displayMouldIndex.toFixed(1) }}</strong> / 6</span>
+                            <span style="color: #888;">{{ t('simulation.mould.scale.' + Math.min(6, Math.floor(displayMouldIndex))) }}</span>
                         </div>
-                        <!-- Threshold Info -->
-                        <div style="font-size: 11px; color: #666;">
+                        <div class="mould-gauge-track">
+                            <div class="mould-gauge-fill" :style="{ width: (displayMouldIndex / 6 * 100) + '%', background: displayMouldIndex < 2 ? '#10b981' : displayMouldIndex < 4 ? '#f59e0b' : '#ef4444' }"></div>
+                            <div class="mould-gauge-labels"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span></div>
+                        </div>
+                        <div style="font-size: 11px; color: #666; margin-top: 8px;">
                             {{ t('simulation.mould.threshold', { rh: mouldResult.rhCritical.toFixed(0) }) }}
-                            <span v-if="mouldResult.isAboveThreshold" style="color: #ef4444; font-weight: 600;">
-                                ({{ t('simulation.mould.exceeded') }})
-                            </span>
+                            <span v-if="mouldResult.isAboveThreshold" style="color: #ef4444; font-weight: 600;"> ({{ t('simulation.mould.exceeded') }})</span>
                         </div>
-                        <!-- Config Section -->
-                        <div v-if="showConfig.mould" class="param-config">
-                            <div class="param-config-grid">
-                                <div class="param-field">
-                                    <label>{{ t('simulation.params.mould.growthCoeff') }}</label>
-                                    <input type="number" v-model.number="mouldParams.growthCoeff" step="0.01" min="0" />
-                                </div>
-                                <div class="param-field">
-                                    <label>{{ t('simulation.params.mould.declineRate') }}</label>
-                                    <input type="number" v-model.number="mouldParams.declineRate" step="0.01" max="0" />
-                                </div>
-                            </div>
-                            <button class="param-reset-btn" @click="resetModelParams('mould')">{{ t('simulation.params.resetDefaults') }}</button>
+                        <span class="deterioration-badge" style="margin-top: 8px;" :style="{ background: mouldStatusColor, color: 'white' }">{{ mouldStatusLabel }}</span>
+                    </div>
+                    <button class="config-toggle-btn" style="margin-top: 8px; width: 100%;" @click="showConfig.mould = !showConfig.mould">{{ showConfig.mould ? '▼' : '▶' }} {{ t('simulation.params.configure') }}</button>
+                    <div v-if="showConfig.mould" class="param-config">
+                        <div class="param-config-grid">
+                            <div class="param-field"><label>{{ t('simulation.params.mould.growthCoeff') }}</label><input type="number" v-model.number="mouldParams.growthCoeff" step="0.01" min="0" /></div>
+                            <div class="param-field"><label>{{ t('simulation.params.mould.declineRate') }}</label><input type="number" v-model.number="mouldParams.declineRate" step="0.01" max="0" /></div>
                         </div>
+                        <button class="param-reset-btn" @click="resetModelParams('mould')">{{ t('simulation.params.resetDefaults') }}</button>
                     </div>
                 </div>
 
-                <!-- ── Salt Crystallization Card ────────────────────── -->
-                <div v-if="isSimulating && enabledModels.saltCryst" class="deterioration-card">
-                    <div class="deterioration-card-header">
-                        <span>🧂 {{ t('simulation.models.saltCryst') }}</span>
-                        <div style="display: flex; align-items: center; gap: 6px;">
-                            <span class="deterioration-badge" :style="{
-                                background: saltCrystResult.label === 'critical' ? '#ef4444' : saltCrystResult.label === 'high' ? '#f59e0b' : saltCrystResult.label === 'moderate' ? '#eab308' : '#10b981',
-                                color: 'white'
-                            }">{{ saltCrystResult.label }}</span>
-                            <button class="config-toggle-btn" @click="showConfig.saltCryst = !showConfig.saltCryst">
-                                {{ t('simulation.params.configure') }}
-                            </button>
+                <!-- ═══ SALT TAB ═══ -->
+                <div v-if="activeTab === 'salt'" class="sim-tab-content">
+                    <div class="sim-tab-controls">
+                        <div class="sim-compact-control">
+                            <div class="sim-compact-control-header">
+                                <span class="sim-compact-label">🌡️ {{ t('simulation.temperature') }}</span>
+                                <span class="sim-compact-value" :style="{ color: temperatureColor }">{{ temperature.toFixed(1) }}°{{ temperatureUnit }}</span>
+                            </div>
+                            <input type="range" v-model.number="temperature" :min="temperatureUnit === 'C' ? -10 : 14" :max="temperatureUnit === 'C' ? 40 : 104" step="0.5" class="simulation-slider" :style="{ '--slider-color': temperatureColor }" />
+                        </div>
+                        <div class="sim-compact-control">
+                            <div class="sim-compact-control-header">
+                                <span class="sim-compact-label">💧 {{ t('simulation.humidity') }}</span>
+                                <span class="sim-compact-value" :style="{ color: humidityColor }">{{ humidity.toFixed(0) }}%</span>
+                            </div>
+                            <input type="range" v-model.number="humidity" min="10" max="90" step="1" class="simulation-slider" :style="{ '--slider-color': humidityColor }" />
+                        </div>
+                        <div class="sim-compact-control">
+                            <div class="sim-compact-control-header">
+                                <span class="sim-compact-label">⏱️ Exposure</span>
+                                <span class="sim-compact-value">{{ simYears }} yr</span>
+                            </div>
+                            <input type="range" v-model.number="simYears" min="0" max="200" step="1" class="simulation-slider" />
                         </div>
                     </div>
-                    <div class="deterioration-card-body">
-                        <!-- Pressure display -->
-                        <div style="text-align: center; margin-bottom: 8px;">
-                            <div style="font-size: 22px; font-weight: 700; line-height: 1.2;"
-                                 :style="{ color: saltCrystResult.damageRatio >= 1.5 ? '#ef4444' : saltCrystResult.damageRatio >= 0.5 ? '#f59e0b' : '#10b981' }">
-                                {{ saltCrystResult.pressure_MPa.toFixed(1) }} MPa
-                            </div>
-                            <div style="font-size: 11px; color: #888; margin-top: 2px;">
-                                {{ t('simulation.saltCryst.pressure') }}
-                            </div>
+                    <div class="sim-tab-result">
+                        <div class="sim-result-main" :style="{ color: saltCrystResult.damageRatio >= 1.5 ? '#ef4444' : saltCrystResult.damageRatio >= 0.5 ? '#f59e0b' : '#10b981' }">
+                            {{ saltCrystResult.pressure_MPa.toFixed(1) }} MPa
                         </div>
-                        <!-- Damage gauge -->
-                        <div style="margin-bottom: 8px;">
+                        <div class="sim-result-sub">{{ t('simulation.saltCryst.pressure') }}</div>
+                        <div style="margin-top: 8px;">
                             <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 4px;">
                                 <span>{{ t('simulation.saltCryst.damageRatio') }}: <strong>{{ saltCrystResult.damageRatio.toFixed(2) }}×</strong></span>
                                 <span style="color: #888;">{{ t('simulation.saltCryst.ofTensile') }}</span>
                             </div>
                             <div class="salt-damage-track">
-                                <div class="salt-damage-fill" :style="{
-                                    width: Math.min(100, saltCrystResult.damageRatio / 4 * 100) + '%',
-                                    background: saltCrystResult.damageRatio < 0.5 ? '#10b981' : saltCrystResult.damageRatio < 1.5 ? '#f59e0b' : '#ef4444'
-                                }"></div>
+                                <div class="salt-damage-fill" :style="{ width: Math.min(100, saltCrystResult.damageRatio / 4 * 100) + '%', background: saltCrystResult.damageRatio < 0.5 ? '#10b981' : saltCrystResult.damageRatio < 1.5 ? '#f59e0b' : '#ef4444' }"></div>
                             </div>
                         </div>
-                        <!-- Threshold info -->
-                        <div style="font-size: 11px; color: #666;">
+                        <div style="font-size: 11px; color: #666; margin-top: 8px;">
                             {{ t('simulation.saltCryst.threshold', { drh: saltCrystResult.DRH.toFixed(0) }) }}
-                            <span v-if="saltCrystResult.isCrystallizing" style="color: #ef4444; font-weight: 600;">
-                                ({{ t('simulation.saltCryst.crystallizing') }})
-                            </span>
-                            <span v-else style="color: #10b981; font-weight: 600;">
-                                ({{ t('simulation.saltCryst.dissolved') }})
-                            </span>
+                            <span v-if="saltCrystResult.isCrystallizing" style="color: #ef4444; font-weight: 600;"> ({{ t('simulation.saltCryst.crystallizing') }})</span>
+                            <span v-else style="color: #10b981; font-weight: 600;"> ({{ t('simulation.saltCryst.dissolved') }})</span>
                         </div>
-                        <!-- Config Section -->
-                        <div v-if="showConfig.saltCryst" class="param-config">
-                            <div class="param-config-grid">
-                                <div class="param-field">
-                                    <label>{{ t('simulation.params.saltCryst.Vm') }}</label>
-                                    <input type="number" v-model.number="saltCrystParams.Vm" step="0.00001" />
-                                </div>
-                                <div class="param-field">
-                                    <label>{{ t('simulation.params.saltCryst.DRH_ref') }}</label>
-                                    <input type="number" v-model.number="saltCrystParams.DRH_ref" step="0.1" min="0" max="100" />
-                                </div>
-                                <div class="param-field">
-                                    <label>{{ t('simulation.params.saltCryst.DRH_slope') }}</label>
-                                    <input type="number" v-model.number="saltCrystParams.DRH_slope" step="0.01" />
-                                </div>
-                                <div class="param-field">
-                                    <label>{{ t('simulation.params.saltCryst.tensileStrength') }}</label>
-                                    <input type="number" v-model.number="saltCrystParams.tensileStrength" step="0.5" min="0.1" />
-                                </div>
-                                <div class="param-field">
-                                    <label>{{ t('simulation.params.saltCryst.cyclesPerYear') }}</label>
-                                    <input type="number" v-model.number="saltCrystParams.cyclesPerYear" step="10" min="1" />
-                                </div>
-                                <div class="param-field">
-                                    <label>{{ t('simulation.params.saltCryst.T_ref') }}</label>
-                                    <input type="number" v-model.number="saltCrystParams.T_ref" step="1" />
-                                </div>
-                            </div>
-                            <button class="param-reset-btn" @click="resetModelParams('saltCryst')">{{ t('simulation.params.resetDefaults') }}</button>
+                        <span class="deterioration-badge" style="margin-top: 8px;" :style="{ background: saltCrystResult.label === 'critical' ? '#ef4444' : saltCrystResult.label === 'high' ? '#f59e0b' : saltCrystResult.label === 'moderate' ? '#eab308' : '#10b981', color: 'white' }">{{ saltCrystResult.label }}</span>
+                    </div>
+                    <button class="config-toggle-btn" style="margin-top: 8px; width: 100%;" @click="showConfig.saltCryst = !showConfig.saltCryst">{{ showConfig.saltCryst ? '▼' : '▶' }} {{ t('simulation.params.configure') }}</button>
+                    <div v-if="showConfig.saltCryst" class="param-config">
+                        <div class="param-config-grid">
+                            <div class="param-field"><label>{{ t('simulation.params.saltCryst.Vm') }}</label><input type="number" v-model.number="saltCrystParams.Vm" step="0.00001" /></div>
+                            <div class="param-field"><label>{{ t('simulation.params.saltCryst.DRH_ref') }}</label><input type="number" v-model.number="saltCrystParams.DRH_ref" step="0.1" min="0" max="100" /></div>
+                            <div class="param-field"><label>{{ t('simulation.params.saltCryst.DRH_slope') }}</label><input type="number" v-model.number="saltCrystParams.DRH_slope" step="0.01" /></div>
+                            <div class="param-field"><label>{{ t('simulation.params.saltCryst.tensileStrength') }}</label><input type="number" v-model.number="saltCrystParams.tensileStrength" step="0.5" min="0.1" /></div>
+                            <div class="param-field"><label>{{ t('simulation.params.saltCryst.cyclesPerYear') }}</label><input type="number" v-model.number="saltCrystParams.cyclesPerYear" step="10" min="1" /></div>
+                            <div class="param-field"><label>{{ t('simulation.params.saltCryst.T_ref') }}</label><input type="number" v-model.number="saltCrystParams.T_ref" step="1" /></div>
                         </div>
+                        <button class="param-reset-btn" @click="resetModelParams('saltCryst')">{{ t('simulation.params.resetDefaults') }}</button>
                     </div>
                 </div>
 
@@ -828,11 +738,11 @@ export default {
                     <div class="control-group" style="margin-bottom: 16px;">
                         <label class="control-label" style="font-weight: 600; margin-bottom: 8px; display: block;">📊 Quick Presets:</label>
                         <div style="display: flex; gap: 5px; flex-wrap: wrap;">
-                            <button @click="applyPreset('museum')" class="btn btn-xs" :disabled="!isSimulating">Museum (100y)</button>
-                            <button @click="applyPreset('oneYear')" class="btn btn-xs" :disabled="!isSimulating">1 Year</button>
-                            <button @click="applyPreset('tenYears')" class="btn btn-xs" :disabled="!isSimulating">10 Years</button>
-                            <button @click="applyPreset('poorStorage')" class="btn btn-xs" :disabled="!isSimulating">Poor Storage</button>
-                            <button @click="applyPreset('extreme')" class="btn btn-xs" :disabled="!isSimulating">Extreme</button>
+                            <button @click="applyPreset('museum')" class="btn btn-xs" :disabled="false">Museum (100y)</button>
+                            <button @click="applyPreset('oneYear')" class="btn btn-xs" :disabled="false">1 Year</button>
+                            <button @click="applyPreset('tenYears')" class="btn btn-xs" :disabled="false">10 Years</button>
+                            <button @click="applyPreset('poorStorage')" class="btn btn-xs" :disabled="false">Poor Storage</button>
+                            <button @click="applyPreset('extreme')" class="btn btn-xs" :disabled="false">Extreme</button>
                         </div>
                     </div>
 
@@ -852,7 +762,7 @@ export default {
                         <input type="range" v-model.number="simYears"
                                min="0" max="200" step="1"
                                class="simulation-slider"
-                               :disabled="!isSimulating" />
+                               :disabled="false" />
                         <div style="display: flex; justify-content: space-between; font-size: 10px; color: #888; margin-top: 4px;">
                             <span>0</span>
                             <span>50</span>
@@ -878,7 +788,7 @@ export default {
                             max="50"
                             step="0.5"
                             class="simulation-slider"
-                            :disabled="!isSimulating"
+                            :disabled="false"
                         />
                         <div class="control-status" style="font-size: 11px; font-style: italic;">
                             0 = dark, 0.05-0.2 = museum, 10+ = excessive
@@ -905,7 +815,7 @@ export default {
                             max="20.0"
                             step="0.5"
                             class="simulation-slider"
-                            :disabled="!isSimulating"
+                            :disabled="false"
                         />
                         <div style="display: flex; justify-content: space-between; font-size: 10px; color: #888; margin-top: 4px;">
                             <span>0.1× (slow)</span>
@@ -913,11 +823,11 @@ export default {
                             <span>20× (~1 year/18sec)</span>
                         </div>
                         <div style="display: flex; gap: 5px; flex-wrap: wrap; margin-top: 8px;">
-                            <button @click="simulationSpeed = 0.5" class="btn btn-xs" :disabled="!isSimulating">0.5×</button>
-                            <button @click="simulationSpeed = 1.0" class="btn btn-xs" :disabled="!isSimulating">1×</button>
-                            <button @click="simulationSpeed = 5.0" class="btn btn-xs" :disabled="!isSimulating">5×</button>
-                            <button @click="simulationSpeed = 10.0" class="btn btn-xs" :disabled="!isSimulating">10×</button>
-                            <button @click="simulationSpeed = 20.0" class="btn btn-xs" :disabled="!isSimulating">20×</button>
+                            <button @click="simulationSpeed = 0.5" class="btn btn-xs" :disabled="false">0.5×</button>
+                            <button @click="simulationSpeed = 1.0" class="btn btn-xs" :disabled="false">1×</button>
+                            <button @click="simulationSpeed = 5.0" class="btn btn-xs" :disabled="false">5×</button>
+                            <button @click="simulationSpeed = 10.0" class="btn btn-xs" :disabled="false">10×</button>
+                            <button @click="simulationSpeed = 20.0" class="btn btn-xs" :disabled="false">20×</button>
                         </div>
                     </div>
 
