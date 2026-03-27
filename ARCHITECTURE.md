@@ -9,24 +9,29 @@
 The Mogao Digital Twin is a model-driven engineering (MDE) system for heritage conservation at the Mogao Caves (敦煌莫高窟), a UNESCO World Heritage Site in Gansu, China. The system integrates three pillars:
 
 1. **Model-driven code generation** — A single Ecore metamodel drives automatic generation of backend services, frontend components, and data transfer objects via Epsilon EGL templates
-2. **3D visualisation** — Interactive Three.js-based rendering of heritage artefacts (statues, murals, paintings, inscriptions) with real-time deterioration effects applied to textures
-3. **Scientific deterioration simulation** — Four peer-reviewed conservation science models running client-side, with configurable parameters and reactive UI
+2. **3D visualisation** — Interactive Three.js-based rendering of heritage artefacts (statues, murals, paintings, inscriptions) with real-time deterioration effects applied to textures via Web Worker
+3. **Scientific deterioration simulation** — Four peer-reviewed conservation science models computed server-side via REST API, with configurable parameters and reactive UI
 
 ### Technology Stack
 
-| Layer | Technology | Version |
-|-------|-----------|---------|
-| Backend framework | Micronaut | 4.2.3 |
-| Backend language | Java | 17 |
-| Metamodelling | Eclipse EMF (Ecore) | 2.23.0 |
-| Code generation | Epsilon (EGL, EOL, ETL, EVL) | 2.8.0 |
-| Model format | Flexmi | (Epsilon bundle) |
-| Frontend framework | Vue.js | 3.x (CDN) |
-| 3D rendering | Three.js | 0.147.0 |
-| HTTP client | Axios | 1.6.2 |
-| Charting | Chart.js | 4.4.1 |
-| Internationalisation | Custom Vue 3 composable | — |
-| Build step | None (vanilla ES modules) | — |
+| Layer | Technology | Version | Role |
+|-------|-----------|---------|------|
+| **Design-time** | | | |
+| Metamodelling | Eclipse EMF (Ecore) | 2.23.0 | Domain metamodel |
+| Code generation | Epsilon (EGL, EOL, ETL, EVL) | 2.8.0 | Template-based generation |
+| Code gen runtime | Micronaut (Java 17) | 4.2.3 | Hosts EGL transformation engine |
+| Model format | Flexmi | (Epsilon bundle) | Concise model instances |
+| **Runtime** | | | |
+| Backend framework | Express.js (Node.js) | — | REST API server |
+| Database | MongoDB | 5.0 | Document persistence |
+| ODM | Mongoose | — | Schema + query layer |
+| Authentication | JWT (jsonwebtoken) | — | Token-based auth |
+| Frontend framework | Vue.js | 3.x (CDN) | SPA framework |
+| 3D rendering | Three.js | 0.147.0 | OBJ/MTL model viewer |
+| HTTP client | Axios | 1.6.2 | API communication |
+| Charting | Chart.js | 4.4.1 | Time-series visualisation |
+| Internationalisation | Custom Vue 3 composable | — | zh + en |
+| Build step | None (vanilla ES modules) | — | — |
 
 ---
 
@@ -80,15 +85,25 @@ A Flexmi model instance (`mogao.model`) populates the metamodel with cave, exhib
 
 Epsilon EGL (Epsilon Generation Language) templates traverse the Ecore metamodel and generate both backend and frontend code artefacts. The generation is driven by the metamodel structure — for each concrete `EClass`, the templates produce:
 
-**Backend (Java/Micronaut):**
+**Backend (Node.js/Express + Mongoose):**
+
+| Template | Generates |
+|----------|-----------|
+| `GenerateMongooseModel.egl` | Mongoose schemas (one per EClass) |
+| `GenerateExpressRouter.egl` | Express routers with CRUD + GID endpoints |
+| `GenerateExpressController.egl` | Controller classes (request handling) |
+| `GenerateExpressService.egl` | Service classes (business logic, Mongoose queries) |
+| `GenerateExpressApp.egl` | Express app setup with middleware |
+| `GenerateFileUploadController.egl` | File upload endpoints for 3D model/texture assets |
+| `GenerateHealthController.egl` | Health check endpoint |
+
+**Backend (Java/Micronaut — design-time only):**
 
 | Template | Generates |
 |----------|-----------|
 | `GenerateDTO.egl` | Data Transfer Objects (one per EClass) |
 | `GenerateController.egl` | REST controllers with CRUD endpoints |
-| `GenerateService.egl` | Service classes (business logic, EMF persistence) |
-| `GenerateFileUploadController.egl` | File upload endpoints for 3D model/texture assets |
-| `GenerateHealthController.egl` | Health check endpoint |
+| `GenerateService.egl` | Service classes (EMF model access) |
 
 **Frontend (Vue.js):**
 
@@ -97,7 +112,7 @@ Epsilon EGL (Epsilon Generation Language) templates traverse the Ecore metamodel
 | `GenerateVueCard.egl` | Card components (summary view per entity type) |
 | `GenerateVueList.egl` | List components (collection view with filtering) |
 | `GenerateVueDetailView.egl` | Detail view components (full entity with 3D viewer) |
-| `GenerateVueForm.egl` | Form components (CRUD forms with validation) |
+| `GenerateVueForm.egl` | Form components (CRUD forms with file upload validation) |
 | `GenerateApp.egl` | Main Vue application with routing |
 | `GenerateComposable.egl` | Vue 3 composables (API integration) |
 | `GenerateIndexHtml.egl` | HTML entry point |
@@ -109,35 +124,111 @@ This means that adding a new heritage artefact type (e.g., a `Textile` class) to
 
 | Component | Generated | Hand-written |
 |-----------|:---------:|:------------:|
-| Backend controllers, services, DTOs | ✓ | |
+| Backend Mongoose models, routers, controllers, services | ✓ | |
+| Backend auth middleware, JWT utilities | | ✓ |
+| Backend deterioration service + API | | ✓ |
 | Frontend CRUD components (Card, List, Detail, Form) | ✓ | |
 | Frontend routing and API composables | ✓ | |
+| Frontend composable factory (`useEntity.js`) | | ✓ |
 | i18n labels for domain entities | ✓ | |
 | `ModelViewer.js` (Three.js 3D viewer) | | ✓ |
 | `SimulationPanel.js` (deterioration UI) | | ✓ |
-| `DeteriorationEngine.js` (scientific models) | | ✓ |
+| `config.js` (frontend configuration) | | ✓ |
+| `deterioration-worker.js` (Web Worker) | | ✓ |
 | CSS styles | | ✓ |
 
 ---
 
 ## 3. System Architecture
 
-### 3.1 Backend
-
-The Micronaut backend serves as a REST API layer over the EMF model:
+### 3.1 Design-Time vs Runtime
 
 ```
-HTTP Request → Micronaut Controller → Service → EMF Model (in-memory)
-                                                    ↕
-                                              Flexmi / XMI persistence
+┌─────────────────────────────────────────────────────────────────┐
+│                        DESIGN TIME                              │
+│  ┌──────────────┐    EGL Templates    ┌──────────────────────┐  │
+│  │   Micronaut   │ ─────────────────→ │  Generated Code      │  │
+│  │   (Java 17)   │                    │  • Node.js backend   │  │
+│  │               │                    │  • Vue.js frontend   │  │
+│  │  mogao_dt     │                    └──────────────────────┘  │
+│  │  .ecore       │                                              │
+│  └──────────────┘                                               │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                        RUNTIME                                  │
+│                                                                 │
+│  ┌──────────────────────────────────┐                           │
+│  │  Frontend (Vue 3 SPA) :8009      │                           │
+│  │  ┌────────┐ ┌─────────────────┐  │                           │
+│  │  │ app.js │ │ Components (28) │  │                           │
+│  │  └────────┘ └─────────────────┘  │                           │
+│  │  ┌────────┐ ┌─────────────────┐  │                           │
+│  │  │ api.js │ │ Web Worker      │  │                           │
+│  │  └───┬────┘ │ (texture proc.) │  │                           │
+│  │      │      └─────────────────┘  │                           │
+│  └──────┼───────────────────────────┘                           │
+│         │ HTTP REST (Axios)                                     │
+│  ┌──────▼───────────────────────────┐     ┌──────────────────┐  │
+│  │  Node.js/Express Backend :8008   │     │                  │  │
+│  │  ┌──────────┐ ┌──────────────┐   ├────►│  MongoDB :27017  │  │
+│  │  │ 15 Routes│ │ Auth (JWT)   │   │     │  mogao_dt        │  │
+│  │  └──────────┘ └──────────────┘   │     │                  │  │
+│  │  ┌──────────┐ ┌──────────────┐   │     │  14 collections  │  │
+│  │  │17 Contrlr│ │ Deterioration│   │     └──────────────────┘  │
+│  │  └──────────┘ │ Service      │   │                           │
+│  │               └──────────────┘   │                           │
+│  └──────────────────────────────────┘                           │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-- **Persistence:** EMF models are loaded from classpath resources using Flexmi format and serialised back as XMI
-- **File uploads:** 3D model files (.obj) and texture files (.jpg) are uploaded via multipart endpoints and stored on disk with UUID filenames
-- **CORS:** Enabled for cross-origin frontend access
+### 3.2 Backend (Node.js/Express + MongoDB)
+
+The runtime backend is a Node.js/Express application with Mongoose ODM, serving as a REST API over MongoDB:
+
+```
+HTTP Request → Express Router → Controller → Service → Mongoose Model → MongoDB
+```
+
+**Key features:**
+- **Persistence:** MongoDB document database (`mogao_dt`)
+- **Authentication:** JWT-based with role system (admin, researcher, conservator, viewer, guest)
+- **Guest access:** Read-only mode via `X-Guest-Access` header (checked only when no JWT present)
+- **Rate limiting:** In-memory rate limiter on login (10 attempts per 15min per IP)
+- **File uploads:** Multer with type filtering (.obj, .mtl, .jpg, .png, .glb, .gltf) and 100MB size limit
+- **CORS:** Configurable origins via `CORS_ORIGINS` environment variable
+- **Pagination:** All getAll endpoints support `?page=N&limit=N&sort=field` query params
+- **GID generation:** Server auto-generates GID on create if not provided (`entity-timestamp-random`)
+- **Deterioration API:** Scientific models computed server-side via `/deterioration/*` endpoints
 - **Port:** 8008 (default)
 
-### 3.2 Frontend
+**API routes (15 routers, 17 controllers):**
+
+| Route | Methods | Description |
+|-------|---------|-------------|
+| `/users` | POST login/register, GET/PUT/DELETE profile | Authentication + user management |
+| `/caves` | CRUD + `/gid/:gid` variants | Cave entities |
+| `/statues` | CRUD + `/gid/:gid` variants | Statue exhibits |
+| `/murals` | CRUD + `/gid/:gid` variants | Mural exhibits |
+| `/paintings` | CRUD + `/gid/:gid` variants | Painting exhibits |
+| `/inscriptions` | CRUD + `/gid/:gid` variants | Inscription exhibits |
+| `/defects` | CRUD + `/gid/:gid` variants | Defect records |
+| `/temperatures` | CRUD + `/gid/:gid` variants | Temperature readings |
+| `/humidities` | CRUD + `/gid/:gid` variants | Humidity readings |
+| `/lightIntensities` | CRUD + `/gid/:gid` variants | Light intensity readings |
+| `/coordinates` | CRUD + `/gid/:gid` variants | Spatial coordinates |
+| `/parameters` | CRUD + `/gid/:gid` variants | Measurement parameters |
+| `/assetReferences` | CRUD + `/gid/:gid` variants | 3D model/texture references |
+| `/dTPackages` | CRUD + `/gid/:gid` variants | Digital twin packages |
+| `/deterioration` | POST assess/chemical/lifetime/mould/salt, GET defaults | Deterioration calculations |
+| `/health` | GET | Health check |
+| `/api/upload` | POST | File upload (multipart) |
+
+### 3.3 Backend (Micronaut — Design-Time Only)
+
+Micronaut runs only during code generation. It hosts the Epsilon engine which reads the Ecore metamodel and executes EGL templates to generate the Node.js backend and Vue.js frontend. It is **not** part of the runtime architecture.
+
+### 3.4 Frontend
 
 The frontend is a single-page Vue 3 application loaded entirely from CDN with no build step:
 
@@ -147,72 +238,156 @@ index.html
 ├── Three.js + OBJLoader + MTLLoader + OrbitControls (CDN)
 ├── Axios (CDN)
 ├── Chart.js (CDN)
-├── i18n.js (custom composable)
+├── config.js                          ← API URL configuration
+├── api.js                             ← Axios wrapper (all endpoints)
+├── i18n.js                            ← Custom composable (zh + en)
+├── composables/
+│   ├── useEntity.js                   ← Factory function (DRY)
+│   ├── useCaves.js                    ← 3-line delegation to factory
+│   ├── useStatues.js, useMurals.js, usePaintings.js,
+│   ├── useInscriptions.js, useDefects.js
 ├── components/
-│   ├── [Entity]Card.js        ← Generated (6 entity types)
-│   ├── [Entity]List.js        ← Generated
-│   ├── [Entity]DetailView.js  ← Generated
-│   ├── [Entity]Form.js        ← Generated
-│   ├── ModelViewer.js         ← Hand-written (Three.js)
-│   └── SimulationPanel.js     ← Hand-written (deterioration UI)
+│   ├── [Entity]Card.js                ← Generated (7 entity types)
+│   ├── [Entity]List.js                ← Generated
+│   ├── [Entity]DetailView.js          ← Generated
+│   ├── [Entity]Form.js                ← Generated (with file upload validation)
+│   ├── ModelViewer.js                 ← Hand-written (Three.js)
+│   └── SimulationPanel.js             ← Hand-written (deterioration UI)
+├── workers/
+│   └── deterioration-worker.js        ← Web Worker (texture processing)
 ├── deterioration/
-│   └── DeteriorationEngine.js ← Hand-written (scientific models)
-└── styles/
-    ├── simulation-panel.css
-    └── (other CSS)
+│   └── DeteriorationEngine.js         ← Legacy client-side models (kept for reference)
+└── css/
+    ├── main.css, components.css, drawers.css, forms.css,
+    ├── simulation.css, login.css
+    └── styles/model-viewer.css
 ```
 
-**Component count:** 26 Vue components total (22 generated, 2 hand-written, 2 hybrid)
+**Component count:** 28 Vue components total (24 generated, 4 hand-written)
 
-### 3.3 Data Flow
+**UI features:**
+- Left sidebar navigation (M-Gemini branding)
+- 8 colour themes (Mogao Sand, Ocean Blue, Forest Green, Modern Slate, Royal Plum, Warm Ember, Midnight Dark, Sakura Blossom)
+- Dashboard with entity counts and quick actions
+- Bilingual UI (Chinese/English) with reactive locale switching
+- Guest mode (read-only, no login required)
+
+### 3.5 Data Flow
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    Frontend (Browser)                    │
-│                                                         │
-│  SimulationPanel.js                                     │
-│  ├── Temperature / RH / Light / Exposure sliders        │
-│  ├── DeteriorationEngine.assess() ← reactive computed   │
-│  ├── Model toggle checkboxes (4 models)                 │
-│  └── $emit('simulation-changed', { ... })               │
-│           │                                             │
-│           ▼                                             │
-│  ModelViewer.js                                         │
-│  ├── Three.js scene (OBJ + texture loading)             │
-│  ├── applyDeteriorationToTexture()                      │
-│  │   ├── Chemical fading (per-pixel desaturation)       │
-│  │   └── Mould spots (procedural noise)                 │
-│  └── CanvasTexture → MeshPhongMaterial → 3D mesh        │
-│                                                         │
-│  [Entity]List.js / DetailView.js                        │
-│  ├── Axios GET/POST/PUT/DELETE ←──────────┐             │
-│  └── Renders entity data + 3D viewer      │             │
-│                                           │             │
-└───────────────────────────────────────────┼─────────────┘
-                                            │
-                                 HTTP REST API (JSON)
-                                            │
-┌───────────────────────────────────────────┼─────────────┐
-│                 Backend (JVM)             │              │
-│                                           │              │
-│  Micronaut Controller ←───────────────────┘              │
-│  ├── Service layer                                       │
-│  ├── EMF model (in-memory object graph)                  │
-│  └── Flexmi / XMI persistence                            │
-│                                                          │
-│  FileUploadController                                    │
-│  └── 3D model + texture file storage                     │
-│                                                          │
-└──────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                    Frontend (Browser)                            │
+│                                                                 │
+│  SimulationPanel.js                                             │
+│  ├── Temperature / RH / Light / Exposure sliders                │
+│  ├── Calls POST /deterioration/assess (debounced 150ms)         │
+│  ├── Model toggle checkboxes (4 models)                         │
+│  └── $emit('simulation-changed', { ... })                       │
+│           │                                                     │
+│           ▼                                                     │
+│  ModelViewer.js                                                 │
+│  ├── Three.js scene (OBJ + texture loading)                     │
+│  ├── Sends pixel data to Web Worker for processing              │
+│  │   └── deterioration-worker.js (off main thread)              │
+│  │       ├── Chemical fading (per-pixel desaturation)            │
+│  │       └── Yellowing effect                                   │
+│  ├── Receives processed pixels, applies mould spots             │
+│  └── CanvasTexture → MeshPhongMaterial → 3D mesh                │
+│                                                                 │
+│  [Entity]List.js / DetailView.js                                │
+│  ├── Axios GET/POST/PUT/DELETE via api.js ───────┐              │
+│  └── Renders entity data + 3D viewer             │              │
+│                                                  │              │
+└──────────────────────────────────────────────────┼──────────────┘
+                                                   │
+                                        HTTP REST API (JSON)
+                                                   │
+┌──────────────────────────────────────────────────┼──────────────┐
+│              Node.js/Express Backend             │               │
+│                                                  │               │
+│  Express Router ←────────────────────────────────┘               │
+│  ├── Auth middleware (JWT verify → guest fallback)               │
+│  ├── Write-access middleware (guests read-only)                  │
+│  ├── Rate limiter (login endpoint)                               │
+│  ├── Controller → Service → Mongoose Model → MongoDB            │
+│  │                                                               │
+│  DeteriorationService                                            │
+│  ├── Chemical fading (Arrhenius + Paltakari-Karlsson)            │
+│  ├── Lifetime multiplier (Michalski eLM)                         │
+│  ├── Mould growth (VTT Finnish model)                            │
+│  └── Salt crystallization (Scherer/Steiger)                      │
+│                                                                  │
+│  FileUpload (Multer)                                             │
+│  └── 3D model + texture file storage (exhibit_models/)           │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+                        │
+                        ▼
+              ┌──────────────────┐
+              │  MongoDB :27017  │
+              │  mogao_dt        │
+              │                  │
+              │  14 collections: │
+              │  users, caves,   │
+              │  statues, murals,│
+              │  paintings,      │
+              │  inscriptions,   │
+              │  defects,        │
+              │  temperatures,   │
+              │  humidities,     │
+              │  lightintensities│
+              │  coordinates,    │
+              │  parameters,     │
+              │  assetreferences,│
+              │  dtpackages      │
+              └──────────────────┘
 ```
 
 ---
 
-## 4. Deterioration Simulation Engine
+## 4. Authentication & Security
 
-The deterioration engine (`DeteriorationEngine.js`) is a standalone ES module implementing four peer-reviewed conservation science models. All models are computed reactively — when the user adjusts any environmental parameter via the simulation panel, results update in real time.
+### 4.1 Authentication Flow
 
-### 4.1 Model 1: Chemical Pigment Fading
+```
+1. POST /users/login { username, password }
+2. Server verifies bcrypt hash (10 rounds)
+3. Returns JWT token (24h expiry) + user profile
+4. Frontend stores token in localStorage
+5. Axios interceptor adds Authorization: Bearer <token> to all requests
+6. Auth middleware verifies token on every protected request
+7. Auto-refresh: near-expiry tokens are refreshed server-side
+8. 401 response triggers automatic logout + page reload
+```
+
+### 4.2 Role System
+
+| Role | Read | Write | Admin |
+|------|:----:|:-----:|:-----:|
+| admin | ✓ | ✓ | ✓ |
+| researcher | ✓ | ✓ | |
+| conservator | ✓ | ✓ | |
+| viewer | ✓ | | |
+| guest | ✓ | | |
+
+### 4.3 Security Measures
+
+- **JWT secret:** Environment variable `JWT_SECRET` required in production (crashes if unset); random per-process in development
+- **Password hashing:** bcryptjs with 10 salt rounds
+- **Auth priority:** JWT token verified before guest header (prevents bypass)
+- **Rate limiting:** 10 login attempts per IP per 15-minute window (429 response)
+- **CORS:** Restricted to origins in `CORS_ORIGINS` env var
+- **Request limits:** JSON body 10MB, file upload 100MB
+- **File type filtering:** Only .obj, .mtl, .jpg, .jpeg, .png, .gif, .json, .glb, .gltf allowed
+- **Session expiration:** Frontend 401 interceptor clears credentials and reloads
+
+---
+
+## 5. Deterioration Simulation Engine
+
+The deterioration engine (`DeteriorationService.js`) runs server-side as a Node.js module exposed via REST API. The SimulationPanel calls `POST /deterioration/assess` with environmental parameters and receives computed results. All four models are evaluated per request.
+
+### 5.1 Model 1: Chemical Pigment Fading
 
 **Scientific basis:** Arrhenius kinetics combined with first-order photochemical degradation and the Paltakari-Karlsson moisture sorption isotherm.
 
@@ -246,11 +421,11 @@ $$\text{scientificDegradation} = (1 - \text{degradationFactor}) \times 100\%$$
 | $q$ | 0.8 | — | Reaction order w.r.t. water |
 | $p$ | 0.9 | — | Light reciprocity exponent |
 
-**Visual effect:** Per-pixel texture manipulation on the 3D model with desaturation toward grayscale, yellowing (red/green shift), and overall brightness reduction.
+**Visual effect:** Per-pixel texture manipulation via Web Worker — desaturation toward warm gray, yellowing (red/green shift), and blue reduction.
 
 ---
 
-### 4.2 Model 2: Michalski Equivalent Lifetime Multiplier (eLM)
+### 5.2 Model 2: Michalski Equivalent Lifetime Multiplier (eLM)
 
 **Scientific basis:** The Climate for Culture equivalent Lifetime Multiplier compares chemical degradation rate at current environmental conditions to a museum reference of 20 °C / 50% RH.
 
@@ -283,7 +458,7 @@ $$LM = \exp\!\left[\frac{E_a}{R}\left(\frac{1}{T} - \frac{1}{T_0}\right)\right] 
 
 ---
 
-### 4.3 Model 3: VTT Mould Growth Model
+### 5.3 Model 3: VTT Mould Growth Model
 
 **Scientific basis:** The VTT model (Finnish Technical Research Centre) predicts mould growth on heritage substrates using a temperature-dependent critical humidity threshold and a standardised 0–6 mould index scale. It is the primary mould risk model used in European heritage conservation.
 
@@ -330,7 +505,7 @@ $$\frac{dM}{dt} = 0.13 \cdot \frac{RH - RH_{\text{crit}}}{100} \cdot \frac{T}{20
 
 ---
 
-### 4.4 Model 4: Salt Crystallization Pressure
+### 5.4 Model 4: Salt Crystallization Pressure
 
 **Scientific basis:** The Scherer/Steiger crystallization pressure model predicts mechanical stress exerted on pore walls by growing salt crystals. Salt damage — manifesting as efflorescence, granular disintegration, flaking, and spalling — is the single most destructive deterioration mechanism at the Mogao Caves, primarily driven by Na₂SO₄ (thenardite/mirabilite) under the dramatic diurnal RH swings of the Gobi desert.
 
@@ -387,11 +562,37 @@ $$\text{totalCycles} = \frac{\text{totalDays}}{365.25} \times \text{cyclesPerYea
 | 20 °C / 70% RH | ~2.9 MPa | ~1.0× | Moderate — crystallizing |
 | 20 °C / 85% RH | 0 MPa | 0× | Safe — dissolved |
 
+### 5.5 Deterioration API
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/deterioration/assess` | POST | Run all 4 models, return combined results |
+| `/deterioration/chemical` | POST | Chemical pigment fading only |
+| `/deterioration/lifetime` | POST | Lifetime multiplier only |
+| `/deterioration/mould` | POST | Mould growth only |
+| `/deterioration/salt` | POST | Salt crystallization only |
+| `/deterioration/defaults` | GET | Return default parameter sets |
+
+**Request body** (for `/assess`):
+```json
+{
+  "T_celsius": 25,
+  "RH_percent": 65,
+  "light_klux": 0.5,
+  "totalDays": 365,
+  "prevMouldIndex": 0,
+  "chemicalParams": {},
+  "lifetimeParams": {},
+  "mouldParams": {},
+  "saltCrystParams": {}
+}
+```
+
 ---
 
-## 5. 3D Visualisation Pipeline
+## 6. 3D Visualisation Pipeline
 
-### 5.1 Model Loading
+### 6.1 Model Loading
 
 Three.js loads OBJ-format 3D models with associated texture images from the backend file storage:
 
@@ -406,44 +607,45 @@ The viewer provides:
 - Ambient + directional lighting
 - Automatic camera framing based on model bounding box
 
-### 5.2 Deterioration Texture Pipeline
+### 6.2 Deterioration Texture Pipeline
 
-When the simulation panel emits environmental changes, the 3D viewer applies deterioration effects as a composite per-pixel texture transformation:
+When the simulation panel emits environmental changes, the 3D viewer applies deterioration effects via a Web Worker:
 
 ```
 1. Original texture (stored on load as ImageData)
      │
-2. Chemical fading (if enabled)
-     ├── Desaturation: RGB → grayscale blend (proportional to degradation)
-     ├── Yellowing: red/green channel shift, blue reduction
-     └── Darkening: overall brightness reduction (up to 25%)
+2. Extract pixel data from canvas
      │
-3. Mould spots (if enabled and mouldIndex > 0.1)
-     ├── Deterministic pseudo-random noise (seeded hash for reproducibility)
-     ├── Grid-based spot generation (8px grid, 12px radius)
-     ├── Dark green-black colour (RGB 20, 40, 15)
-     ├── Dark-pixel bias (recesses accumulate moisture → more mould)
-     └── Soft-edged falloff from spot centre
+3. Post to Web Worker (off main thread)
+     ├── Chemical fading: desaturation toward warm gray
+     ├── Yellowing: red/green shift, blue reduction
+     └── Transfer buffer back to main thread
      │
-4. Write to offscreen canvas → CanvasTexture → apply to mesh materials
+4. Main thread receives processed pixels
+     ├── Apply mould spots (if enabled, mouldIndex > 0.1)
+     │   ├── Deterministic pseudo-random noise (seeded hash)
+     │   ├── Dark green-black colour (RGB 20, 40, 15)
+     │   └── Dark-pixel bias + soft-edged falloff
+     │
+5. Write to offscreen canvas → CanvasTexture → apply to mesh materials
 ```
 
 ---
 
-## 6. Simulation Panel User Interface
+## 7. Simulation Panel User Interface
 
 The simulation panel provides:
 
-### 6.1 Environmental Controls
+### 7.1 Environmental Controls
 - **Temperature** slider (−10 to 40 °C, with °F conversion)
 - **Relative Humidity** slider (10–90%)
 - **Light Intensity** slider (0–50 klux) — in advanced settings
 - **Exposure Time** slider (0–200 years) — in advanced settings
 
-### 6.2 Deterioration Models Card
+### 7.2 Deterioration Models Card
 A master control card showing all 4 model toggles with enable/disable checkboxes and a counter (e.g., "3 / 4").
 
-### 6.3 Per-Model Result Cards
+### 7.3 Per-Model Result Cards
 Each enabled model displays a dedicated card:
 
 | Model | Primary Metric | Secondary Display |
@@ -456,57 +658,106 @@ Each enabled model displays a dedicated card:
 Each card includes:
 - Risk badge (colour-coded: green/yellow/orange/red)
 - Expandable parameter configuration section
-- Reset-to-defaults button
+- Reset-to-defaults button (fetches from backend API)
 
-### 6.4 Additional Features
+### 7.4 Additional Features
 - **Quick presets:** Museum (100y), 1 Year, 10 Years, Poor Storage, Extreme
 - **Time progression:** Play/pause mode with configurable speed (0.1–20× real-time)
 - **Time-series chart:** Chart.js line graph tracking temperature, humidity, light, degradation, and mould index over simulated time
 - **Scientific metrics:** Raw numerical outputs for all models
 
-### 6.5 Internationalisation
+### 7.5 Internationalisation
 All UI labels are available in Chinese (zh) and English (en) via a custom Vue 3 composable with reactive locale switching.
 
 ---
 
-## 7. File Structure
+## 8. Configuration & Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | 8008 | Node.js backend port |
+| `MONGO_URI` | `mongodb://localhost:27017/mogao_dt` | MongoDB connection string |
+| `JWT_SECRET` | (random in dev, **required** in production) | JWT signing secret |
+| `CORS_ORIGINS` | `http://localhost:8009,...` | Comma-separated allowed origins |
+| `NODE_ENV` | — | Set to `production` to enforce JWT_SECRET |
+
+Frontend configuration is in `frontend/config.js`:
+```javascript
+const CONFIG = {
+    API_BASE_URL: 'http://localhost:8008',
+};
+```
+
+---
+
+## 9. File Structure
 
 ```
 mogao-digital-twin/
 ├── backend/
 │   ├── pom.xml                                    Maven project (Micronaut 4.2.3)
-│   └── src/main/
-│       ├── java/digital/twin/mogao/
-│       │   ├── controller/                        Generated REST controllers
-│       │   ├── service/                           Generated service classes
-│       │   └── dto/                               Generated data transfer objects
-│       └── resources/
-│           ├── metamodel/mogao_dt.ecore            Ecore metamodel
-│           ├── models/instances/mogao.model        Flexmi model instance
-│           ├── transformation/
-│           │   ├── backend/                        Backend EGL templates (5)
-│           │   ├── frontend/                       Frontend EGL templates (8)
-│           │   └── eol/                            EOL helper operations
-│           └── exhibit_models/                     3D model + texture storage
-│               ├── model/*.obj
-│               └── texture/*.jpg
+│   ├── src/main/
+│   │   ├── java/digital/twin/mogao/
+│   │   │   ├── codegen/CodeGenerator.java         EGL code generation driver
+│   │   │   ├── controller/                        Micronaut controllers (design-time)
+│   │   │   ├── service/                           Micronaut services (design-time)
+│   │   │   ├── dto/                               Generated DTOs
+│   │   │   └── util/EpsilonModelManager.java      EMF model loader
+│   │   └── resources/
+│   │       ├── metamodel/mogao_dt.ecore            Ecore metamodel
+│   │       ├── models/instances/mogao.model        Flexmi model instance
+│   │       ├── transformation/
+│   │       │   ├── backend/                        Backend EGL templates
+│   │       │   ├── frontend/                       Frontend EGL templates
+│   │       │   ├── mongodb/                        MongoDB/Mongoose EGL templates
+│   │       │   └── eol/                            EOL helper operations
+│   │       └── eol-scripts/                        Domain-specific EOL operations
+│   ├── generated/mongoose/                        ← RUNTIME BACKEND
+│   │   ├── app.js                                 Express app (middleware, routes)
+│   │   ├── server.js                              Entry point (port 8008)
+│   │   ├── package.json                           Node.js dependencies
+│   │   ├── start.bat                              Start script (Windows)
+│   │   ├── middleware/auth.js                     JWT + guest auth middleware
+│   │   ├── util/jwt.js                            JWT generation/verification
+│   │   ├── models/                                Mongoose schemas (14 models)
+│   │   ├── routers/                               Express routers (15 routers)
+│   │   ├── controllers/                           Request handlers (17 controllers)
+│   │   ├── services/                              Business logic (18 services)
+│   │   │   └── DeteriorationService.js            Scientific models (hand-written)
+│   │   └── exhibit_models/                        Uploaded 3D models + textures
+│   └── exhibit_models/                            Static 3D model storage
 ├── frontend/
 │   ├── index.html                                 Entry point (CDN imports)
+│   ├── config.js                                  API URL configuration
+│   ├── api.js                                     Axios wrapper (all endpoints)
+│   ├── app.js                                     Vue app (views, routing, auth)
 │   ├── i18n.js                                    Internationalisation (zh + en)
+│   ├── composables/
+│   │   ├── useEntity.js                           Factory function (DRY)
+│   │   └── use[Entity].js                         Per-entity delegations (6 files)
 │   ├── components/
-│   │   ├── CaveCard.js, CaveList.js, ...          Generated (22 components)
-│   │   ├── ModelViewer.js                         Hand-written (Three.js)
-│   │   └── SimulationPanel.js                     Hand-written (deterioration UI)
+│   │   ├── [Entity]Card.js                        Generated card components (7)
+│   │   ├── [Entity]List.js                        Generated list components (7)
+│   │   ├── [Entity]DetailView.js                  Generated detail views (7)
+│   │   ├── [Entity]Form.js                        Generated forms (7)
+│   │   ├── ModelViewer.js                         Three.js 3D viewer
+│   │   └── SimulationPanel.js                     Deterioration simulation UI
+│   ├── workers/
+│   │   └── deterioration-worker.js                Web Worker (texture processing)
 │   ├── deterioration/
-│   │   └── DeteriorationEngine.js                 Scientific models (4 models)
-│   └── styles/
-│       └── simulation-panel.css                   Deterioration card styles
+│   │   └── DeteriorationEngine.js                 Legacy client-side models
+│   ├── css/
+│   │   ├── main.css, components.css, drawers.css, forms.css,
+│   │   ├── simulation.css, login.css
+│   │   └── styles/model-viewer.css, simulation-panel.css
+│   ├── start-frontend.bat                         Start script (Python HTTP server)
+│   └── start.bat                                  Start script (with port cleanup)
 └── ARCHITECTURE.md                                This document
 ```
 
 ---
 
-## 8. References
+## 10. References
 
 1. Strlič, M. et al. (2015). Damage function for historic paper. *Heritage Science*, 3:40.
 2. Johnston-Feller, R. et al. (1984). The kinetics of fading: opaque paint films pigmented with alizarin lake and titanium dioxide. *JAIC*, 23(2):114–129.

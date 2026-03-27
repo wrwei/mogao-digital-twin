@@ -1,0 +1,142 @@
+const ExhibitService = require('../services/ExhibitService');
+
+/**
+ * ExhibitController
+ * Cross-entity query endpoints for all exhibit types.
+ * Migrated from Micronaut EOL ExhibitOperations.
+ */
+const ExhibitController = {
+
+    // GET /exhibits — all exhibits across all types
+    getAll: async (req, res) => {
+        try {
+            const results = await ExhibitService.getAll();
+            res.json(results);
+        } catch (error) {
+            console.error('Failed to get exhibits:', error);
+            res.status(500).json({ message: 'Failed to get exhibits', error: error.message });
+        }
+    },
+
+    // GET /exhibits/status/:status — filter by conservation status
+    getByStatus: async (req, res) => {
+        try {
+            const results = await ExhibitService.getByStatus(req.params.status);
+            res.json(results);
+        } catch (error) {
+            console.error('Failed to get exhibits by status:', error);
+            res.status(500).json({ message: 'Failed to get exhibits by status', error: error.message });
+        }
+    },
+
+    // GET /exhibits/critical — exhibits in critical condition
+    getCritical: async (req, res) => {
+        try {
+            const results = await ExhibitService.getCritical();
+            res.json(results);
+        } catch (error) {
+            console.error('Failed to get critical exhibits:', error);
+            res.status(500).json({ message: 'Failed to get critical exhibits', error: error.message });
+        }
+    },
+
+    // GET /exhibits/material/:material — filter by material
+    getByMaterial: async (req, res) => {
+        try {
+            const results = await ExhibitService.getByMaterial(req.params.material);
+            res.json(results);
+        } catch (error) {
+            console.error('Failed to get exhibits by material:', error);
+            res.status(500).json({ message: 'Failed to get exhibits by material', error: error.message });
+        }
+    },
+
+    // GET /exhibits/period/:period — filter by period
+    getByPeriod: async (req, res) => {
+        try {
+            const results = await ExhibitService.getByPeriod(req.params.period);
+            res.json(results);
+        } catch (error) {
+            console.error('Failed to get exhibits by period:', error);
+            res.status(500).json({ message: 'Failed to get exhibits by period', error: error.message });
+        }
+    },
+
+    // GET /exhibits/with-defects — exhibits that have defects
+    getWithDefects: async (req, res) => {
+        try {
+            const results = await ExhibitService.getWithDefects();
+            res.json(results);
+        } catch (error) {
+            console.error('Failed to get exhibits with defects:', error);
+            res.status(500).json({ message: 'Failed to get exhibits with defects', error: error.message });
+        }
+    },
+
+    // GET /exhibits/requiring-attention — exhibits with critical/severe defects
+    getRequiringAttention: async (req, res) => {
+        try {
+            const results = await ExhibitService.getRequiringAttention();
+            res.json(results);
+        } catch (error) {
+            console.error('Failed to get exhibits requiring attention:', error);
+            res.status(500).json({ message: 'Failed to get exhibits requiring attention', error: error.message });
+        }
+    },
+
+    // PUT /exhibits/:gid/inspection — record inspection
+    setInspection: async (req, res) => {
+        try {
+            const { lastInspectionDate, inspectionNotes } = req.body;
+            if (lastInspectionDate == null || inspectionNotes == null) {
+                return res.status(400).json({ message: 'Missing required fields: lastInspectionDate, inspectionNotes' });
+            }
+            const result = await ExhibitService.setInspection(req.params.gid, lastInspectionDate, inspectionNotes);
+            if (!result) {
+                return res.status(404).json({ message: 'Exhibit not found' });
+            }
+            res.json(result);
+        } catch (error) {
+            console.error('Failed to set inspection:', error);
+            res.status(500).json({ message: 'Failed to set inspection', error: error.message });
+        }
+    },
+
+    // PUT /exhibits/:gid/conservation-status — update conservation status
+    updateConservationStatus: async (req, res) => {
+        try {
+            const { conservationStatus } = req.body;
+            if (!conservationStatus) {
+                return res.status(400).json({ message: 'Missing required field: conservationStatus' });
+            }
+            const result = await ExhibitService.updateConservationStatus(req.params.gid, conservationStatus);
+            if (!result) {
+                return res.status(404).json({ message: 'Exhibit not found' });
+            }
+            res.json(result);
+        } catch (error) {
+            console.error('Failed to update conservation status:', error);
+            res.status(500).json({ message: 'Failed to update conservation status', error: error.message });
+        }
+    },
+
+    // PUT /exhibits/:gid/coordinates — set coordinates
+    setCoordinates: async (req, res) => {
+        try {
+            const { x, y, z } = req.body;
+            if (x == null || y == null || z == null) {
+                return res.status(400).json({ message: 'Missing required fields: x, y, z' });
+            }
+            const result = await ExhibitService.setCoordinates(req.params.gid, x, y, z);
+            if (!result) {
+                return res.status(404).json({ message: 'Exhibit not found' });
+            }
+            res.json(result);
+        } catch (error) {
+            console.error('Failed to set coordinates:', error);
+            res.status(500).json({ message: 'Failed to set coordinates', error: error.message });
+        }
+    },
+};
+
+module.exports = ExhibitController;

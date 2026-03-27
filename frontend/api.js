@@ -191,6 +191,20 @@ const api = {
         defaults: () => apiClient.get('/deterioration/defaults'),
     },
 
+    // Cross-entity exhibit queries
+    exhibits: {
+        getAll: () => apiClient.get('/exhibits'),
+        getByStatus: (status) => apiClient.get(`/exhibits/status/${status}`),
+        getCritical: () => apiClient.get('/exhibits/critical'),
+        getByMaterial: (material) => apiClient.get(`/exhibits/material/${material}`),
+        getByPeriod: (period) => apiClient.get(`/exhibits/period/${period}`),
+        getWithDefects: () => apiClient.get('/exhibits/with-defects'),
+        getRequiringAttention: () => apiClient.get('/exhibits/requiring-attention'),
+        setInspection: (gid, data) => apiClient.put(`/exhibits/${gid}/inspection`, data),
+        updateConservationStatus: (gid, data) => apiClient.put(`/exhibits/${gid}/conservation-status`, data),
+        setCoordinates: (gid, data) => apiClient.put(`/exhibits/${gid}/coordinates`, data),
+    },
+
     // Health check
     health: {
         check: () => apiClient.get('/health').catch(() => ({ data: { status: 'offline' } })),

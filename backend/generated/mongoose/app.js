@@ -77,6 +77,7 @@ const temperatureRouter = require('./routers/temperatureRouter');
 const humidityRouter = require('./routers/humidityRouter');
 const lightIntensityRouter = require('./routers/lightIntensityRouter');
 const deteriorationRouter = require('./routers/deteriorationRouter');
+const exhibitRouter = require('./routers/exhibitRouter');
 
 // Mount routes (no /api prefix to match existing frontend)
 app.use('/caves', caveRouter);
@@ -93,6 +94,7 @@ app.use('/temperatures', temperatureRouter);
 app.use('/humidities', humidityRouter);
 app.use('/lightIntensities', lightIntensityRouter);
 app.use('/deterioration', deteriorationRouter);
+app.use('/exhibits', exhibitRouter);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
