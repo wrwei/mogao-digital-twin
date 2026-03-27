@@ -40,6 +40,11 @@ import InscriptionForm from './components/InscriptionForm.js';
 import InscriptionList from './components/InscriptionList.js';
 import InscriptionDetailView from './components/InscriptionDetailView.js';
 
+import DefectCard from './components/DefectCard.js';
+import DefectForm from './components/DefectForm.js';
+import DefectList from './components/DefectList.js';
+import DefectDetailView from './components/DefectDetailView.js';
+
 // ============================================
 // Generated Composable Imports
 // ============================================
@@ -48,6 +53,122 @@ import { useStatues } from './composables/useStatues.js';
 import { useMurals } from './composables/useMurals.js';
 import { usePaintings } from './composables/usePaintings.js';
 import { useInscriptions } from './composables/useInscriptions.js';
+import { useDefects } from './composables/useDefects.js';
+
+// ============================================
+// Login Page Component
+// ============================================
+const LoginPage = {
+    emits: ['login-success'],
+    data() {
+        return {
+            username: '',
+            password: '',
+            error: '',
+            loading: false,
+        };
+    },
+    methods: {
+        async handleSubmit() {
+            this.error = '';
+            this.loading = true;
+            try {
+                const response = await axios.post((window.CONFIG?.API_BASE_URL || 'http://localhost:8008') + '/users/login', {
+                    username: this.username,
+                    password: this.password,
+                });
+                const { token, user } = response.data;
+                localStorage.setItem('mgemini-token', token);
+                localStorage.setItem('mgemini-user', JSON.stringify(user));
+                this.$emit('login-success', { token, user });
+            } catch (err) {
+                if (err.response && err.response.data) {
+                    this.error = err.response.data.message;
+                } else {
+                    this.error = 'Connection failed. Is the backend running?';
+                }
+            } finally {
+                this.loading = false;
+            }
+        },
+        enterAsGuest() {
+            const guestUser = { username: 'guest', fullName: 'Guest', role: 'guest' };
+            localStorage.setItem('mgemini-user', JSON.stringify(guestUser));
+            this.$emit('login-success', { token: null, user: guestUser });
+        },
+    },
+    template: `
+        <div class="login-page">
+            <div class="login-hero">
+                <div class="login-hero-content">
+                    <h1>M-Gemini<span>Digital Twin Platform</span></h1>
+                    <p class="login-hero-subtitle">
+                        Preserving the Mogao Grottoes through digital twin technology.
+                        Monitor, simulate, and protect UNESCO World Heritage.
+                    </p>
+                    <div class="login-hero-features">
+                        <div class="login-hero-feature">
+                            <div class="login-hero-feature-icon">🏛️</div>
+                            <span>3D digital replicas of cave temples and artefacts</span>
+                        </div>
+                        <div class="login-hero-feature">
+                            <div class="login-hero-feature-icon">📊</div>
+                            <span>Real-time environmental monitoring and analysis</span>
+                        </div>
+                        <div class="login-hero-feature">
+                            <div class="login-hero-feature-icon">🔬</div>
+                            <span>Deterioration simulation and conservation planning</span>
+                        </div>
+                        <div class="login-hero-feature">
+                            <div class="login-hero-feature-icon">🤝</div>
+                            <span>Collaborative research across institutions</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="login-form-panel">
+                <div class="login-form-container">
+                    <div class="login-form-header">
+                        <div class="login-form-logo">🏛️</div>
+                        <h2>M-Gemini</h2>
+                        <p>Mogao Digital Twin Platform</p>
+                    </div>
+
+                    <div v-if="error" class="login-error">{{ error }}</div>
+
+                    <form @submit.prevent="handleSubmit">
+                        <div class="login-field">
+                            <label>Username</label>
+                            <input v-model="username" type="text" placeholder="Enter your username" required />
+                        </div>
+
+                        <div class="login-field">
+                            <label>Password</label>
+                            <input v-model="password" type="password" placeholder="Enter your password" required />
+                        </div>
+
+                        <button type="submit" class="login-submit-btn" :disabled="loading">
+                            {{ loading ? 'Please wait...' : 'Sign In' }}
+                        </button>
+                    </form>
+
+                    <div class="login-divider">
+                        <span>or</span>
+                    </div>
+
+                    <button class="login-guest-btn" @click="enterAsGuest">
+                        Visit as a Guest
+                    </button>
+
+                    <div class="login-form-footer">
+                        Mogao Digital Twin &copy; 2026
+                    </div>
+                </div>
+            </div>
+        </div>
+    `
+};
 
 // ============================================
 // Shared UI Components
@@ -74,6 +195,10 @@ const AppSidebar = {
                     <span class="sidebar-nav-icon">🏛️</span>
                     <span>{{ t('entities.caves') }}</span>
                 </div>
+                <div class="sidebar-nav-item" :class="{ active: currentView === 'defects' }" @click="$emit('change-view', 'defects')">
+                    <span class="sidebar-nav-icon">⚠️</span>
+                    <span>{{ t('entities.defects') }}</span>
+                </div>
             </div>
             <div class="sidebar-footer">
                 <span class="status-dot" :class="backendOnline ? 'online' : 'offline'"></span>
@@ -84,8 +209,8 @@ const AppSidebar = {
 };
 
 const AppTopbar = {
-    props: ['locale', 'theme'],
-    emits: ['change-locale', 'change-theme'],
+    props: ['locale', 'theme', 'user'],
+    emits: ['change-locale', 'change-theme', 'logout'],
     setup() {
         const { t } = useI18n();
         return { t };
@@ -144,6 +269,13 @@ const AppTopbar = {
                     <option value="en">🌐 English</option>
                     <option value="zh">🌐 中文</option>
                 </select>
+                <!-- User & Logout -->
+                <span v-if="user" style="color: var(--sidebar-text, #ccc); font-size: 13px; margin-left: 8px;">
+                    {{ user.fullName || user.username }}
+                </span>
+                <button class="topbar-icon-btn" @click="$emit('logout')" title="Logout" style="margin-left: 4px;">
+                    ⏻
+                </button>
             </div>
         </div>
     `
@@ -923,11 +1055,138 @@ const InscriptionView = {
     `
 };
 
+const DefectView = {
+    components: {
+        DefectList,
+        DefectForm,
+        DefectCard,
+        DefectDetailView,
+        ModalDialog,
+        DrawerPanel,
+    },
+    setup() {
+        const composable = useDefects();
+        const { t } = useI18n();
+        return {
+            ...composable,
+            t,
+        };
+    },
+    data() {
+        return {
+            showForm: false,
+            editMode: false,
+            editingItem: null,
+            showDetail: false,
+            detailItem: null,
+            selectedGid: null,
+            selectedItem: null,
+        };
+    },
+    methods: {
+        handleCreate() {
+            this.editMode = false;
+            this.editingItem = null;
+            this.showDetail = false;
+            this.showForm = true;
+        },
+        handleEdit(item) {
+            this.editMode = true;
+            this.editingItem = item;
+            this.showDetail = false;
+            this.showForm = true;
+        },
+        async handleDelete(item) {
+            if (confirm(this.t('actions.deleteConfirm', { entity: this.t('entities.defect') }))) {
+                try {
+                    await this.deleteDefect(item.gid);
+                    this.$emit('show-message', this.t('actions.deleteSuccess', { entity: this.t('entities.defect') }), 'success');
+                } catch (err) {
+                    this.$emit('show-message', this.t('actions.deleteError', { entity: this.t('entities.defect') }) + ': ' + err.message, 'error');
+                }
+            }
+        },
+        async handleFormSubmit(data) {
+            try {
+                if (this.editMode) {
+                    await this.updateDefect(this.editingItem.gid, data);
+                    this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.defect') }), 'success');
+                } else {
+                    await this.createDefect(data);
+                    this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.defect') }), 'success');
+                }
+                this.showForm = false;
+                await this.fetchDefects();
+            } catch (err) {
+                this.$emit('show-message', this.t('actions.saveError', { entity: this.t('entities.defect') }) + ': ' + err.message, 'error');
+            }
+        },
+        handleFormCancel() {
+            this.showForm = false;
+            this.editingItem = null;
+        },
+        handleSelect(item) {
+            this.selectedGid = item.gid;
+            this.selectedItem = item;
+            this.selectDefect(item);
+            this.$emit('item-selected', item);
+        },
+        handleViewDetail(item) {
+            this.selectedGid = item.gid;
+            this.selectedItem = item;
+            this.detailItem = item;
+            this.showDetail = true;
+        },
+        handleCloseDetail() {
+            this.showDetail = false;
+            this.detailItem = null;
+        }
+    },
+    mounted() {
+        this.fetchDefects();
+    },
+    template: `
+        <div class="entity-view">
+            <drawer-panel :show="showForm" :title="editMode ? t('common.edit') + ' ' + t('entities.defect') : t('actions.createNew', { entity: t('entities.defect') })" @close="handleFormCancel">
+                <defect-form
+                    :defect="editingItem"
+                    :mode="editMode ? 'edit' : 'create'"
+                    @created="handleFormSubmit"
+                    @updated="handleFormSubmit"
+                    @cancel="handleFormCancel"
+                    @error="(msg) => $emit('show-message', msg, 'error')"
+                ></defect-form>            </drawer-panel>
+
+            <drawer-panel :show="showDetail" :title="t('common.detail') + ' - ' + (detailItem ? detailItem.name || detailItem.title || detailItem.gid : '')" @close="handleCloseDetail">
+                <template #header-actions>
+                    <button class="btn btn-sm btn-primary" @click="handleEdit(detailItem)" style="margin-right: 8px;">
+                        {{ t('common.edit') }}
+                    </button>
+                </template>
+                <defect-detail-view
+                    v-if="detailItem"
+                    :defect="detailItem"
+                ></defect-detail-view>            </drawer-panel>
+
+            <defect-list
+                :defects="defects"
+                :loading="loading"
+                :selected-gid="selectedGid"
+                @select="handleSelect"
+                @edit="handleEdit"
+                @delete="handleDelete"
+                @create="handleCreate"
+                @view-detail="handleViewDetail"
+            ></defect-list>        </div>
+    `
+};
+
 // ============================================
 // Main App Component
 // ============================================
 const app = createApp({
     components: {
+        LoginPage,
         AppSidebar,
         AppTopbar,
         DashboardView,
@@ -939,6 +1198,7 @@ const app = createApp({
         MuralView,
         PaintingView,
         InscriptionView,
+        DefectView,
     },
     setup() {
         const { locale, t, setLocale } = useI18n();
@@ -947,8 +1207,17 @@ const app = createApp({
         const muralsComposable = useMurals();
         const paintingsComposable = usePaintings();
         const inscriptionsComposable = useInscriptions();
+
+        // Provide isGuest as a reactive computed for all child components
+        const isGuest = Vue.computed(() => {
+            const user = JSON.parse(localStorage.getItem('mgemini-user') || 'null');
+            return user && user.role === 'guest';
+        });
+        Vue.provide('isGuest', isGuest);
+
         return {
             locale, t, setLocale,
+            isGuest,
             dashCaves: cavesComposable,
             dashStatues: statuesComposable,
             dashMurals: muralsComposable,
@@ -958,6 +1227,10 @@ const app = createApp({
     },
     data() {
         return {
+            // Auth state
+            isAuthenticated: !!localStorage.getItem('mgemini-token'),
+            currentUser: JSON.parse(localStorage.getItem('mgemini-user') || 'null'),
+
             // Application state
             currentView: 'dashboard',
             loading: false,
@@ -974,13 +1247,39 @@ const app = createApp({
     },
 
     methods: {
+        handleLoginSuccess({ token, user }) {
+            this.isAuthenticated = true;
+            this.currentUser = user;
+            // Set auth header for all future API requests
+            if (token) {
+                axios.defaults.headers.common['Authorization'] = 'Bearer ' + token;
+                delete axios.defaults.headers.common['X-Guest-Access'];
+            } else {
+                // Guest mode — no token, use guest header
+                delete axios.defaults.headers.common['Authorization'];
+                axios.defaults.headers.common['X-Guest-Access'] = 'true';
+            }
+            this.checkBackendConnection();
+            this.dashCaves.fetchCaves();
+            this.dashStatues.fetchStatues();
+            this.dashMurals.fetchMurals();
+            this.dashPaintings.fetchPaintings();
+            this.dashInscriptions.fetchInscriptions();
+        },
+
+        handleLogout() {
+            this.isAuthenticated = false;
+            this.currentUser = null;
+            localStorage.removeItem('mgemini-token');
+            localStorage.removeItem('mgemini-user');
+            delete axios.defaults.headers.common['Authorization'];
+        },
+
         changeView(view) {
-            console.log('Changing view to:', view);
             this.currentView = view;
         },
 
         changeLocale(newLocale) {
-            console.log('Changing locale to:', newLocale);
             this.setLocale(newLocale);
         },
 
@@ -1011,7 +1310,6 @@ const app = createApp({
             try {
                 const response = await window.api.health.check();
                 this.backendOnline = response.data.status !== 'offline';
-                console.log('Backend status:', this.backendOnline ? '✅ Online' : '❌ Offline');
             } catch (error) {
                 this.backendOnline = false;
                 console.warn('Backend connection check failed:', error.message);
@@ -1021,28 +1319,37 @@ const app = createApp({
 
     mounted() {
         this.applyTheme(this.currentTheme);
-        console.log('🏛️ M-Gemini Digital Twin - Vue App Mounted');
-        console.log('📍 Current working directory:', window.location.href);
-        console.log('🔌 Backend API:', window.API_BASE_URL || 'http://localhost:8008');
+        // Restore auth header from stored token or guest mode
+        const token = localStorage.getItem('mgemini-token');
+        if (token) {
+            axios.defaults.headers.common['Authorization'] = 'Bearer ' + token;
+        } else if (this.currentUser && this.currentUser.role === 'guest') {
+            axios.defaults.headers.common['X-Guest-Access'] = 'true';
+        }
 
-        // Check backend connection and fetch dashboard counts
-        this.checkBackendConnection();
-        this.dashCaves.fetchCaves();
-        this.dashStatues.fetchStatues();
-        this.dashMurals.fetchMurals();
-        this.dashPaintings.fetchPaintings();
-        this.dashInscriptions.fetchInscriptions();
-
-        // Set up periodic backend health check
-        setInterval(() => {
+        if (this.isAuthenticated) {
+            // Check backend connection and fetch dashboard counts
             this.checkBackendConnection();
-        }, 30000); // Check every 30 seconds
+            this.dashCaves.fetchCaves();
+            this.dashStatues.fetchStatues();
+            this.dashMurals.fetchMurals();
+            this.dashPaintings.fetchPaintings();
+            this.dashInscriptions.fetchInscriptions();
 
-        console.log('📊 Initial view:', this.currentView);
+            // Set up periodic backend health check
+            setInterval(() => {
+                this.checkBackendConnection();
+            }, 30000);
+        }
     },
 
     template: `
-        <div id="app-container" style="display: flex; height: 100vh;">
+        <login-page
+            v-if="!isAuthenticated"
+            @login-success="handleLoginSuccess"
+        ></login-page>
+
+        <div v-else id="app-container" style="display: flex; height: 100vh;">
             <app-sidebar
                 :current-view="currentView"
                 :backend-online="backendOnline"
@@ -1053,8 +1360,10 @@ const app = createApp({
                 <app-topbar
                     :locale="locale"
                     :theme="currentTheme"
+                    :user="currentUser"
                     @change-locale="changeLocale"
                     @change-theme="changeTheme"
+                    @logout="handleLogout"
                 ></app-topbar>
 
                 <error-message
@@ -1079,28 +1388,33 @@ const app = createApp({
                         <cave-view
                             v-if="currentView === 'caves'"
                             @show-message="showMessage"
-                            @item-selected="(item) => console.log('Cave selected:', item)"
+                            @item-selected="() => {}"
                         ></cave-view>
                         <statue-view
                             v-if="currentView === 'statues'"
                             @show-message="showMessage"
-                            @item-selected="(item) => console.log('Statue selected:', item)"
+                            @item-selected="() => {}"
                         ></statue-view>
                         <mural-view
                             v-if="currentView === 'murals'"
                             @show-message="showMessage"
-                            @item-selected="(item) => console.log('Mural selected:', item)"
+                            @item-selected="() => {}"
                         ></mural-view>
                         <painting-view
                             v-if="currentView === 'paintings'"
                             @show-message="showMessage"
-                            @item-selected="(item) => console.log('Painting selected:', item)"
+                            @item-selected="() => {}"
                         ></painting-view>
                         <inscription-view
                             v-if="currentView === 'inscriptions'"
                             @show-message="showMessage"
-                            @item-selected="(item) => console.log('Inscription selected:', item)"
+                            @item-selected="() => {}"
                         ></inscription-view>
+                        <defect-view
+                            v-if="currentView === 'defects'"
+                            @show-message="showMessage"
+                            @item-selected="() => {}"
+                        ></defect-view>
                     </div>
                 </div>
             </div>
@@ -1111,5 +1425,3 @@ const app = createApp({
 // Mount the app
 app.mount('#app');
 
-console.log('✅ Vue app initialized successfully');
-console.log('📦 Registered components:', Object.keys(app._context.components));

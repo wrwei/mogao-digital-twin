@@ -1,0 +1,161 @@
+[%
+// EGL template to generate a Mongoose model/schema from an EClass
+// Parameters:
+//   - eClass: The EClass to generate Mongoose model for
+//
+// Note: All inherited properties are flattened into each schema
+// because Mongoose discriminators do not support deep inheritance.
+
+var className = eClass.name;
+var schemaName = eClass.name + "Schema";
+
+// Use eAll* to flatten the full inheritance chain
+var allAttributes = eClass.eAllAttributes;
+var allReferences = eClass.eAllReferences;
+
+// Determine inheritance info for documentation
+var superTypes = eClass.eSuperTypes;
+var hasSuperType = superTypes.size() > 0;
+var inheritanceChain = getInheritanceChain(eClass);
+%]
+const mongoose = require('mongoose');
+const { Schema } = mongoose;
+
+/**
+ * [%=className%] Mongoose Schema
+ * Auto-generated from mogao_dt.ecore metamodel
+[% if (hasSuperType) { %]
+ * Inheritance chain: [%=inheritanceChain%]
+[% } %]
+ * All inherited properties are flattened into this schema.
+ */
+const [%=schemaName%] = new Schema({
+    gid: { type: String, required: true, unique: true },
+[% // Generate fields for ALL attributes (flattened from full hierarchy)
+for (attr in allAttributes) {
+    // Skip gid as it's handled above
+    if (attr.name == "gid") continue;
+
+    var mongoType = getMongooseType(attr.eType.name, attr.eType);
+    var isRequired = attr.lowerBound > 0;
+    var isEnum = isEnumType(attr.eType);
+
+    if (isEnum) {
+        var enumLiterals = attr.eType.eLiterals;
+        var enumValues = enumLiterals.collect(l | "'" + l.name + "'");
+%]
+    [%=attr.name%]: {
+        type: String,
+        enum: [[%=enumValues.concat(", ")%]][% if (isRequired) { %],
+        required: true[% } %]
+    },
+[%  } else { %]
+    [%=attr.name%]: { type: [%=mongoType%][% if (isRequired) { %], required: true[% } %] },
+[%  }
+} %]
+[% // Generate fields for ALL references (flattened from full hierarchy)
+for (ref in allReferences) {
+    if (ref.containment) {
+        // Embedded subdocument
+        if (ref.isMany()) { %]
+    [%=ref.name%]: [{ type: Schema.Types.Mixed }],
+[%      } else { %]
+    [%=ref.name%]: { type: Schema.Types.Mixed },
+[%      }
+    } else {
+        // Reference by ObjectId
+        if (ref.isMany()) { %]
+    [%=ref.name%]: [{ type: Schema.Types.ObjectId, ref: '[%=ref.eType.name%]' }],
+[%      } else { %]
+    [%=ref.name%]: { type: Schema.Types.ObjectId, ref: '[%=ref.eType.name%]' },
+[%      }
+    }
+} %]
+}, {
+    timestamps: true,
+    collection: '[%=pluralize(className).toLowerCase()%]'
+});
+
+[% if (not eClass.abstract) { %]
+const [%=className%] = mongoose.model('[%=className%]', [%=schemaName%]);
+
+module.exports = { [%=className%], [%=schemaName%] };
+[% } else { %]
+module.exports = { [%=schemaName%] };
+[% } %]
+
+[%
+// Helper operation to map Ecore types to Mongoose types
+operation getMongooseType(ecoreType : String, eType : Any) : String {
+    var typeMap = Map {
+        "EString" = "String",
+        "EInt" = "Number",
+        "EIntegerObject" = "Number",
+        "EBoolean" = "Boolean",
+        "EBooleanObject" = "Boolean",
+        "EDouble" = "Number",
+        "EDoubleObject" = "Number",
+        "EFloat" = "Number",
+        "EFloatObject" = "Number",
+        "ELong" = "Number",
+        "ELongObject" = "Number",
+        "EByte" = "Number",
+        "EByteObject" = "Number",
+        "EShort" = "Number",
+        "EShortObject" = "Number",
+        "EChar" = "String",
+        "ECharacterObject" = "String",
+        "EDate" = "Date"
+    };
+
+    if (typeMap.containsKey(ecoreType)) {
+        return typeMap.get(ecoreType);
+    }
+
+    // Enums are stored as String
+    if (isEnumType(eType)) {
+        return "String";
+    }
+
+    return "Schema.Types.Mixed";
+}
+
+// Helper to check if a type is an EEnum
+// Uses Java class name check since EEnum type is not available without a loaded model
+operation isEnumType(eType : Any) : Boolean {
+    return eType.eClass().name == "EEnum";
+}
+
+// Helper to pluralize a class name
+operation pluralize(name : String) : String {
+    // Irregular / uncountable nouns
+    var irregular = Map {
+        "Coordinates" = "Coordinates",
+        "coordinates" = "coordinates"
+    };
+    if (irregular.containsKey(name)) {
+        return irregular.get(name);
+    }
+    if (name.endsWith("s") or name.endsWith("x") or name.endsWith("z") or name.endsWith("sh") or name.endsWith("ch")) {
+        return name + "es";
+    } else if (name.endsWith("y") and not name.endsWith("ay") and not name.endsWith("ey") and not name.endsWith("oy") and not name.endsWith("uy")) {
+        return name.substring(0, name.length() - 1) + "ies";
+    } else {
+        return name + "s";
+    }
+}
+
+// Helper to build inheritance chain string for documentation
+operation getInheritanceChain(eClass : Any) : String {
+    var chain = Sequence {};
+    var current = eClass;
+    while (current.eSuperTypes.size() > 0) {
+        var parent = current.eSuperTypes.first();
+        chain.add(parent.name);
+        current = parent;
+    }
+    chain = chain.invert();
+    chain.add(eClass.name);
+    return chain.concat(" -> ");
+}
+%]

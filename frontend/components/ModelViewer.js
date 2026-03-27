@@ -53,7 +53,8 @@ export default {
             notification: null,     // Current notification message
             notificationType: 'info', // 'info', 'success', 'warning', 'error'
             showNotification: false,
-            isProcessing: false     // True when texture is being processed
+            isProcessing: false,    // True when texture is being processed
+            deteriorationWorker: null  // Web Worker for texture processing
         };
     },
     created() {
@@ -72,8 +73,13 @@ export default {
     mounted() {
         this.initViewer();
         this.loadModel();
+        this.deteriorationWorker = new Worker('workers/deterioration-worker.js');
+        this.deteriorationWorker.onmessage = (e) => {
+            this.handleWorkerResult(e.data);
+        };
     },
     beforeUnmount() {
+        if (this.deteriorationWorker) this.deteriorationWorker.terminate();
         this.cleanup();
     },
     watch: {
@@ -198,7 +204,7 @@ export default {
                 const texturePath = this.assetReference.textureLocation;
 
                 // Construct full URLs for the backend
-                const baseURL = 'http://localhost:8008';
+                const baseURL = window.CONFIG?.API_BASE_URL || 'http://localhost:8008';
                 const fullModelPath = modelPath.startsWith('http') ? modelPath : baseURL + modelPath;
                 const fullMtlPath = mtlPath && !mtlPath.startsWith('http') ? baseURL + mtlPath : mtlPath;
 
@@ -369,60 +375,6 @@ export default {
         },
 
         /**
-         * Strlič dose-response framework implementation
-         * Calculate moisture content using Paltakari-Karlsson isotherm
-         */
-        calculateMoistureContent(RH_fraction, T_kelvin) {
-            // [H₂O] = |ln(1 − RH) / (1.67T − 285.655)|^(1/(2.491 − 0.012T))
-            // RH must be < 1.0 to avoid ln(0)
-            // Using absolute value to handle negative base with fractional exponent
-            const RH_safe = Math.min(Math.max(RH_fraction, 0.01), 0.999);
-            const numerator = Math.log(1 - RH_safe);
-            const denominator = 1.67 * T_kelvin - 285.655;
-            const base = Math.abs(numerator / denominator); // Take absolute value!
-            const exponent = 1 / (2.491 - 0.012 * T_kelvin);
-            return Math.pow(base, exponent);
-        },
-
-        /**
-         * Calculate degradation rate constant
-         * k = k₀ · [H₂O]^q · exp(−Eₐ/RT) · I^p
-         */
-        calculateRateConstant(T_celsius, RH_percent, light_klux) {
-            const T_kelvin = T_celsius + 273.15;
-            const RH_fraction = RH_percent / 100.0;
-            const R = 8.314; // J/(mol·K)
-
-            // Material-specific parameters (typical values for organic pigments)
-            const Ea_dark = 70000;      // Activation energy for dark oxidation (J/mol) - linseed oil
-            const Ea_light = 25000;     // Activation energy for photofading (J/mol)
-            const k0_dark = 0.0001;     // Pre-exponential factor for dark aging
-            const k0_light = 0.001;     // Pre-exponential factor for light fading
-            const q = 0.8;              // Reaction order w.r.t. water (0.5-1.0)
-            const p = 0.9;              // Light reciprocity exponent (~1.0 for linear)
-
-            // Calculate moisture content
-            const H2O = this.calculateMoistureContent(RH_fraction, T_kelvin);
-
-            // Dark (thermal/hydrolytic) degradation component
-            const k_dark = k0_dark * Math.pow(Math.abs(H2O), q) * Math.exp(-Ea_dark / (R * T_kelvin));
-
-            // Photochemical degradation component (only if light present)
-            const k_light = light_klux > 0
-                ? k0_light * Math.pow(light_klux, p) * Math.pow(Math.abs(H2O), q) * Math.exp(-Ea_light / (R * T_kelvin))
-                : 0;
-
-            return k_dark + k_light;
-        },
-
-        /**
-         * Get total exposure time in days
-         */
-        getTotalDays() {
-            return this.simDays + (this.simMonths * 30.44) + (this.simYears * 365.25);
-        },
-
-        /**
          * Apply deterioration to texture using dose-response model
          * Simulates color fading, yellowing, and darkening
          */
@@ -450,7 +402,7 @@ export default {
                 // Use pre-computed degradation factor from SimulationPanel (with configurable params)
                 let k = this.enabledChemical ? (this.chemicalRateConstant || 0) : 0;
                 let degradationFactor = this.enabledChemical ? (this.chemicalDegradationFactor || 1.0) : 1.0;
-                const t_days = this.getTotalDays();
+                const t_days = this.simDays + (this.simMonths * 30.44) + (this.simYears * 365.25);
 
                 console.log('Degradation params:', { k, t_days, degradationFactor, chemicalEnabled: this.enabledChemical });
 
@@ -478,81 +430,16 @@ export default {
                     return;
                 }
 
-            // Degradation effects parameters
-            // Amplify visual effects for demonstration (10x amplification)
-            const visualAmplification = 10.0;
-            const effectiveDegradation = Math.min(1.0, (1 - degradationFactor) * visualAmplification);
+                // Post pixel data to Web Worker for off-main-thread processing
+                this.deteriorationWorker.postMessage({
+                    pixelData: imageData.data.buffer,
+                    width: img.width,
+                    height: img.height,
+                    degradationFactor: degradationFactor,
+                    amplification: 10
+                }, [imageData.data.buffer]);
 
-            const fadeFactor = 1 - effectiveDegradation;     // Amplified color saturation loss
-            const yellowShift = effectiveDegradation * 60;   // Yellowing (0-60)
-            const darkenFactor = 1 - (effectiveDegradation * 0.25); // Darkening
-
-            // Apply deterioration to each pixel
-            for (let i = 0; i < data.length; i += 4) {
-                const r = data[i];
-                const g = data[i + 1];
-                const b = data[i + 2];
-
-                // Convert RGB to LAB-like space for better color manipulation
-                // Simplified approach: desaturate toward gray and shift yellow
-                const gray = (r + g + b) / 3;
-
-                // Fade colors toward gray (desaturation)
-                let newR = r * fadeFactor + gray * (1 - fadeFactor);
-                let newG = g * fadeFactor + gray * (1 - fadeFactor);
-                let newB = b * fadeFactor + gray * (1 - fadeFactor);
-
-                // Add yellowing (increase red, reduce blue)
-                newR = Math.min(255, newR + yellowShift * 0.8);
-                newG = Math.min(255, newG + yellowShift * 0.4);
-                newB = Math.max(0, newB - yellowShift * 0.6);
-
-                // Apply darkening
-                newR *= darkenFactor;
-                newG *= darkenFactor;
-                newB *= darkenFactor;
-
-                // Write back
-                data[i] = Math.round(newR);
-                data[i + 1] = Math.round(newG);
-                data[i + 2] = Math.round(newB);
-                // Alpha channel (i+3) unchanged
-            }
-
-            // ── Phase 2: Apply mould spots (VTT model) ─────────────────
-            if (this.mouldResult && this.mouldResult.mouldIndex > 0.1) {
-                this.applyMouldEffect(data, img.width, img.height, this.mouldResult);
-            }
-
-            // Put modified pixel data back
-            this.textureContext.putImageData(imageData, 0, 0);
-
-            // Create new texture from canvas
-            const newTexture = new THREE.CanvasTexture(this.textureCanvas);
-            newTexture.needsUpdate = true;
-
-            // Apply to model materials
-            this.model.traverse((child) => {
-                if (child instanceof THREE.Mesh) {
-                    if (Array.isArray(child.material)) {
-                        child.material.forEach(mat => {
-                            mat.map = newTexture;
-                            mat.needsUpdate = true;
-                        });
-                    } else {
-                        child.material.map = newTexture;
-                        child.material.needsUpdate = true;
-                    }
-                }
-            });
-
-                console.log(`Applied deterioration: k=${k.toExponential(3)}, scientific_degradation=${(100 * (1 - degradationFactor)).toFixed(1)}%, visual_degradation=${(effectiveDegradation * 100).toFixed(1)}%, fade=${fadeFactor.toFixed(3)}`);
-
-                // Show success notification
-                this.isProcessing = false;
-                const degradationPercent = (100 * (1 - degradationFactor)).toFixed(1);
-                const totalDays = this.getTotalDays().toFixed(0);
-                this.showToast(`✅ Texture applied: ${degradationPercent}% degradation after ${totalDays} days`, 'success', 3000);
+                console.log(`Sent texture to worker: k=${k.toExponential(3)}, degradationFactor=${degradationFactor.toFixed(6)}`);
 
             } catch (error) {
                 console.error('Error applying deterioration:', error);
@@ -560,6 +447,47 @@ export default {
                 this.isProcessing = false;
                 this.showToast(`❌ Error: ${error.message}`, 'error', 5000);
             }
+        },
+
+        /**
+         * Handle processed pixel data returned from the Web Worker
+         */
+        handleWorkerResult(result) {
+            const { pixelData, width, height } = result;
+            const imageData = new ImageData(new Uint8ClampedArray(pixelData), width, height);
+            const data = imageData.data;
+
+            // ── Phase 2: Apply mould spots (VTT model) ─────────────────
+            if (this.mouldResult && this.mouldResult.mouldIndex > 0.1) {
+                this.applyMouldEffect(data, width, height, this.mouldResult);
+            }
+
+            if (!this.textureCanvas) {
+                this.textureCanvas = document.createElement('canvas');
+                this.textureContext = this.textureCanvas.getContext('2d');
+            }
+            this.textureCanvas.width = width;
+            this.textureCanvas.height = height;
+            this.textureContext.putImageData(imageData, 0, 0);
+
+            // Update Three.js texture
+            if (this.model) {
+                this.model.traverse((child) => {
+                    if (child.isMesh && child.material && child.material.map) {
+                        const newTexture = new THREE.CanvasTexture(this.textureCanvas);
+                        newTexture.flipY = child.material.map.flipY;
+                        newTexture.wrapS = child.material.map.wrapS;
+                        newTexture.wrapT = child.material.map.wrapT;
+                        child.material.map = newTexture;
+                        child.material.needsUpdate = true;
+                    }
+                });
+            }
+
+            this.isProcessing = false;
+            const degradationPercent = (100 * (1 - this.chemicalDegradationFactor)).toFixed(1);
+            const totalDays = (this.simDays + (this.simMonths * 30.44) + (this.simYears * 365.25)).toFixed(0);
+            this.showToast(`✅ Texture applied: ${degradationPercent}% degradation after ${totalDays} days`, 'success', 3000);
         },
 
         /**

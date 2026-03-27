@@ -1,0 +1,96 @@
+[%
+// EGL template to generate a controller class from an EClass
+// Parameters:
+//   - eClass: The EClass to generate controller for
+//
+// Controllers handle HTTP request/response and delegate to services.
+// Returns data directly to match the existing Micronaut backend response format.
+
+var className = eClass.name;
+var controllerName = eClass.name + "Controller";
+var serviceName = eClass.name + "Service";
+var varName = eClass.name.firstToLowerCase();
+%]
+const [%=serviceName%] = require('../services/[%=serviceName%]');
+
+/**
+ * [%=controllerName%]
+ * Handles HTTP requests for [%=className%] resources
+ * Auto-generated from mogao_dt.ecore metamodel
+ */
+const [%=controllerName%] = {
+
+    create: async (req, res) => {
+        try {
+            const instance = await [%=serviceName%].create(req.body);
+            res.status(201).json(instance);
+        } catch (error) {
+            console.error('Failed to create [%=className%]:', error);
+            res.status(500).json({ message: 'Failed to create [%=className%]', error: error.message });
+        }
+    },
+
+    getAll: async (req, res) => {
+        try {
+            const instances = await [%=serviceName%].getAll();
+            res.json(instances);
+        } catch (error) {
+            console.error('Failed to get [%=className%] list:', error);
+            res.status(500).json({ message: 'Failed to get [%=className%] list', error: error.message });
+        }
+    },
+
+    getById: async (req, res) => {
+        try {
+            const instance = await [%=serviceName%].getById(req.params.id);
+            if (!instance) {
+                return res.status(404).send();
+            }
+            res.json(instance);
+        } catch (error) {
+            console.error('Failed to get [%=className%]:', error);
+            res.status(500).json({ message: 'Failed to get [%=className%]', error: error.message });
+        }
+    },
+
+    getByGid: async (req, res) => {
+        try {
+            const instance = await [%=serviceName%].getByGid(req.params.gid);
+            if (!instance) {
+                return res.status(404).send();
+            }
+            res.json(instance);
+        } catch (error) {
+            console.error('Failed to get [%=className%] by GID:', error);
+            res.status(500).json({ message: 'Failed to get [%=className%]', error: error.message });
+        }
+    },
+
+    update: async (req, res) => {
+        try {
+            const instance = await [%=serviceName%].update(req.params.id, req.body);
+            if (!instance) {
+                return res.status(404).send();
+            }
+            res.json(instance);
+        } catch (error) {
+            console.error('Failed to update [%=className%]:', error);
+            res.status(500).json({ message: 'Failed to update [%=className%]', error: error.message });
+        }
+    },
+
+    delete: async (req, res) => {
+        try {
+            const instance = await [%=serviceName%].delete(req.params.id);
+            if (!instance) {
+                return res.status(404).send();
+            }
+            res.json(instance);
+        } catch (error) {
+            console.error('Failed to delete [%=className%]:', error);
+            res.status(500).json({ message: 'Failed to delete [%=className%]', error: error.message });
+        }
+    },
+};
+
+module.exports = [%=controllerName%];

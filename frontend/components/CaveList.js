@@ -15,7 +15,8 @@ export default {
     name: 'CaveList',
     setup() {
         const { t } = useI18n();
-        return { t };
+        const isGuest = Vue.inject('isGuest', Vue.ref(false));
+        return { t, isGuest };
     },
     components: {
         CaveCard, ModelViewer, SimulationPanel,
@@ -170,7 +171,7 @@ export default {
                             <span class="page-search-icon">🔍</span>
                             <input type="text" v-model="searchQuery" class="page-search-input" :placeholder="t('common.search') + '...'" />
                         </div>
-                        <button class="btn" style="background: var(--secondary-color); color: white;" @click="$emit('create')">
+                        <button v-if="!isGuest" class="btn" style="background: var(--secondary-color); color: white;" @click="$emit('create')">
                             + {{ t('actions.createNew', { entity: t('entities.cave') }) }}
                         </button>
                     </div>
@@ -194,7 +195,7 @@ export default {
                             <div class="project-card-actions">
                                 <button class="project-action-btn project-action-open" @click.stop="openCave(cave)">{{ t('common.detail') || 'Open' }}</button>
                                 <button class="project-action-btn" @click.stop="$emit('edit', cave)">{{ t('common.edit') }}</button>
-                                <button class="project-action-btn project-action-delete" @click.stop="$emit('delete', cave)">{{ t('common.delete') }}</button>
+                                <button v-if="!isGuest" class="project-action-btn project-action-delete" @click.stop="$emit('delete', cave)">{{ t('common.delete') }}</button>
                             </div>
                         </div>
                     </div>

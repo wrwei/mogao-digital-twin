@@ -1,0 +1,113 @@
+/**
+ * Deterioration Controller
+ * Exposes deterioration model calculations as REST endpoints.
+ */
+
+const DeteriorationService = require('../services/DeteriorationService');
+
+module.exports = {
+    // POST /deterioration/assess — run all four models
+    async assess(req, res) {
+        try {
+            const { T_celsius, RH_percent, light_klux, totalDays } = req.body;
+
+            if (T_celsius == null || RH_percent == null || light_klux == null || totalDays == null) {
+                return res.status(400).json({
+                    error: 'Missing required parameters: T_celsius, RH_percent, light_klux, totalDays'
+                });
+            }
+
+            const result = DeteriorationService.assess(req.body);
+            res.json(result);
+        } catch (error) {
+            console.error('Deterioration assess error:', error);
+            res.status(500).json({ error: error.message });
+        }
+    },
+
+    // POST /deterioration/chemical — chemical pigment fading only
+    async chemical(req, res) {
+        try {
+            const { T_celsius, RH_percent, light_klux, totalDays, params } = req.body;
+
+            if (T_celsius == null || RH_percent == null || light_klux == null || totalDays == null) {
+                return res.status(400).json({
+                    error: 'Missing required parameters: T_celsius, RH_percent, light_klux, totalDays'
+                });
+            }
+
+            const result = DeteriorationService.chemicalFading(T_celsius, RH_percent, light_klux, totalDays, params);
+            res.json(result);
+        } catch (error) {
+            console.error('Chemical fading error:', error);
+            res.status(500).json({ error: error.message });
+        }
+    },
+
+    // POST /deterioration/lifetime — Michalski lifetime multiplier only
+    async lifetime(req, res) {
+        try {
+            const { T_celsius, RH_percent, params } = req.body;
+
+            if (T_celsius == null || RH_percent == null) {
+                return res.status(400).json({
+                    error: 'Missing required parameters: T_celsius, RH_percent'
+                });
+            }
+
+            const result = DeteriorationService.lifetimeMultiplier(T_celsius, RH_percent, params);
+            res.json(result);
+        } catch (error) {
+            console.error('Lifetime multiplier error:', error);
+            res.status(500).json({ error: error.message });
+        }
+    },
+
+    // POST /deterioration/mould — VTT mould growth only
+    async mould(req, res) {
+        try {
+            const { T_celsius, RH_percent, totalDays, prevMouldIndex, params } = req.body;
+
+            if (T_celsius == null || RH_percent == null || totalDays == null) {
+                return res.status(400).json({
+                    error: 'Missing required parameters: T_celsius, RH_percent, totalDays'
+                });
+            }
+
+            const result = DeteriorationService.mouldGrowth(T_celsius, RH_percent, totalDays, prevMouldIndex, params);
+            res.json(result);
+        } catch (error) {
+            console.error('Mould growth error:', error);
+            res.status(500).json({ error: error.message });
+        }
+    },
+
+    // POST /deterioration/salt — salt crystallization only
+    async salt(req, res) {
+        try {
+            const { T_celsius, RH_percent, totalDays, params } = req.body;
+
+            if (T_celsius == null || RH_percent == null || totalDays == null) {
+                return res.status(400).json({
+                    error: 'Missing required parameters: T_celsius, RH_percent, totalDays'
+                });
+            }
+
+            const result = DeteriorationService.saltCrystallization(T_celsius, RH_percent, totalDays, params);
+            res.json(result);
+        } catch (error) {
+            console.error('Salt crystallization error:', error);
+            res.status(500).json({ error: error.message });
+        }
+    },
+
+    // GET /deterioration/defaults — return default parameter sets
+    async defaults(req, res) {
+        res.json({
+            chemical: DeteriorationService.CHEMICAL_DEFAULTS,
+            lifetime: DeteriorationService.LIFETIME_DEFAULTS,
+            mould: DeteriorationService.MOULD_DEFAULTS,
+            salt: DeteriorationService.SALT_DEFAULTS
+        });
+    }
+};

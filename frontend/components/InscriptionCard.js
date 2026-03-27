@@ -20,7 +20,8 @@ export default {
     emits: ['select', 'edit', 'delete', 'view-detail'],
     setup() {
         const { t } = useI18n();
-        return { t };
+        const isGuest = Vue.inject('isGuest', Vue.ref(false));
+        return { t, isGuest };
     },
     template: `
         <div class="card inscription-card"
@@ -37,10 +38,10 @@ export default {
                 <p class="card-description">{{ inscription.description || t('common.noDescription') }}</p>
             </div>
             <div class="card-footer">
-                <button class="btn btn-sm" @click.stop="$emit('edit', inscription)" :title="t('common.edit')">
+                <button v-if="!isGuest" class="btn btn-sm" @click.stop="$emit('edit', inscription)" :title="t('common.edit')">
                     {{ t('common.edit') }}
                 </button>
-                <button class="btn btn-sm btn-danger" @click.stop="$emit('delete', inscription)" :title="t('common.delete')">
+                <button v-if="!isGuest" class="btn btn-sm btn-danger" @click.stop="$emit('delete', inscription)" :title="t('common.delete')">
                     {{ t('common.delete') }}
                 </button>
             </div>

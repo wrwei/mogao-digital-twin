@@ -12,7 +12,8 @@ export default {
     name: 'PaintingList',
     setup() {
         const { t } = useI18n();
-        return { t };
+        const isGuest = Vue.inject('isGuest', Vue.ref(false));
+        return { t, isGuest };
     },
     components: {
         PaintingCard,
@@ -169,7 +170,7 @@ export default {
                 <div class="list-header" style="padding: var(--spacing-md); border-bottom: 1px solid var(--border);">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-md);">
                         <h2 style="margin: 0; font-size: 1.2em;">{{ t('entities.paintings') }}</h2>
-                        <button class="btn btn-sm btn-primary" @click="$emit('create')">
+                        <button v-if="!isGuest" class="btn btn-sm btn-primary" @click="$emit('create')">
                             ➕
                         </button>
                     </div>
@@ -194,7 +195,7 @@ export default {
                     <div v-else-if="isEmpty" class="empty-state">
                         <div class="empty-state-icon">📭</div>
                         <div class="empty-state-text">{{ t('common.noData') }}</div>
-                        <button class="btn btn-primary" @click="$emit('create')">
+                        <button v-if="!isGuest" class="btn btn-primary" @click="$emit('create')">
                             {{ t('actions.createNew', { entity: t('entities.painting') }) }}
                         </button>
                     </div>

@@ -1,0 +1,36 @@
+[%
+// EGL template to generate an Express router from an EClass
+// Parameters:
+//   - eClass: The EClass to generate router for
+//
+// Routers map HTTP routes to controller methods.
+// Follows the pattern from Principia prototype server/core/routers.
+
+var className = eClass.name;
+var controllerName = eClass.name + "Controller";
+var routerName = eClass.name.firstToLowerCase() + "Router";
+%]
+const express = require('express');
+const router = express.Router();
+const [%=controllerName%] = require('../controllers/[%=controllerName%]');
+
+/**
+ * [%=className%] Routes
+ * Auto-generated from mogao_dt.ecore metamodel
+ *
+ * POST   /              - Create a new [%=className%]
+ * GET    /              - Get all [%=className%] documents
+ * GET    /:id           - Get [%=className%] by ID
+ * GET    /gid/:gid      - Get [%=className%] by GID
+ * PUT    /:id           - Update [%=className%] by ID
+ * DELETE /:id           - Delete [%=className%] by ID
+ */
+
+router.post('/', [%=controllerName%].create);
+router.get('/', [%=controllerName%].getAll);
+router.get('/:id', [%=controllerName%].getById);
+router.get('/gid/:gid', [%=controllerName%].getByGid);
+router.put('/:id', [%=controllerName%].update);
+router.delete('/:id', [%=controllerName%].delete);
+
+module.exports = router;

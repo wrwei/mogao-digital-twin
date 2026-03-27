@@ -144,6 +144,7 @@ export default {
                 }
 
                 if (this.mode === 'create') {
+                    this.form.gid = 'painting-' + Date.now();
                     const response = await api.paintings.create(this.form);
                     this.$emit('created', response.data);
                 } else {
@@ -244,9 +245,20 @@ export default {
         handleFileSelect(event, refName, attrName) {
             const file = event.target.files[0];
             if (file) {
-                // Store the File object for upload
+                const allowedTypes = ['.obj', '.mtl', '.jpg', '.jpeg', '.png', '.gif', '.json', '.glb', '.gltf'];
+                const maxSize = 100 * 1024 * 1024; // 100MB
+                const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+                if (!allowedTypes.includes(ext)) {
+                    alert('File type not allowed: ' + ext);
+                    event.target.value = '';
+                    return;
+                }
+                if (file.size > maxSize) {
+                    alert('File too large. Maximum size is 100MB.');
+                    event.target.value = '';
+                    return;
+                }
                 this.files[`${refName}_${attrName}`] = file;
-                // Display the filename
                 this.form[refName][attrName] = file.name;
                 this.markTouched(`${refName}.${attrName}`);
             }
@@ -346,7 +358,7 @@ export default {
                 </span>
             </div>
 
-            <div class="form-group" v-if="mode === 'edit' || false">
+            <div class="form-group" v-if="mode === 'edit' || true">
                 <label class="form-label" for="creationPeriod">
                     {{ t('fields.creationPeriod') }}
                 </label>
@@ -366,7 +378,7 @@ export default {
                 </span>
             </div>
 
-            <div class="form-group" v-if="mode === 'edit' || false">
+            <div class="form-group" v-if="mode === 'edit' || true">
                 <label class="form-label" for="lastInspectionDate">
                     {{ t('fields.lastInspectionDate') }}
                 </label>
@@ -386,7 +398,7 @@ export default {
                 </span>
             </div>
 
-            <div class="form-group" v-if="mode === 'edit' || false">
+            <div class="form-group" v-if="mode === 'edit' || true">
                 <label class="form-label" for="inspectionNotes">
                     {{ t('fields.inspectionNotes') }}
                 </label>
@@ -406,7 +418,7 @@ export default {
                 </span>
             </div>
 
-            <div class="form-group" v-if="mode === 'edit' || false">
+            <div class="form-group" v-if="mode === 'edit' || true">
                 <label class="form-label" for="material">
                     {{ t('fields.material') }}
                 </label>
@@ -426,7 +438,7 @@ export default {
                 </span>
             </div>
 
-            <div class="form-group" v-if="mode === 'edit' || false">
+            <div class="form-group" v-if="mode === 'edit' || true">
                 <label class="form-label" for="period">
                     {{ t('fields.period') }}
                 </label>
@@ -446,7 +458,7 @@ export default {
                 </span>
             </div>
 
-            <div class="form-group" v-if="mode === 'edit' || false">
+            <div class="form-group" v-if="mode === 'edit' || true">
                 <label class="form-label" for="conservationStatus">
                     {{ t('fields.conservationStatus') }}
                 </label>
@@ -472,7 +484,7 @@ export default {
                 </span>
             </div>
 
-            <div class="form-group" v-if="mode === 'edit' || false">
+            <div class="form-group" v-if="mode === 'edit' || true">
                 <label class="form-label" for="width">
                     {{ t('fields.width') }}
                 </label>
@@ -492,7 +504,7 @@ export default {
                 </span>
             </div>
 
-            <div class="form-group" v-if="mode === 'edit' || false">
+            <div class="form-group" v-if="mode === 'edit' || true">
                 <label class="form-label" for="height">
                     {{ t('fields.height') }}
                 </label>
@@ -512,7 +524,7 @@ export default {
                 </span>
             </div>
 
-            <div class="form-group" v-if="mode === 'edit' || false">
+            <div class="form-group" v-if="mode === 'edit' || true">
                 <label class="form-label" for="style">
                     {{ t('fields.style') }}
                 </label>

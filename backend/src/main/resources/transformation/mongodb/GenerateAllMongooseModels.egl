@@ -1,0 +1,168 @@
+[%
+// Main EGL template to generate the full Mongoose backend stack from the metamodel
+// Generates: models, services, controllers, routers, and index files
+// Only generates service/controller/router for concrete (non-abstract) classes
+
+// Load the metamodel (mogao_dt.ecore)
+var metamodel = M.allInstances().select(e | e.isTypeOf(EPackage)).first();
+
+out.println("=== Generating Mongoose backend for package: " + metamodel.name + " ===");
+
+// Get all classes
+var allClasses = metamodel.eAllContents.select(c | c.isTypeOf(EClass));
+var concreteClasses = allClasses.select(c | not c.abstract);
+
+// Output directories
+var baseDir = "generated/mongoose/";
+var modelsDir = baseDir + "models/";
+var servicesDir = baseDir + "services/";
+var controllersDir = baseDir + "controllers/";
+var routersDir = baseDir + "routers/";
+
+// =============================================
+// 1. Generate Mongoose Models (all classes)
+// =============================================
+out.println("");
+out.println("--- Generating Models ---");
+for (eClass in allClasses) {
+    out.println("  Model: " + eClass.name);
+    var template = TemplateFactory.load("transformation/mongodb/GenerateMongooseModel.egl");
+    template.populate("eClass", eClass);
+    writeFile(modelsDir + eClass.name + ".js", template.process());
+}
+
+// Models index.js
+var modelsIndex = "// Auto-generated Mongoose model index\n";
+modelsIndex = modelsIndex + "// Generated from mogao_dt.ecore metamodel\n\n";
+for (eClass in allClasses) {
+    if (eClass.abstract) {
+        modelsIndex = modelsIndex + "const { " + eClass.name + "Schema } = require('./" + eClass.name + "');\n";
+    } else {
+        modelsIndex = modelsIndex + "const { " + eClass.name + ", " + eClass.name + "Schema } = require('./" + eClass.name + "');\n";
+    }
+}
+modelsIndex = modelsIndex + "\nmodule.exports = {\n";
+for (eClass in allClasses) {
+    if (eClass.abstract) {
+        modelsIndex = modelsIndex + "    " + eClass.name + "Schema,\n";
+    } else {
+        modelsIndex = modelsIndex + "    " + eClass.name + ", " + eClass.name + "Schema,\n";
+    }
+}
+modelsIndex = modelsIndex + "};\n";
+writeFile(modelsDir + "index.js", modelsIndex);
+
+// =============================================
+// 2. Generate Services (concrete classes only)
+// =============================================
+out.println("");
+out.println("--- Generating Services ---");
+for (eClass in concreteClasses) {
+    out.println("  Service: " + eClass.name + "Service");
+    var template = TemplateFactory.load("transformation/mongodb/GenerateMongooseService.egl");
+    template.populate("eClass", eClass);
+    writeFile(servicesDir + eClass.name + "Service.js", template.process());
+}
+
+// Services index.js
+var servicesIndex = "// Auto-generated service index\n\n";
+servicesIndex = servicesIndex + "module.exports = {\n";
+for (eClass in concreteClasses) {
+    servicesIndex = servicesIndex + "    " + eClass.name + "Service: require('./" + eClass.name + "Service'),\n";
+}
+servicesIndex = servicesIndex + "};\n";
+writeFile(servicesDir + "index.js", servicesIndex);
+
+// =============================================
+// 3. Generate Controllers (concrete classes only)
+// =============================================
+out.println("");
+out.println("--- Generating Controllers ---");
+for (eClass in concreteClasses) {
+    out.println("  Controller: " + eClass.name + "Controller");
+    var template = TemplateFactory.load("transformation/mongodb/GenerateMongooseController.egl");
+    template.populate("eClass", eClass);
+    writeFile(controllersDir + eClass.name + "Controller.js", template.process());
+}
+
+// Controllers index.js
+var controllersIndex = "// Auto-generated controller index\n\n";
+controllersIndex = controllersIndex + "module.exports = {\n";
+for (eClass in concreteClasses) {
+    controllersIndex = controllersIndex + "    " + eClass.name + "Controller: require('./" + eClass.name + "Controller'),\n";
+}
+controllersIndex = controllersIndex + "};\n";
+writeFile(controllersDir + "index.js", controllersIndex);
+
+// =============================================
+// 4. Generate Routers (concrete classes only)
+// =============================================
+out.println("");
+out.println("--- Generating Routers ---");
+for (eClass in concreteClasses) {
+    var routerFileName = eClass.name.firstToLowerCase() + "Router";
+    out.println("  Router: " + routerFileName);
+    var template = TemplateFactory.load("transformation/mongodb/GenerateMongooseRouter.egl");
+    template.populate("eClass", eClass);
+    writeFile(routersDir + routerFileName + ".js", template.process());
+}
+
+// Routers index.js
+var routersIndex = "// Auto-generated router index\n\n";
+routersIndex = routersIndex + "module.exports = {\n";
+for (eClass in concreteClasses) {
+    var routerName = eClass.name.firstToLowerCase() + "Router";
+    routersIndex = routersIndex + "    " + routerName + ": require('./" + routerName + "'),\n";
+}
+routersIndex = routersIndex + "};\n";
+writeFile(routersDir + "index.js", routersIndex);
+
+// =============================================
+// 5. Generate main app.js with all routes mounted
+// =============================================
+out.println("");
+out.println("--- Generating app.js ---");
+var appContent = "// Auto-generated Express app with Mongoose routes\n";
+appContent = appContent + "// Generated from mogao_dt.ecore metamodel\n\n";
+appContent = appContent + "const express = require('express');\n";
+appContent = appContent + "const mongoose = require('mongoose');\n";
+appContent = appContent + "const cors = require('cors');\n\n";
+appContent = appContent + "const app = express();\n\n";
+appContent = appContent + "// Middleware\n";
+appContent = appContent + "app.use(cors());\n";
+appContent = appContent + "app.use(express.json());\n\n";
+appContent = appContent + "// Import routers\n";
+
+for (eClass in concreteClasses) {
+    var routerName = eClass.name.firstToLowerCase() + "Router";
+    appContent = appContent + "const " + routerName + " = require('./routers/" + routerName + "');\n";
+}
+
+appContent = appContent + "\n// Mount routes\n";
+for (eClass in concreteClasses) {
+    var routerName = eClass.name.firstToLowerCase() + "Router";
+    var routePath = eClass.name.firstToLowerCase() + "s";
+    appContent = appContent + "app.use('/api/" + routePath + "', " + routerName + ");\n";
+}
+
+appContent = appContent + "\n// MongoDB connection\n";
+appContent = appContent + "const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/mogao_dt';\n\n";
+appContent = appContent + "mongoose.connect(MONGO_URI)\n";
+appContent = appContent + "    .then(() => console.log('Connected to MongoDB'))\n";
+appContent = appContent + "    .catch(err => console.error('MongoDB connection error:', err));\n\n";
+appContent = appContent + "module.exports = app;\n";
+
+writeFile(baseDir + "app.js", appContent);
+
+out.println("");
+out.println("=== Generation complete! ===");
+
+// Helper operation to write content to a file
+operation writeFile(filePath : String, content : String) {
+    var file = new Native("java.io.File")(filePath);
+    file.getParentFile().mkdirs();
+    var writer = new Native("java.io.FileWriter")(file);
+    writer.write(content);
+    writer.close();
+}
+%]

@@ -4,7 +4,7 @@
  */
 
 // Backend API base URL
-const API_BASE_URL = 'http://localhost:8008';
+const API_BASE_URL = window.CONFIG?.API_BASE_URL || 'http://localhost:8008';
 
 // Create axios instance with default config
 const apiClient = axios.create({
@@ -15,10 +15,18 @@ const apiClient = axios.create({
     timeout: 10000, // 10 seconds
 });
 
-// Request interceptor for logging
+// Request interceptor for auth token and logging
 apiClient.interceptors.request.use(
     (config) => {
-        console.log(`[API] ${config.method.toUpperCase()} ${config.url}`);
+        const token = localStorage.getItem('mgemini-token');
+        if (token) {
+            config.headers.Authorization = 'Bearer ' + token;
+        } else {
+            const user = JSON.parse(localStorage.getItem('mgemini-user') || 'null');
+            if (user && user.role === 'guest') {
+                config.headers['X-Guest-Access'] = 'true';
+            }
+        }
         return config;
     },
     (error) => {
@@ -27,14 +35,21 @@ apiClient.interceptors.request.use(
     }
 );
 
-// Response interceptor for error handling
+// Response interceptor for error handling and session expiration
 apiClient.interceptors.response.use(
     (response) => {
-        console.log(`[API] Response:`, response.status, response.data);
         return response;
     },
     (error) => {
         console.error('[API] Response error:', error.response?.status, error.response?.data || error.message);
+
+        // Handle session expiration — redirect to login
+        if (error.response?.status === 401 && !error.config?.url?.includes('/users/login')) {
+            localStorage.removeItem('mgemini-token');
+            localStorage.removeItem('mgemini-user');
+            window.location.reload();
+        }
+
         return Promise.reject(error);
     }
 );
@@ -52,55 +67,128 @@ const api = {
     // Cave endpoints
     caves: {
         getAll: () => apiClient.get('/caves'),
-        getByGid: (gid) => apiClient.get(`/caves/${gid}`),
+        getByGid: (gid) => apiClient.get(`/caves/gid/${gid}`),
         create: (data) => apiClient.post('/caves', data),
-        update: (gid, data) => apiClient.put(`/caves/${gid}`, data),
-        delete: (gid) => apiClient.delete(`/caves/${gid}`),
+        update: (gid, data) => apiClient.put(`/caves/gid/${gid}`, data),
+        delete: (gid) => apiClient.delete(`/caves/gid/${gid}`),
     },
 
     // Defect endpoints
     defects: {
         getAll: () => apiClient.get('/defects'),
-        getByGid: (gid) => apiClient.get(`/defects/${gid}`),
+        getByGid: (gid) => apiClient.get(`/defects/gid/${gid}`),
         create: (data) => apiClient.post('/defects', data),
-        update: (gid, data) => apiClient.put(`/defects/${gid}`, data),
-        delete: (gid) => apiClient.delete(`/defects/${gid}`),
+        update: (gid, data) => apiClient.put(`/defects/gid/${gid}`, data),
+        delete: (gid) => apiClient.delete(`/defects/gid/${gid}`),
     },
 
     // Statue endpoints
     statues: {
         getAll: () => apiClient.get('/statues'),
-        getByGid: (gid) => apiClient.get(`/statues/${gid}`),
+        getByGid: (gid) => apiClient.get(`/statues/gid/${gid}`),
         create: (data) => apiClient.post('/statues', data),
-        update: (gid, data) => apiClient.put(`/statues/${gid}`, data),
-        delete: (gid) => apiClient.delete(`/statues/${gid}`),
+        update: (gid, data) => apiClient.put(`/statues/gid/${gid}`, data),
+        delete: (gid) => apiClient.delete(`/statues/gid/${gid}`),
     },
 
     // Mural endpoints
     murals: {
         getAll: () => apiClient.get('/murals'),
-        getByGid: (gid) => apiClient.get(`/murals/${gid}`),
+        getByGid: (gid) => apiClient.get(`/murals/gid/${gid}`),
         create: (data) => apiClient.post('/murals', data),
-        update: (gid, data) => apiClient.put(`/murals/${gid}`, data),
-        delete: (gid) => apiClient.delete(`/murals/${gid}`),
+        update: (gid, data) => apiClient.put(`/murals/gid/${gid}`, data),
+        delete: (gid) => apiClient.delete(`/murals/gid/${gid}`),
     },
 
     // Painting endpoints
     paintings: {
         getAll: () => apiClient.get('/paintings'),
-        getByGid: (gid) => apiClient.get(`/paintings/${gid}`),
+        getByGid: (gid) => apiClient.get(`/paintings/gid/${gid}`),
         create: (data) => apiClient.post('/paintings', data),
-        update: (gid, data) => apiClient.put(`/paintings/${gid}`, data),
-        delete: (gid) => apiClient.delete(`/paintings/${gid}`),
+        update: (gid, data) => apiClient.put(`/paintings/gid/${gid}`, data),
+        delete: (gid) => apiClient.delete(`/paintings/gid/${gid}`),
     },
 
     // Inscription endpoints
     inscriptions: {
         getAll: () => apiClient.get('/inscriptions'),
-        getByGid: (gid) => apiClient.get(`/inscriptions/${gid}`),
+        getByGid: (gid) => apiClient.get(`/inscriptions/gid/${gid}`),
         create: (data) => apiClient.post('/inscriptions', data),
-        update: (gid, data) => apiClient.put(`/inscriptions/${gid}`, data),
-        delete: (gid) => apiClient.delete(`/inscriptions/${gid}`),
+        update: (gid, data) => apiClient.put(`/inscriptions/gid/${gid}`, data),
+        delete: (gid) => apiClient.delete(`/inscriptions/gid/${gid}`),
+    },
+
+    // Coordinate endpoints
+    coordinates: {
+        getAll: () => apiClient.get('/coordinates'),
+        getByGid: (gid) => apiClient.get(`/coordinates/gid/${gid}`),
+        create: (data) => apiClient.post('/coordinates', data),
+        update: (gid, data) => apiClient.put(`/coordinates/gid/${gid}`, data),
+        delete: (gid) => apiClient.delete(`/coordinates/gid/${gid}`),
+    },
+
+    // Parameter endpoints
+    parameters: {
+        getAll: () => apiClient.get('/parameters'),
+        getByGid: (gid) => apiClient.get(`/parameters/gid/${gid}`),
+        create: (data) => apiClient.post('/parameters', data),
+        update: (gid, data) => apiClient.put(`/parameters/gid/${gid}`, data),
+        delete: (gid) => apiClient.delete(`/parameters/gid/${gid}`),
+    },
+
+    // AssetReference endpoints
+    assetReferences: {
+        getAll: () => apiClient.get('/assetReferences'),
+        getByGid: (gid) => apiClient.get(`/assetReferences/gid/${gid}`),
+        create: (data) => apiClient.post('/assetReferences', data),
+        update: (gid, data) => apiClient.put(`/assetReferences/gid/${gid}`, data),
+        delete: (gid) => apiClient.delete(`/assetReferences/gid/${gid}`),
+    },
+
+    // DTPackage endpoints
+    dTPackages: {
+        getAll: () => apiClient.get('/dTPackages'),
+        getByGid: (gid) => apiClient.get(`/dTPackages/gid/${gid}`),
+        create: (data) => apiClient.post('/dTPackages', data),
+        update: (gid, data) => apiClient.put(`/dTPackages/gid/${gid}`, data),
+        delete: (gid) => apiClient.delete(`/dTPackages/gid/${gid}`),
+    },
+
+    // Temperature endpoints
+    temperatures: {
+        getAll: () => apiClient.get('/temperatures'),
+        getByGid: (gid) => apiClient.get(`/temperatures/gid/${gid}`),
+        create: (data) => apiClient.post('/temperatures', data),
+        update: (gid, data) => apiClient.put(`/temperatures/gid/${gid}`, data),
+        delete: (gid) => apiClient.delete(`/temperatures/gid/${gid}`),
+    },
+
+    // Humidity endpoints
+    humidities: {
+        getAll: () => apiClient.get('/humidities'),
+        getByGid: (gid) => apiClient.get(`/humidities/gid/${gid}`),
+        create: (data) => apiClient.post('/humidities', data),
+        update: (gid, data) => apiClient.put(`/humidities/gid/${gid}`, data),
+        delete: (gid) => apiClient.delete(`/humidities/gid/${gid}`),
+    },
+
+    // LightIntensity endpoints
+    lightIntensities: {
+        getAll: () => apiClient.get('/lightIntensities'),
+        getByGid: (gid) => apiClient.get(`/lightIntensities/gid/${gid}`),
+        create: (data) => apiClient.post('/lightIntensities', data),
+        update: (gid, data) => apiClient.put(`/lightIntensities/gid/${gid}`, data),
+        delete: (gid) => apiClient.delete(`/lightIntensities/gid/${gid}`),
+    },
+
+    // Deterioration model calculations
+    deterioration: {
+        assess: (data) => apiClient.post('/deterioration/assess', data),
+        chemical: (data) => apiClient.post('/deterioration/chemical', data),
+        lifetime: (data) => apiClient.post('/deterioration/lifetime', data),
+        mould: (data) => apiClient.post('/deterioration/mould', data),
+        salt: (data) => apiClient.post('/deterioration/salt', data),
+        defaults: () => apiClient.get('/deterioration/defaults'),
     },
 
     // Health check

@@ -3,14 +3,13 @@
  * Manual component for environmental simulation
  * Allows users to configure temperature and relative humidity
  *
- * Uses DeteriorationEngine for scientific model calculations:
+ * Calls backend deterioration API for scientific model calculations:
  *   - Chemical pigment fading (Arrhenius + first-order kinetics)
  *   - Michalski lifetime multiplier (Climate for Culture eLM)
  *   - VTT / Finnish mould growth model (Hukka & Viitanen 1999)
  *   - Salt crystallization pressure (Scherer 1999 / Steiger 2005)
  */
 import { useI18n } from '../i18n.js';
-import * as Engine from '../deterioration/DeteriorationEngine.js';
 
 export default {
     name: 'SimulationPanel',
@@ -58,11 +57,14 @@ export default {
             activeTab: 'chemical',
             // Model configuration (expandable)
             showConfig: { chemical: false, lifetime: false, mould: false, saltCryst: false },
-            // Configurable model parameters (initialized from engine defaults)
-            chemicalParams: { ...Engine.CHEMICAL_DEFAULTS },
-            lifetimeParams: { ...Engine.LIFETIME_DEFAULTS },
-            mouldParams: { ...Engine.MOULD_DEFAULTS },
-            saltCrystParams: { ...Engine.SALT_DEFAULTS }
+            // Configurable model parameters (loaded from backend /deterioration/defaults)
+            chemicalParams: { Ea_dark: 70000, Ea_light: 25000, k0_dark: 0.0001, k0_light: 0.001, q: 0.8, p: 0.9 },
+            lifetimeParams: { Ea: 70000, n: 1.3, T0: 20, RH0: 50 },
+            mouldParams: { growthCoeff: 0.13, declineRate: -0.128 },
+            saltCrystParams: { Vm: 5.33e-5, DRH_ref: 84.2, DRH_slope: -0.17, T_ref: 25, tensileStrength: 3.0, cyclesPerYear: 120 },
+            // Cached assessment results from backend API
+            _assessmentResults: null,
+            _assessDebounceTimer: null
         };
     },
     computed: {
@@ -116,19 +118,14 @@ export default {
             if (this.humidity < 70) return this.t('simulation.status.humid');
             return this.t('simulation.status.tooHumid');
         },
-        // ── Deterioration model results (computed, reactive) ────────────
+        // ── Deterioration model results (cached from backend API) ────────────
         assessmentResults() {
-            return Engine.assess({
-                T_celsius: this.temperatureCelsius,
-                RH_percent: this.humidity,
-                light_klux: this.simLight,
-                totalDays: this.getTotalDays(),
-                prevMouldIndex: this.mouldIndex,
-                chemicalParams: this.chemicalParams,
-                lifetimeParams: this.lifetimeParams,
-                mouldParams: this.mouldParams,
-                saltCrystParams: this.saltCrystParams
-            });
+            return this._assessmentResults || {
+                chemical: { rateConstant: 0, degradationFactor: 1, scientificDegradation: 0, risk: 0, label: 'low', visualEffect: { fadeFactor: 1, type: 'chemical' } },
+                lifetime: { multiplier: 1, label: 'longer', color: '#10b981' },
+                mould: { mouldIndex: 0, rhCritical: 80, isAboveThreshold: false, risk: 0, label: 'low', growthRate: 0, visualEffect: { coverage: 0, intensity: 0, type: 'mould' } },
+                saltCryst: { pressure_MPa: 0, DRH: 84.2, isCrystallizing: false, damageRatio: 0, cumulativeDamage: 0, risk: 0, label: 'safe', visualEffect: { spalling: 0, type: 'salt' } }
+            };
         },
         lifetimeResult() {
             return this.assessmentResults.lifetime;
@@ -187,18 +184,57 @@ export default {
         }
     },
     methods: {
-        // Keep inline versions for template expressions that call them directly
-        calculateRateConstant(T_celsius, RH_percent, light_klux) {
-            return Engine.calculateRateConstant(T_celsius, RH_percent, light_klux, this.chemicalParams);
+        // Return cached rate constant from last assessment
+        calculateRateConstant() {
+            return this.assessmentResults.chemical.rateConstant;
         },
 
         getTotalDays() {
             return this.simDays + (this.simMonths * 30.44) + (this.simYears * 365.25);
         },
 
+        // Fetch assessment from backend API (debounced)
+        fetchAssessment() {
+            if (this._assessDebounceTimer) clearTimeout(this._assessDebounceTimer);
+            this._assessDebounceTimer = setTimeout(() => this._doFetchAssessment(), 150);
+        },
+
+        async _doFetchAssessment() {
+            try {
+                const response = await window.api.deterioration.assess({
+                    T_celsius: this.temperatureCelsius,
+                    RH_percent: this.humidity,
+                    light_klux: this.simLight,
+                    totalDays: this.getTotalDays(),
+                    prevMouldIndex: this.mouldIndex,
+                    chemicalParams: this.chemicalParams,
+                    lifetimeParams: this.lifetimeParams,
+                    mouldParams: this.mouldParams,
+                    saltCrystParams: this.saltCrystParams
+                });
+                this._assessmentResults = response.data;
+            } catch (error) {
+                console.error('Deterioration API error:', error);
+            }
+        },
+
+        async loadDefaults() {
+            try {
+                const response = await window.api.deterioration.defaults();
+                const d = response.data;
+                this.chemicalParams = { ...d.chemical };
+                this.lifetimeParams = { ...d.lifetime };
+                this.mouldParams = { ...d.mould };
+                this.saltCrystParams = { ...d.salt };
+            } catch (error) {
+                console.error('Failed to load deterioration defaults:', error);
+            }
+        },
+
         emitSimulation() {
             if (!this.isSimulating) return;
 
+            this.fetchAssessment();
             const results = this.assessmentResults;
             const totalDays = this.getTotalDays();
 
@@ -252,10 +288,8 @@ export default {
         },
 
         resetModelParams(model) {
-            if (model === 'chemical') this.chemicalParams = { ...Engine.CHEMICAL_DEFAULTS };
-            else if (model === 'lifetime') this.lifetimeParams = { ...Engine.LIFETIME_DEFAULTS };
-            else if (model === 'mould') this.mouldParams = { ...Engine.MOULD_DEFAULTS };
-            else if (model === 'saltCryst') this.saltCrystParams = { ...Engine.SALT_DEFAULTS };
+            // Re-fetch defaults from backend
+            this.loadDefaults();
         },
 
         applyPreset(preset) {
@@ -317,10 +351,10 @@ export default {
             const daysPerTick = (this.simulationSpeed * 1.0) / 10;
             this.simDays += daysPerTick;
 
-            // Update mould index incrementally (only if mould model enabled)
-            if (this.enabledModels.mould) {
-                const mouldResult = Engine.mouldGrowth(this.temperatureCelsius, this.humidity, 0, this.mouldIndex, this.mouldParams);
-                this.mouldIndex = Math.max(0, Math.min(6, this.mouldIndex + mouldResult.growthRate * daysPerTick));
+            // Update mould index incrementally using cached growth rate from last API response
+            if (this.enabledModels.mould && this._assessmentResults) {
+                const growthRate = this._assessmentResults.mould.growthRate;
+                this.mouldIndex = Math.max(0, Math.min(6, this.mouldIndex + growthRate * daysPerTick));
             }
 
             // Normalize days → months → years
@@ -472,11 +506,13 @@ export default {
     },
 
     mounted() {
+        this.loadDefaults();
         this.$nextTick(() => { this.initChart(); this.emitSimulation(); });
     },
 
     beforeUnmount() {
         this.stopTimeProgression();
+        if (this._assessDebounceTimer) clearTimeout(this._assessDebounceTimer);
         if (this.chartInstance) {
             this.chartInstance.destroy();
             this.chartInstance = null;
