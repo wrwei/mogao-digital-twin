@@ -140,6 +140,15 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
     res.json({ path: serverPath, originalName: req.file.originalname, size: req.file.size });
 });
 
+// Avatar upload endpoint
+app.post('/api/avatar', upload.single('file'), (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ error: 'No file uploaded' });
+    }
+    const serverPath = '/exhibit_models/avatar/' + req.file.filename;
+    res.json({ path: serverPath });
+});
+
 // MongoDB connection
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/mogao_dt';
 

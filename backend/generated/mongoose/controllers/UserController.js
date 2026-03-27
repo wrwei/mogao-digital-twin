@@ -34,6 +34,9 @@ const UserController = {
                     fullName: user.fullName,
                     email: user.email,
                     role: user.role,
+                    gender: user.gender,
+                    bio: user.bio,
+                    avatar: user.avatar,
                     preferences: user.preferences,
                 }
             });
@@ -130,6 +133,39 @@ const UserController = {
         } catch (error) {
             console.error('Failed to update preferences:', error);
             res.status(500).json({ message: 'Failed to update preferences', error: error.message });
+        }
+    },
+
+    updateProfile: async (req, res) => {
+        try {
+            const { fullName, gender, bio } = req.body;
+            const update = {};
+            if (fullName !== undefined) update.fullName = fullName;
+            if (gender !== undefined) update.gender = gender;
+            if (bio !== undefined) update.bio = bio;
+            const user = await UserService.update(req.user._id, update);
+            if (!user) return res.status(404).json({ message: 'User not found' });
+            res.json(user);
+        } catch (error) {
+            console.error('Failed to update profile:', error);
+            res.status(500).json({ message: 'Failed to update profile', error: error.message });
+        }
+    },
+
+    getDatabaseStats: async (req, res) => {
+        try {
+            const mongoose = require('mongoose');
+            const db = mongoose.connection.db;
+            const collections = await db.listCollections().toArray();
+            const stats = {};
+            for (const col of collections) {
+                const count = await db.collection(col.name).countDocuments();
+                stats[col.name] = count;
+            }
+            res.json(stats);
+        } catch (error) {
+            console.error('Failed to get database stats:', error);
+            res.status(500).json({ message: 'Failed to get database stats', error: error.message });
         }
     },
 

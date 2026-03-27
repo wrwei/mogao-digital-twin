@@ -45,6 +45,8 @@ import DefectForm from './components/DefectForm.js';
 import DefectList from './components/DefectList.js';
 import DefectDetailView from './components/DefectDetailView.js';
 
+import SettingsView from './components/SettingsView.js';
+
 // ============================================
 // Generated Composable Imports
 // ============================================
@@ -198,6 +200,10 @@ const AppSidebar = {
                 <div class="sidebar-nav-item" :class="{ active: currentView === 'defects' }" @click="$emit('change-view', 'defects')">
                     <span class="sidebar-nav-icon">⚠️</span>
                     <span>{{ t('entities.defects') }}</span>
+                </div>
+                <div class="sidebar-nav-item" :class="{ active: currentView === 'settings' }" @click="$emit('change-view', 'settings')" style="margin-top: auto;">
+                    <span class="sidebar-nav-icon">&#9881;</span>
+                    <span>{{ t('nav.settings') || 'Settings' }}</span>
                 </div>
             </div>
             <div class="sidebar-footer">
@@ -1199,6 +1205,7 @@ const app = createApp({
         PaintingView,
         InscriptionView,
         DefectView,
+        SettingsView,
     },
     setup() {
         const { locale, t, setLocale } = useI18n();
@@ -1304,6 +1311,16 @@ const app = createApp({
         dismissError() {
             this.error = null;
             this.message = null;
+        },
+
+        handlePreferencesChanged(prefs) {
+            if (prefs.theme) this.changeTheme(prefs.theme);
+            if (prefs.language) this.changeLocale(prefs.language);
+        },
+
+        handleProfileUpdated(user) {
+            this.currentUser = { ...this.currentUser, ...user };
+            localStorage.setItem('mgemini-user', JSON.stringify(this.currentUser));
         },
 
         async checkBackendConnection() {
@@ -1415,6 +1432,13 @@ const app = createApp({
                             @show-message="showMessage"
                             @item-selected="() => {}"
                         ></defect-view>
+                        <settings-view
+                            v-if="currentView === 'settings'"
+                            :user="currentUser"
+                            @show-message="showMessage"
+                            @preferences-changed="handlePreferencesChanged"
+                            @profile-updated="handleProfileUpdated"
+                        ></settings-view>
                     </div>
                 </div>
             </div>
