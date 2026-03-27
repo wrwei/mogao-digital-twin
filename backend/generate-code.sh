@@ -18,29 +18,9 @@ if [ -d "src/main/java/digital/twin/mogao/controller" ]; then
     rm -rf "src/main/java/digital/twin/mogao/controller"
     echo "  Removed controller directory"
 fi
-# Backup manual components before cleanup
-if [ -f "../frontend/components/ModelViewer.js" ]; then
-    cp "../frontend/components/ModelViewer.js" "../frontend/ModelViewer.js.backup"
-    echo "  Backed up ModelViewer.js"
-fi
-if [ -d "../frontend/components" ]; then
-    rm -rf "../frontend/components"
-    echo "  Removed frontend components directory"
-fi
-# Restore manual components after cleanup
-mkdir -p "../frontend/components"
-if [ -f "../frontend/ModelViewer.js.backup" ]; then
-    cp "../frontend/ModelViewer.js.backup" "../frontend/components/ModelViewer.js"
-    rm "../frontend/ModelViewer.js.backup"
-    echo "  Restored ModelViewer.js"
-fi
-if [ -d "../frontend/composables" ]; then
-    rm -rf "../frontend/composables"
-    echo "  Removed frontend composables directory"
-fi
-if [ -f "../frontend/app.js" ]; then
-    cp "../frontend/app.js" "../frontend/app.js.backup"
-    echo "  Backed up app.js to app.js.backup"
+if [ -d "generated/mongoose" ]; then
+    rm -rf "generated/mongoose"
+    echo "  Removed generated mongoose directory"
 fi
 
 echo ""
@@ -54,7 +34,7 @@ fi
 
 echo ""
 echo "Running code generator..."
-mvn exec:java
+mvn exec:java@codegen
 
 if [ $? -ne 0 ]; then
     echo "Code generation failed!"
@@ -62,18 +42,22 @@ if [ $? -ne 0 ]; then
 fi
 
 echo ""
+echo "Installing Mongoose backend dependencies..."
+cd generated/mongoose && npm install && cd ../..
+
+echo ""
 echo "============================================"
 echo "Code generation complete!"
 echo ""
-echo "Generated Backend Code:"
+echo "Generated Java Backend Code:"
 echo "  - DTOs:        src/main/java/digital/twin/mogao/dto"
 echo "  - Services:    src/main/java/digital/twin/mogao/service"
 echo "  - Controllers: src/main/java/digital/twin/mogao/controller"
 echo ""
-echo "Generated Frontend Code:"
-echo "  - Components:  ../frontend/components"
-echo "  - Composables: ../frontend/composables"
-echo "  - App.js:      ../frontend/app.js"
-echo ""
-echo "Note: Previous app.js backed up to app.js.backup"
+echo "Generated Node.js Backend (MongoDB):"
+echo "  - Models:      generated/mongoose/models"
+echo "  - Services:    generated/mongoose/services"
+echo "  - Controllers: generated/mongoose/controllers"
+echo "  - Routers:     generated/mongoose/routers"
+echo "  - Start with:  cd generated/mongoose && npm start"
 echo "============================================"
