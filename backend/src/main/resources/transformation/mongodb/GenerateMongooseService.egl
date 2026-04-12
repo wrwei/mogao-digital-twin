@@ -27,6 +27,9 @@ const [%=serviceName%] = {
      * Create a new [%=className%]
      */
     create: async (data) => {
+        // Always generate gid server-side to prevent client-supplied collisions
+        data.gid = '[%=varName%]-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
+        delete data._id;
         const [%=varName%] = await [%=modelName%].create(data);
         return [%=varName%];
     },

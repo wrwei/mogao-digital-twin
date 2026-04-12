@@ -144,7 +144,6 @@ export default {
                 }
 
                 if (this.mode === 'create') {
-                    this.form.gid = 'mural-' + Date.now();
                     const response = await api.murals.create(this.form);
                     this.$emit('created', response.data);
                 } else {

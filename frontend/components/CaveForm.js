@@ -157,7 +157,6 @@ export default {
                 }
 
                 if (this.mode === 'create') {
-                    this.form.gid = 'cave-' + Date.now();
                     const response = await api.caves.create(this.form);
                     this.$emit('created', response.data);
                 } else {

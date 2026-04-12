@@ -142,7 +142,6 @@ export default {
                 }
 
                 if (this.mode === 'create') {
-                    this.form.gid = 'inscription-' + Date.now();
                     const response = await api.inscriptions.create(this.form);
                     this.$emit('created', response.data);
                 } else {

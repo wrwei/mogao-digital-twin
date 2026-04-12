@@ -33,6 +33,7 @@ export default {
             searchQuery: '',
             autoRotate: false,
             simulationData: null,
+            texturePixelData: null,
             windowWidth: window.innerWidth,
             windowHeight: window.innerHeight,
             simulationPanelWidth: 480,
@@ -68,6 +69,7 @@ export default {
         openExhibit3D(exhibit) { this.selectedExhibit = exhibit; this.mode = '3d'; this.closeEdit(); },
         backToCave() { this.mode = 'cave'; this.selectedExhibit = null; },
         openEdit(type, item) { this.editType = type; this.editItem = item; this.editModal = true; },
+        openCreate(type) { this.editType = type; this.editItem = null; this.editModal = true; },
         closeEdit() { this.editModal = false; this.editType = null; this.editItem = null; },
         async handleEditSubmit(data) {
             const listMap = { statue: this.statues, mural: this.murals, painting: this.paintings, inscription: this.inscriptions };
@@ -77,6 +79,30 @@ export default {
                 if (idx !== -1) list[idx] = { ...list[idx], ...data };
             }
             this.closeEdit();
+        },
+        async handleCreateSubmit() {
+            // Refresh the asset list so the new item appears
+            await this.fetchAllAssets();
+            this.closeEdit();
+        },
+        async handleDeleteExhibit(type, item) {
+            const apiMap = { statue: 'statues', mural: 'murals', painting: 'paintings', inscription: 'inscriptions' };
+            const apiKey = apiMap[type];
+            if (!apiKey) return;
+            const name = item.name || item.gid;
+            const typeLabel = { statue: this.t('entities.statue'), mural: this.t('entities.mural'), painting: this.t('entities.painting'), inscription: this.t('entities.inscription') }[type] || type;
+            if (!confirm(`${this.t('actions.deleteConfirm', { entity: typeLabel })}\n\n"${name}"`)) return;
+            try {
+                await window.api[apiKey].delete(item.gid);
+                const listMap = { statue: this.statues, mural: this.murals, painting: this.paintings, inscription: this.inscriptions };
+                const list = listMap[type];
+                if (list) {
+                    const idx = list.findIndex(i => i.gid === item.gid);
+                    if (idx !== -1) list.splice(idx, 1);
+                }
+            } catch (err) {
+                alert(this.t('actions.deleteError', { entity: typeLabel }) + ': ' + (err.response?.data?.message || err.message));
+            }
         },
         async fetchAllAssets() {
             this.assetsLoading = true;
@@ -91,6 +117,7 @@ export default {
             finally { this.assetsLoading = false; }
         },
         handleSimulationChanged(data) { this.simulationData = data; },
+        handlePixelDataReady(data) { this.texturePixelData = data; },
         statusColor(status) {
             return { excellent: '#10b981', good: '#3b82f6', fair: '#f59e0b', poor: '#ef4444', critical: '#dc2626' }[status] || '#6b7280';
         },
@@ -134,22 +161,22 @@ export default {
             <div v-if="editModal" class="modal-backdrop" @click.self="closeEdit">
                 <div class="edit-modal">
                     <div class="edit-modal-header">
-                        <div class="edit-modal-header-icon">📝</div>
+                        <div class="edit-modal-header-icon">{{ editItem ? '📝' : '➕' }}</div>
                         <div>
-                            <div class="edit-modal-header-title">{{ t('common.edit') }} {{ editTypeLabel() }}</div>
+                            <div class="edit-modal-header-title">{{ editItem ? t('common.edit') : t('common.create') }} {{ editTypeLabel() }}</div>
                             <div class="edit-modal-header-sub">{{ editItem ? editItem.name || editItem.gid : '' }}</div>
                         </div>
                         <button class="edit-modal-close" @click="closeEdit">&times;</button>
                     </div>
                     <div class="edit-modal-body">
-                        <statue-form v-if="editType === 'statue'" :statue="editItem" mode="edit"
-                            @updated="handleEditSubmit" @cancel="closeEdit" @error="(msg) => console.error(msg)"></statue-form>
-                        <mural-form v-if="editType === 'mural'" :mural="editItem" mode="edit"
-                            @updated="handleEditSubmit" @cancel="closeEdit" @error="(msg) => console.error(msg)"></mural-form>
-                        <painting-form v-if="editType === 'painting'" :painting="editItem" mode="edit"
-                            @updated="handleEditSubmit" @cancel="closeEdit" @error="(msg) => console.error(msg)"></painting-form>
-                        <inscription-form v-if="editType === 'inscription'" :inscription="editItem" mode="edit"
-                            @updated="handleEditSubmit" @cancel="closeEdit" @error="(msg) => console.error(msg)"></inscription-form>
+                        <statue-form v-if="editType === 'statue'" :statue="editItem" :mode="editItem ? 'edit' : 'create'"
+                            @created="handleCreateSubmit" @updated="handleEditSubmit" @cancel="closeEdit" @error="(msg) => console.error(msg)"></statue-form>
+                        <mural-form v-if="editType === 'mural'" :mural="editItem" :mode="editItem ? 'edit' : 'create'"
+                            @created="handleCreateSubmit" @updated="handleEditSubmit" @cancel="closeEdit" @error="(msg) => console.error(msg)"></mural-form>
+                        <painting-form v-if="editType === 'painting'" :painting="editItem" :mode="editItem ? 'edit' : 'create'"
+                            @created="handleCreateSubmit" @updated="handleEditSubmit" @cancel="closeEdit" @error="(msg) => console.error(msg)"></painting-form>
+                        <inscription-form v-if="editType === 'inscription'" :inscription="editItem" :mode="editItem ? 'edit' : 'create'"
+                            @created="handleCreateSubmit" @updated="handleEditSubmit" @cancel="closeEdit" @error="(msg) => console.error(msg)"></inscription-form>
                     </div>
                 </div>
             </div>
@@ -245,41 +272,81 @@ export default {
                 <!-- Asset category sections -->
                 <div v-if="assetsLoading" style="display: flex; align-items: center; justify-content: center; padding: 60px;"><div class="spinner"></div></div>
                 <template v-else>
-                    <div v-for="cat in assetCategories" :key="cat.key" class="cave-detail-section">
-                        <div class="cave-detail-section-header">
+                    <div v-for="cat in assetCategories" :key="cat.key" class="cave-detail-section" style="margin-bottom: 16px;">
+                        <!-- Section header -->
+                        <div class="cave-detail-section-header" :style="{ borderLeft: '4px solid ' + cat.color }">
                             <div style="display: flex; align-items: center; gap: 10px;">
-                                <span style="font-size: 20px;">{{ cat.icon }}</span>
-                                <span style="font-weight: 600; font-size: 15px;">{{ cat.label }}</span>
-                                <span class="asset-category-count" :style="{ background: cat.color + '18', color: cat.color }">{{ cat.items.length }}</span>
+                                <span style="font-size: 18px; line-height: 1;">{{ cat.icon }}</span>
+                                <span style="font-weight: 600; font-size: 14px; color: var(--text-primary); letter-spacing: 0.01em;">{{ cat.label }}</span>
+                                <span :style="{ background: cat.color + '18', color: cat.color, fontSize: '11px', fontWeight: '700', padding: '1px 8px', borderRadius: '10px' }">{{ cat.items.length }}</span>
                             </div>
-                            <button class="project-action-btn" style="font-size: 12px;">+ Add</button>
+                            <button v-if="!isGuest" class="project-action-btn" style="font-size: 12px; padding: 4px 12px;" @click="openCreate(cat.type)">
+                                + {{ t('actions.createNew', { entity: '' }).replace('  ', ' ').trim() || 'Add' }}
+                            </button>
                         </div>
 
-                        <div v-if="cat.items.length === 0" style="padding: 24px; text-align: center; color: var(--text-secondary); font-size: 13px; font-style: italic;">
+                        <!-- Empty state -->
+                        <div v-if="cat.items.length === 0" style="padding: 20px 24px; text-align: center; color: var(--text-secondary); font-size: 13px; font-style: italic; background: white;">
                             {{ t('common.noData') }}
                         </div>
 
-                        <div v-else class="project-cards-grid">
-                            <div v-for="item in cat.items" :key="item.gid" class="project-card">
-                                <div class="project-card-badges">
-                                    <span v-if="item.conservationStatus" class="project-badge" :style="{ background: statusColor(item.conservationStatus), color: 'white' }">{{ item.conservationStatus }}</span>
-                                    <span v-if="item.reference && item.reference.modelLocation" class="project-badge" style="background: var(--secondary-color); color: white;">3D</span>
-                                </div>
-                                <h3 class="project-card-title">{{ item.name || item.gid }}</h3>
-                                <p class="project-card-desc">{{ item.description || t('common.noDescription') }}</p>
-                                <div class="project-card-meta">
-                                    <span v-if="item.period">📅 {{ item.period }}</span>
-                                    <span v-if="item.material">🧱 {{ item.material }}</span>
-                                    <span v-if="item.technique">🖌️ {{ item.technique }}</span>
-                                    <span v-if="item.language">🔤 {{ item.language }}</span>
-                                    <span v-if="item.width && item.height">📐 {{ item.width }}×{{ item.height }}{{ item.depth ? '×'+item.depth : '' }}</span>
-                                </div>
-                                <div class="project-card-footer">
-                                    <div></div>
-                                    <div class="project-card-actions">
-                                        <button v-if="item.reference && item.reference.modelLocation" class="project-action-btn project-action-open" @click="openExhibit3D(item)">🔬 3D View</button>
-                                        <button class="project-action-btn" @click="openEdit(cat.type, item)">✏️ {{ t('common.edit') }}</button>
+                        <!-- Compact row list -->
+                        <div v-else style="background: white;">
+                            <div v-for="(item, idx) in cat.items" :key="item.gid"
+                                 :style="{
+                                     display: 'flex',
+                                     alignItems: 'center',
+                                     gap: '14px',
+                                     padding: '11px 20px',
+                                     borderTop: idx > 0 ? '1px solid #f0ece7' : 'none',
+                                     transition: 'background 0.12s'
+                                 }"
+                                 @mouseenter="$event.currentTarget.style.background = '#fdfcfb'"
+                                 @mouseleave="$event.currentTarget.style.background = 'white'">
+
+                                <!-- Status colour strip -->
+                                <div :style="{ width: '3px', height: '40px', borderRadius: '2px', background: statusColor(item.conservationStatus), flexShrink: 0 }"></div>
+
+                                <!-- Name + metadata -->
+                                <div style="flex: 1; min-width: 0;">
+                                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                        <span style="font-weight: 600; font-size: 14px; color: var(--text-primary);">{{ item.name || item.gid }}</span>
+                                        <span v-if="item.conservationStatus"
+                                              :style="{ background: statusColor(item.conservationStatus) + '20', color: statusColor(item.conservationStatus), fontSize: '11px', padding: '1px 8px', borderRadius: '10px', fontWeight: '600', textTransform: 'capitalize' }">
+                                            {{ item.conservationStatus }}
+                                        </span>
+                                        <span v-if="item.reference && item.reference.modelLocation"
+                                              style="background: #f0f4ff; color: #4f6ef7; font-size: 11px; padding: 1px 8px; border-radius: 10px; font-weight: 600;">
+                                            3D
+                                        </span>
                                     </div>
+                                    <div style="display: flex; gap: 12px; margin-top: 3px; flex-wrap: wrap;">
+                                        <span v-if="item.period" style="font-size: 12px; color: var(--text-secondary);">📅 {{ item.period }}</span>
+                                        <span v-if="item.material" style="font-size: 12px; color: var(--text-secondary);">🧱 {{ item.material }}</span>
+                                        <span v-if="item.technique" style="font-size: 12px; color: var(--text-secondary);">🖌️ {{ item.technique }}</span>
+                                        <span v-if="item.language" style="font-size: 12px; color: var(--text-secondary);">🔤 {{ item.language }}</span>
+                                        <span v-if="item.width && item.height" style="font-size: 12px; color: var(--text-secondary);">📐 {{ item.width }}×{{ item.height }}{{ item.depth ? '×'+item.depth : '' }}</span>
+                                    </div>
+                                </div>
+
+                                <!-- Action buttons -->
+                                <div style="display: flex; gap: 6px; flex-shrink: 0;">
+                                    <button class="project-action-btn project-action-open"
+                                            @click="openExhibit3D(item)"
+                                            style="padding: 4px 12px; font-size: 12px;">
+                                        {{ t('common.detail') || 'Open' }}
+                                    </button>
+                                    <button class="project-action-btn"
+                                            @click="openEdit(cat.type, item)"
+                                            style="padding: 4px 12px; font-size: 12px;">
+                                        ✏️ {{ t('common.edit') }}
+                                    </button>
+                                    <button v-if="!isGuest"
+                                            class="project-action-btn project-action-delete"
+                                            @click="handleDeleteExhibit(cat.type, item)"
+                                            style="padding: 4px 12px; font-size: 12px;">
+                                        {{ t('common.delete') }}
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -299,7 +366,7 @@ export default {
                 <div style="flex: 1; display: flex; flex-direction: row; padding: 16px; overflow: hidden;">
                     <div style="flex: 1; display: flex; flex-direction: column; align-items: center; padding-right: 8px; overflow-y: auto;">
                         <div style="flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; margin: auto 0;">
-                            <model-viewer :asset-reference="selectedExhibit.reference" v-model:autoRotate="autoRotate" :width="viewerWidth" :height="viewerHeight"></model-viewer>
+                            <model-viewer :asset-reference="selectedExhibit.reference" v-model:autoRotate="autoRotate" :width="viewerWidth" :height="viewerHeight" :simulation-data="simulationData" @pixel-data-ready="handlePixelDataReady"></model-viewer>
                             <div style="margin-top: 12px; padding: 8px 16px; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
                                 <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 13px; font-weight: 500;">
                                     <input type="checkbox" v-model="autoRotate" style="cursor: pointer; width: 16px; height: 16px; accent-color: #8B4513;" />
@@ -312,7 +379,7 @@ export default {
                         <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 3px; height: 32px; background: white; border-radius: 2px; opacity: 0.6;"></div>
                     </div>
                     <div :style="{ width: simulationPanelWidth + 'px', flexShrink: 0, display: 'flex', flexDirection: 'column', height: '100%', overflowY: 'auto', scrollBehavior: 'smooth', paddingLeft: '8px' }">
-                        <simulation-panel :entity="selectedExhibit" @simulation-changed="handleSimulationChanged"></simulation-panel>
+                        <simulation-panel :entity="selectedExhibit" :pixel-data="texturePixelData" @simulation-changed="handleSimulationChanged"></simulation-panel>
                     </div>
                 </div>
             </template>

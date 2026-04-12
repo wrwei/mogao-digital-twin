@@ -374,11 +374,20 @@ const LoadingSpinner = {
 };
 
 const ErrorMessage = {
-    props: ['message'],
+    props: ['message', 'type'],
     emits: ['dismiss'],
     template: `
-        <div style="background: var(--error-color); color: white; padding: var(--spacing-md); margin: var(--spacing-md); border-radius: var(--radius-md); display: flex; justify-content: space-between; align-items: center;">
-            <span>⚠️ {{ message }}</span>
+        <div :style="{
+            background: type === 'success' ? '#10b981' : (type === 'warning' ? '#f59e0b' : 'var(--error-color)'),
+            color: 'white',
+            padding: 'var(--spacing-md)',
+            margin: 'var(--spacing-md)',
+            borderRadius: 'var(--radius-md)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+        }">
+            <span>{{ type === 'success' ? '✅' : (type === 'warning' ? '⚠️' : '❌') }} {{ message }}</span>
             <button @click="$emit('dismiss')" style="background: transparent; border: none; color: white; cursor: pointer; font-size: 20px;">&times;</button>
         </div>
     `
@@ -482,20 +491,10 @@ const CaveView = {
                 }
             }
         },
-        async handleFormSubmit(data) {
-            try {
-                if (this.editMode) {
-                    await this.updateCave(this.editingItem.gid, data);
-                    this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.cave') }), 'success');
-                } else {
-                    await this.createCave(data);
-                    this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.cave') }), 'success');
-                }
-                this.showForm = false;
-                await this.fetchCaves();
-            } catch (err) {
-                this.$emit('show-message', this.t('actions.saveError', { entity: this.t('entities.cave') }) + ': ' + err.message, 'error');
-            }
+        async handleFormSubmit() {
+            this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.cave') }), 'success');
+            this.showForm = false;
+            await this.fetchCaves();
         },
         handleFormCancel() {
             this.showForm = false;
@@ -608,20 +607,10 @@ const StatueView = {
                 }
             }
         },
-        async handleFormSubmit(data) {
-            try {
-                if (this.editMode) {
-                    await this.updateStatue(this.editingItem.gid, data);
-                    this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.statue') }), 'success');
-                } else {
-                    await this.createStatue(data);
-                    this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.statue') }), 'success');
-                }
-                this.showForm = false;
-                await this.fetchStatues();
-            } catch (err) {
-                this.$emit('show-message', this.t('actions.saveError', { entity: this.t('entities.statue') }) + ': ' + err.message, 'error');
-            }
+        async handleFormSubmit() {
+            this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.statue') }), 'success');
+            this.showForm = false;
+            await this.fetchStatues();
         },
         handleFormCancel() {
             this.showForm = false;
@@ -734,20 +723,10 @@ const MuralView = {
                 }
             }
         },
-        async handleFormSubmit(data) {
-            try {
-                if (this.editMode) {
-                    await this.updateMural(this.editingItem.gid, data);
-                    this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.mural') }), 'success');
-                } else {
-                    await this.createMural(data);
-                    this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.mural') }), 'success');
-                }
-                this.showForm = false;
-                await this.fetchMurals();
-            } catch (err) {
-                this.$emit('show-message', this.t('actions.saveError', { entity: this.t('entities.mural') }) + ': ' + err.message, 'error');
-            }
+        async handleFormSubmit() {
+            this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.mural') }), 'success');
+            this.showForm = false;
+            await this.fetchMurals();
         },
         handleFormCancel() {
             this.showForm = false;
@@ -860,20 +839,10 @@ const PaintingView = {
                 }
             }
         },
-        async handleFormSubmit(data) {
-            try {
-                if (this.editMode) {
-                    await this.updatePainting(this.editingItem.gid, data);
-                    this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.painting') }), 'success');
-                } else {
-                    await this.createPainting(data);
-                    this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.painting') }), 'success');
-                }
-                this.showForm = false;
-                await this.fetchPaintings();
-            } catch (err) {
-                this.$emit('show-message', this.t('actions.saveError', { entity: this.t('entities.painting') }) + ': ' + err.message, 'error');
-            }
+        async handleFormSubmit() {
+            this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.painting') }), 'success');
+            this.showForm = false;
+            await this.fetchPaintings();
         },
         handleFormCancel() {
             this.showForm = false;
@@ -986,20 +955,10 @@ const InscriptionView = {
                 }
             }
         },
-        async handleFormSubmit(data) {
-            try {
-                if (this.editMode) {
-                    await this.updateInscription(this.editingItem.gid, data);
-                    this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.inscription') }), 'success');
-                } else {
-                    await this.createInscription(data);
-                    this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.inscription') }), 'success');
-                }
-                this.showForm = false;
-                await this.fetchInscriptions();
-            } catch (err) {
-                this.$emit('show-message', this.t('actions.saveError', { entity: this.t('entities.inscription') }) + ': ' + err.message, 'error');
-            }
+        async handleFormSubmit() {
+            this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.inscription') }), 'success');
+            this.showForm = false;
+            await this.fetchInscriptions();
         },
         handleFormCancel() {
             this.showForm = false;
@@ -1112,20 +1071,10 @@ const DefectView = {
                 }
             }
         },
-        async handleFormSubmit(data) {
-            try {
-                if (this.editMode) {
-                    await this.updateDefect(this.editingItem.gid, data);
-                    this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.defect') }), 'success');
-                } else {
-                    await this.createDefect(data);
-                    this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.defect') }), 'success');
-                }
-                this.showForm = false;
-                await this.fetchDefects();
-            } catch (err) {
-                this.$emit('show-message', this.t('actions.saveError', { entity: this.t('entities.defect') }) + ': ' + err.message, 'error');
-            }
+        async handleFormSubmit() {
+            this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.defect') }), 'success');
+            this.showForm = false;
+            await this.fetchDefects();
         },
         handleFormCancel() {
             this.showForm = false;
@@ -1284,6 +1233,13 @@ const app = createApp({
 
         changeView(view) {
             this.currentView = view;
+            if (view === 'dashboard') {
+                this.dashCaves.fetchCaves();
+                this.dashStatues.fetchStatues();
+                this.dashMurals.fetchMurals();
+                this.dashPaintings.fetchPaintings();
+                this.dashInscriptions.fetchInscriptions();
+            }
         },
 
         changeLocale(newLocale) {
@@ -1386,6 +1342,7 @@ const app = createApp({
                 <error-message
                     v-if="error || message"
                     :message="error || message"
+                    :type="error ? 'error' : messageType"
                     @dismiss="dismissError"
                 ></error-message>
 

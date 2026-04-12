@@ -11,9 +11,11 @@ const LightIntensityService = {
      * Create a new LightIntensity
      */
     create: async (data) => {
-        if (!data.gid) {
+        // Always generate gid server-side to prevent client-supplied collisions
+        {
             data.gid = 'light-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
         }
+        delete data._id;
         const lightIntensity = await LightIntensity.create(data);
         return lightIntensity;
     },

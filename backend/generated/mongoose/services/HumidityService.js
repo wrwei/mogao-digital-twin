@@ -11,9 +11,11 @@ const HumidityService = {
      * Create a new Humidity
      */
     create: async (data) => {
-        if (!data.gid) {
+        // Always generate gid server-side to prevent client-supplied collisions
+        {
             data.gid = 'humidity-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
         }
+        delete data._id;
         const humidity = await Humidity.create(data);
         return humidity;
     },

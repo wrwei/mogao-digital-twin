@@ -1,240 +1,183 @@
-# 莫高窟数字孪生 Mogao Digital Twin
+# Mogao Digital Twin
 
-A Model-Driven Engineering (MDE) project for the Mogao Caves Digital Twin system.
+A Model-Driven Engineering (MDE) system for the Mogao Caves Digital Twin, a UNESCO World Heritage Site in Gansu, China.
 
-## 🏗️ Architecture
+## Architecture
 
-- **Backend**: Java 17 + Micronaut framework
-- **Frontend**: Vue 3 (vanilla JavaScript) + Three.js
-- **Metamodel**: Eclipse EMF (Ecore)
-- **Transformations**: Epsilon EGL templates
-- **Model Instances**: Flexmi format
+| Layer | Technology | Role |
+|-------|-----------|------|
+| **Design-time** | Java 17, Micronaut 4.2.3, Epsilon EGL/EOL, Eclipse EMF (Ecore) | Metamodel-driven code generation |
+| **Runtime backend** | Node.js, Express.js, MongoDB, Mongoose | REST API + persistence |
+| **Runtime frontend** | Vue 3 (CDN), Three.js, Chart.js, Axios | SPA with 3D visualisation |
+| **Authentication** | JWT (jsonwebtoken), bcryptjs | Token-based auth with role system |
 
-## ✨ Features
+## Features
 
-- **100% Model-Driven**: All DTOs, services, controllers, and frontend components are auto-generated from the Ecore metamodel
-- **Multilingual Support**: Built-in i18n with Chinese (中文) and English
-- **3D Visualization**: Three.js-based model viewer for heritage artifacts
-- **REST API**: Full CRUD operations for caves, exhibits, defects, and environmental monitoring
-- **Real-time Updates**: Reactive Vue 3 components with composition API
+- **Model-Driven**: A single Ecore metamodel generates the entire backend (Mongoose models, Express routers, controllers, services) and frontend (Vue CRUD components, composables, i18n)
+- **3D Visualisation**: Three.js-based viewer for OBJ/MTL heritage artefacts with real-time deterioration texture effects via Web Worker
+- **Deterioration Simulation**: Four peer-reviewed conservation science models (chemical fading, lifetime multiplier, mould growth, salt crystallisation) computed server-side
+- **Multilingual**: Chinese and English with reactive locale switching
+- **Authentication**: JWT-based login with role system (admin, researcher, conservator, viewer, guest) and read-only guest access
+- **8 Colour Themes**: Mogao Sand, Ocean Blue, Forest Green, Modern Slate, Royal Plum, Warm Ember, Midnight Dark, Sakura Blossom
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
-- Java 17 or higher
-- Maven 3.8+
-- Python 3.7+ (for frontend development server)
+- Java 17+ and Maven 3.8+ (for code generation only)
+- Node.js 18+ and npm (for runtime backend)
+- MongoDB 5.0+ (running on localhost:27017)
+- Python 3.x (for frontend dev server)
 
 ### 1. Generate Code from Metamodel
 
 ```bash
 cd backend
 ./generate-code.bat   # Windows
-# or
 ./generate-code.sh    # Linux/Mac
 ```
 
 This generates:
-- Backend: DTOs, Services, Controllers
-- Frontend: Components, Composables, app.js, i18n.js, index.html
+- **Backend**: Mongoose models, Express routers/controllers/services in `backend/generated/mongoose/`
+- **Frontend**: Vue components, composables, app.js, i18n.js, index.html in `frontend/`
 
 ### 2. Start Backend Server
 
-Open a terminal and run:
-
 ```bash
-cd backend
-./start-backend.bat   # Windows
-# or
-./start-backend.sh    # Linux/Mac
+cd backend/generated/mongoose
+npm install           # First time only
+npm start             # Or: node server.js
 ```
 
-Backend will be available at: **http://localhost:8008**
+Backend API available at: **http://localhost:8008**
 
 ### 3. Start Frontend Server
-
-Open another terminal and run:
 
 ```bash
 cd frontend
 ./start-frontend.bat   # Windows
-# or
 ./start-frontend.sh    # Linux/Mac
 ```
 
-Frontend will be available at: **http://localhost:8009**
+Frontend available at: **http://localhost:8009**
 
 ### 4. Access the Application
 
-Open your browser and navigate to:
-- **Frontend**: http://localhost:8009
-- **Backend API**: http://localhost:8008/api
+- **Frontend**: http://localhost:8009 (login or use guest access)
+- **API**: http://localhost:8008 (REST endpoints)
+- **Health check**: http://localhost:8008/health
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 mogao-digital-twin/
 ├── backend/
 │   ├── src/main/
 │   │   ├── java/digital/twin/mogao/
-│   │   │   ├── codegen/           # Code generation engine
-│   │   │   ├── controller/        # Generated REST controllers
-│   │   │   ├── dto/               # Generated Data Transfer Objects
-│   │   │   ├── service/           # Generated service layer
-│   │   │   └── util/              # Epsilon model manager
+│   │   │   ├── codegen/CodeGenerator.java    # Code generation driver
+│   │   │   └── util/EpsilonModelManager.java # EMF model loader
 │   │   └── resources/
-│   │       ├── metamodel/         # Ecore metamodel (mogao_dt.ecore)
-│   │       ├── models/instances/  # Model instances (Flexmi)
-│   │       ├── transformation/    # EGL templates
-│   │       │   ├── backend/       # Backend code templates
-│   │       │   └── frontend/      # Frontend code templates
-│   │       └── application.yml    # Micronaut configuration
-│   ├── generate-code.bat          # Code generation script (Windows)
-│   ├── generate-code.sh           # Code generation script (Unix)
-│   ├── start-backend.bat          # Start backend (Windows)
-│   └── start-backend.sh           # Start backend (Unix)
+│   │       ├── metamodel/mogao_dt.ecore      # Ecore metamodel
+│   │       ├── models/instances/mogao.model   # Flexmi model instance
+│   │       └── transformation/               # EGL templates
+│   │           ├── backend/                  #   Java DTOs (design-time)
+│   │           ├── mongodb/                  #   Mongoose/Express generation
+│   │           └── frontend/                 #   Vue component generation
+│   ├── generated/mongoose/                   # ← RUNTIME BACKEND
+│   │   ├── server.js                         # Entry point (port 8008)
+│   │   ├── app.js                            # Express app + middleware
+│   │   ├── models/                           # Mongoose schemas (14)
+│   │   ├── routers/                          # Express routers (15)
+│   │   ├── controllers/                      # Request handlers (17)
+│   │   ├── services/                         # Business logic (18)
+│   │   │   └── DeteriorationService.js       # Scientific models
+│   │   └── middleware/auth.js                # JWT + guest auth
+│   └── pom.xml
 │
 ├── frontend/
-│   ├── components/                # Generated Vue components
-│   │   ├── *Card.js              # Card display components
-│   │   ├── *Form.js              # Form components
-│   │   ├── *List.js              # List components
-│   │   ├── *DetailView.js        # Detail view components
-│   │   └── ModelViewer.js        # Manual: 3D model viewer
-│   ├── composables/               # Generated Vue composables
-│   ├── css/                       # Stylesheets
-│   ├── styles/                    # Additional styles
-│   ├── app.js                     # Generated: Main Vue app
-│   ├── i18n.js                    # Generated: i18n resources
-│   ├── index.html                 # Generated: HTML entry point
-│   ├── start-frontend.bat         # Start frontend (Windows)
-│   └── start-frontend.sh          # Start frontend (Unix)
+│   ├── index.html                            # Entry point (CDN imports)
+│   ├── config.js                             # API URL configuration
+│   ├── api.js                                # Axios wrapper
+│   ├── app.js                                # Vue app (routing, auth, views)
+│   ├── i18n.js                               # Internationalisation (zh + en)
+│   ├── components/                           # Vue components (28 total)
+│   │   ├── [Entity]Card/List/Form/Detail.js  # Generated CRUD (24)
+│   │   ├── ModelViewer.js                    # Three.js 3D viewer
+│   │   ├── SimulationPanel.js                # Deterioration simulation UI
+│   │   └── SettingsView.js                   # User settings (Principia-style)
+│   ├── composables/                          # Vue 3 composables (7)
+│   ├── deterioration/DeteriorationEngine.js  # Client-side models (reference)
+│   ├── workers/deterioration-worker.js       # Web Worker (texture processing)
+│   └── css/                                  # Stylesheets
 │
-└── README.md                      # This file
+├── ARCHITECTURE.md                           # Full technical reference
+└── README.md                                 # This file
 ```
 
-## 🔧 Development Workflow
+## Development Workflow
 
 ### Modifying the Metamodel
 
-1. Edit the metamodel: `backend/src/main/resources/metamodel/mogao_dt.ecore`
-2. Update model instances if needed: `backend/src/main/resources/models/instances/`
-3. Regenerate code: `cd backend && ./generate-code.bat`
-4. Restart the backend server
+1. Edit `backend/src/main/resources/metamodel/mogao_dt.ecore`
+2. Regenerate code: `cd backend && ./generate-code.bat`
+3. Restart the backend and refresh the frontend
+
+Adding a new heritage artefact type (e.g. `Textile`) to the metamodel automatically generates the complete backend API and frontend UI.
 
 ### Modifying Templates
 
 1. Edit EGL templates in `backend/src/main/resources/transformation/`
 2. Regenerate code: `cd backend && ./generate-code.bat`
-3. Refresh the frontend in your browser
+3. Restart and refresh
 
-### Adding New Entities
+## API Endpoints
 
-1. Add the entity class to `mogao_dt.ecore`
-2. Add entity name to the list in `CodeGenerator.java` (entityClasses array)
-3. Regenerate code
-4. New REST endpoints and UI components will be created automatically
+All entity endpoints support CRUD + GID-based access with pagination (`?page=N&limit=N&sort=field`):
 
-## 🌍 Internationalization (i18n)
+| Route | Description |
+|-------|-------------|
+| `/caves`, `/statues`, `/murals`, `/paintings`, `/inscriptions` | Heritage artefacts |
+| `/defects` | Defect records |
+| `/temperatures`, `/humidities`, `/lightIntensities` | Environmental readings |
+| `/coordinates`, `/parameters`, `/assetReferences`, `/dTPackages` | Utility entities |
+| `/users` | Authentication (login/register) + user management |
+| `/deterioration` | Scientific deterioration models (assess, chemical, lifetime, mould, salt) |
+| `/health` | Health check |
+| `/api/upload` | File upload (3D models, textures) |
 
-The application supports multiple languages:
-- **中文 (Chinese)**: Default language
-- **English**: Secondary language
+## Environment Variables (Runtime)
 
-Switch languages using the 🇨🇳/🇬🇧 buttons in the app header.
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | 8008 | Backend port |
+| `MONGO_URI` | `mongodb://localhost:27017/mogao_dt` | MongoDB connection |
+| `JWT_SECRET` | Random (dev) / **required** (prod) | JWT signing secret |
+| `CORS_ORIGINS` | `http://localhost:8009,...` | Allowed CORS origins |
+| `NODE_ENV` | — | Set `production` to enforce JWT_SECRET |
 
-### Adding New Languages
+## Documentation
 
-1. Edit `backend/src/main/resources/transformation/frontend/GenerateI18n.egl`
-2. Add new language object to the messages structure
-3. Regenerate code
+- [System Architecture & Deterioration Models](ARCHITECTURE.md) — full technical reference
+- [Deterioration Simulation Guide](frontend/DETERIORATION_SIMULATION.md) — Strlic dose-response framework
+- [Mathematical Deterioration Models](deterioration%20models.md) — peer-reviewed model equations
+- [i18n Guide](frontend/I18N_README.md) — multilingual support
 
-## 🎨 Key Components
-
-### Backend
-
-- **CodeGenerator**: Main entry point for code generation
-- **DTOs**: Auto-generated from Ecore classes
-- **Services**: In-memory CRUD operations (can be replaced with database)
-- **Controllers**: REST API endpoints with CORS support
-
-### Frontend
-
-- **Components**:
-  - `*Card`: Display entity in card format
-  - `*Form`: Create/edit entity forms
-  - `*List`: List and search entities
-  - `*DetailView`: Detailed view with 3D model support
-
-- **Composables**: Vue 3 composables for API calls and state management
-- **i18n**: Multilingual support with localStorage persistence
-- **ModelViewer**: Three.js-based 3D model viewer (manual component)
-
-## 📚 API Endpoints
-
-All endpoints are prefixed with `/api`:
-
-- `GET /api/caves` - List all caves
-- `POST /api/caves` - Create new cave
-- `GET /api/caves/{gid}` - Get cave by ID
-- `PUT /api/caves/{gid}` - Update cave
-- `DELETE /api/caves/{gid}` - Delete cave
-
-Similar endpoints exist for:
-- `/api/defects`
-- `/api/statues`
-- `/api/murals`
-- `/api/paintings`
-- `/api/inscriptions`
-
-## 🔍 Technologies Used
-
-### Backend
-- **Micronaut 4.2.3**: Modern JVM framework
-- **Eclipse EMF**: Ecore metamodeling
-- **Epsilon**: Model transformation (EGL, EOL)
-- **Jackson**: JSON serialization
-- **SLF4J + Logback**: Logging
-
-### Frontend
-- **Vue 3**: Progressive JavaScript framework
-- **Three.js**: 3D graphics library
-- **ES Modules**: Modern JavaScript modules
-- **CSS Variables**: Theming support
-
-## 📝 License
-
-[Add your license here]
-
-## 👥 Contributors
-
-[Add contributors here]
-
-## 🔗 Related Documentation
-
-- [Frontend i18n Guide](frontend/I18N_README.md)
-- [ModelViewer Integration Guide](frontend/MODEL_VIEWER_INTEGRATION.md)
-- [Frontend Architecture Proposal](frontend-proposal.md)
-- [Frontend Generation Proposal](frontend-generation-proposal.md)
-
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### Backend fails to start
-- Check if port 8008 is already in use
-- Verify Java 17+ is installed: `java -version`
-- Check Maven installation: `mvn -version`
+- Ensure MongoDB is running: `mongosh` or `mongo`
+- Check port 8008 is free
+- Run `npm install` in `backend/generated/mongoose/`
 
-### Frontend not loading components
-- Regenerate code: `cd backend && ./generate-code.bat`
+### Frontend not loading
+- Regenerate code if components are missing
+- Check backend is running (CORS errors indicate backend is down)
 - Hard refresh browser (Ctrl+F5)
-- Check browser console for errors
 
 ### 3D models not loading
-- Ensure 3D model files are in `backend/src/main/resources/exhibit_models/`
-- Check backend logs for file serving errors
-- Verify CORS configuration in `application.yml`
+- Ensure model files are in `backend/generated/mongoose/exhibit_models/`
+- Check file extensions are allowed (.obj, .mtl, .glb, .gltf, .jpg, .png)
 
 ---
 
-**Built with Model-Driven Engineering** 🏛️✨
+Built with Model-Driven Engineering for heritage conservation research.

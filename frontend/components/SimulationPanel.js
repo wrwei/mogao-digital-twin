@@ -10,13 +10,20 @@
  *   - Salt crystallization pressure (Scherer 1999 / Steiger 2005)
  */
 import { useI18n } from '../i18n.js';
+import PigmentAnalysisPanel from './PigmentAnalysisPanel.js';
+import { PIGMENT_DATABASE, PIGMENT_NAMES } from '../ml/PigmentDatabase.js';
 
 export default {
     name: 'SimulationPanel',
+    components: { PigmentAnalysisPanel },
     props: {
         entity: {
             type: Object,
             default: null
+        },
+        pixelData: {
+            type: Object,
+            default: null // { data: Uint8ClampedArray, width, height }
         }
     },
     emits: ['simulation-changed'],
@@ -64,7 +71,12 @@ export default {
             saltCrystParams: { Vm: 5.33e-5, DRH_ref: 84.2, DRH_slope: -0.17, T_ref: 25, tensileStrength: 3.0, cyclesPerYear: 120 },
             // Cached assessment results from backend API
             _assessmentResults: null,
-            _assessDebounceTimer: null
+            _assessDebounceTimer: null,
+            // ML pigment analysis
+            pigmentMap: null,
+            perPigmentParams: null,
+            restoredTexture: null,
+            pigmentDisplayMode: 'current'
         };
     },
     computed: {
@@ -238,6 +250,11 @@ export default {
             const results = this.assessmentResults;
             const totalDays = this.getTotalDays();
 
+            // Compute per-pigment Arrhenius when pigmentMap is available
+            if (this.pigmentMap && this.enabledModels.chemical) {
+                this._computePerPigmentParams(totalDays);
+            }
+
             this.$emit('simulation-changed', {
                 temperature: {
                     value: this.temperatureK,
@@ -262,11 +279,53 @@ export default {
                     chemical: this.enabledModels.chemical ? results.chemical : null,
                     lifetime: this.enabledModels.lifetime ? results.lifetime : null,
                     mould: this.enabledModels.mould ? results.mould : null,
-                    saltCryst: this.enabledModels.saltCryst ? results.saltCryst : null
+                    saltCryst: this.enabledModels.saltCryst ? results.saltCryst : null,
+                    // ML pigment data
+                    pigmentMap: this.pigmentMap,
+                    perPigmentParams: this.perPigmentParams,
+                    restoredTexture: this.restoredTexture,
+                    pigmentDisplayMode: this.pigmentDisplayMode
                 },
                 timestamp: Date.now(),
                 speed: this.simulationSpeed
             });
+        },
+
+        // ── ML Pigment Integration ──────────────────────────────────
+        _computePerPigmentParams(totalDays) {
+            const R = 8.314;
+            const T = this.temperatureCelsius + 273.15;
+            const RH = this.humidity / 100;
+            const light = this.simLight;
+            const params = {};
+
+            for (const name of PIGMENT_NAMES) {
+                const p = PIGMENT_DATABASE[name];
+                // Arrhenius rate constant per pigment
+                const H2O = Math.pow(Math.abs(Math.log(1 - Math.min(RH, 0.999)) / (1.67 * T - 285.655)), 1 / (2.491 - 0.012 * T));
+                const k_dark = p.k0_dark * Math.pow(Math.abs(H2O), p.q) * Math.exp(-p.Ea_dark / (R * T));
+                const k_light = light > 0 ? p.k0_light * Math.pow(light, p.p) * Math.pow(Math.abs(H2O), p.q) * Math.exp(-p.Ea_light / (R * T)) : 0;
+                const k = k_dark + k_light;
+                const degradationFactor = Math.exp(-k * totalDays);
+                params[p.id] = { degradationFactor, fadedRGB: p.fadedRGB, targetRGB: p.targetRGB };
+            }
+            this.perPigmentParams = params;
+        },
+
+        handlePigmentAnalyzed(result) {
+            this.pigmentMap = result.pigmentMap;
+            this.emitSimulation();
+        },
+
+        handleTextureRestored(result) {
+            this.restoredTexture = result;
+            this.pigmentDisplayMode = 'restored';
+            this.emitSimulation();
+        },
+
+        handleDisplayModeChanged(mode) {
+            this.pigmentDisplayMode = mode;
+            this.emitSimulation();
         },
 
         toggleSimulation() {
@@ -298,7 +357,10 @@ export default {
                 oneYear: { temp: 25, rh: 60, days: 0, months: 0, years: 1, light: 10 },
                 tenYears: { temp: 25, rh: 60, days: 0, months: 0, years: 10, light: 10 },
                 poorStorage: { temp: 30, rh: 80, days: 0, months: 0, years: 50, light: 5 },
-                extreme: { temp: 40, rh: 100, days: 0, months: 0, years: 10, light: 30 }
+                extreme: { temp: 40, rh: 100, days: 0, months: 0, years: 10, light: 30 },
+                // Long-term heritage scenarios
+                longTerm200: { temp: 20, rh: 50, days: 0, months: 0, years: 200, light: 0.15 },
+                mogao200: { temp: 13, rh: 35, days: 0, months: 0, years: 200, light: 2 },
             };
             const p = presets[preset];
             if (p) {
@@ -774,11 +836,13 @@ export default {
                     <div class="control-group" style="margin-bottom: 16px;">
                         <label class="control-label" style="font-weight: 600; margin-bottom: 8px; display: block;">📊 Quick Presets:</label>
                         <div style="display: flex; gap: 5px; flex-wrap: wrap;">
-                            <button @click="applyPreset('museum')" class="btn btn-xs" :disabled="false">Museum (100y)</button>
-                            <button @click="applyPreset('oneYear')" class="btn btn-xs" :disabled="false">1 Year</button>
-                            <button @click="applyPreset('tenYears')" class="btn btn-xs" :disabled="false">10 Years</button>
-                            <button @click="applyPreset('poorStorage')" class="btn btn-xs" :disabled="false">Poor Storage</button>
-                            <button @click="applyPreset('extreme')" class="btn btn-xs" :disabled="false">Extreme</button>
+                            <button @click="applyPreset('oneYear')" class="btn btn-xs">1 Year</button>
+                            <button @click="applyPreset('tenYears')" class="btn btn-xs">10 Years</button>
+                            <button @click="applyPreset('museum')" class="btn btn-xs">Museum 100y</button>
+                            <button @click="applyPreset('poorStorage')" class="btn btn-xs">Poor Storage 50y</button>
+                            <button @click="applyPreset('extreme')" class="btn btn-xs">Extreme 10y</button>
+                            <button @click="applyPreset('longTerm200')" class="btn btn-xs" style="background: #f59e0b; color: white; border-color: #f59e0b;">200y Museum</button>
+                            <button @click="applyPreset('mogao200')" class="btn btn-xs" style="background: #8B4513; color: white; border-color: #8B4513;">200y Mogao</button>
                         </div>
                     </div>
 
@@ -895,6 +959,14 @@ export default {
                             {{ timeSeriesData.length }} data points
                         </p>
                     </div>
+                    <!-- ML Pigment Analysis -->
+                    <hr style="margin: 16px 0; border: none; border-top: 1px solid #e0e0e0;" />
+                    <pigment-analysis-panel
+                        :pixel-data="pixelData"
+                        @pigment-analyzed="handlePigmentAnalyzed"
+                        @texture-restored="handleTextureRestored"
+                        @display-mode-changed="handleDisplayModeChanged"
+                    ></pigment-analysis-panel>
                 </div>
             </div>
         </div>

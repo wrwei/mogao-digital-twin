@@ -28,10 +28,12 @@ export default {
             default: null
         }
     },
+    emits: ['update:autoRotate', 'pixel-data-ready'],
     data() {
         return {
             loading: true,
             error: null,
+            pigmentDeteriorationWorker: null,
             // Deterioration simulation parameters
             simTemp: 20,           // Temperature in °C
             simRH: 50,             // Relative humidity in %
@@ -42,6 +44,9 @@ export default {
             degradationEnabled: false,
             showAdvanced: false,   // Show/hide advanced settings
             originalTexture: null,  // Store original texture for reset
+            originalPixelData: null, // Raw RGBA pixels captured at load time (avoids canvas CORS taint)
+            originalPixelWidth: 0,
+            originalPixelHeight: 0,
             textureCanvas: null,    // Canvas for texture manipulation
             textureContext: null,   // Canvas 2D context
             // Multi-model deterioration results
@@ -80,6 +85,7 @@ export default {
     },
     beforeUnmount() {
         if (this.deteriorationWorker) this.deteriorationWorker.terminate();
+        if (this.pigmentDeteriorationWorker) this.pigmentDeteriorationWorker.terminate();
         this.cleanup();
     },
     watch: {
@@ -105,16 +111,26 @@ export default {
                     this.simMonths = newData.deterioration.months;
                     this.simYears = newData.deterioration.years;
                     this.simLight = newData.deterioration.lightIntensity;
-                    // Store per-model results if available (null = disabled)
                     this.mouldResult = newData.deterioration.mould || null;
                     this.enabledChemical = newData.deterioration.chemical !== null;
-                    // Store pre-computed degradation factor from SimulationPanel
                     this.chemicalDegradationFactor = newData.deterioration.degradationFactor;
                     this.chemicalRateConstant = newData.deterioration.rateConstant;
                     this.degradationEnabled = true;
-                    this.applyDeteriorationToTexture();
+
+                    // Handle display mode from PigmentAnalysisPanel
+                    const displayMode = newData.deterioration.pigmentDisplayMode || 'current';
+                    if (displayMode === 'restored' && newData.deterioration.restoredTexture) {
+                        this._applyRestoredTexture(newData.deterioration.restoredTexture);
+                    } else if (displayMode === 'pigment-map' && newData.deterioration.pigmentMap) {
+                        this._applyPigmentOverlay(newData.deterioration.pigmentMap);
+                    } else {
+                        // Normal deterioration (per-pigment if available, otherwise uniform)
+                        this.applyDeteriorationToTexture(
+                            newData.deterioration.pigmentMap || null,
+                            newData.deterioration.perPigmentParams || null
+                        );
+                    }
                 } else if (newData === null || !newData) {
-                    // Reset to original texture when simulation stops
                     this.degradationEnabled = false;
                     this.mouldResult = null;
                     this.resetTexture();
@@ -268,35 +284,48 @@ export default {
 
                 // Apply texture if available
                 if (texturePath && this.model) {
-                    const textureLoader = new THREE.TextureLoader();
                     const fullTexturePath = texturePath.startsWith('http') ? texturePath : baseURL + texturePath;
 
-                    // Enable CORS for canvas manipulation
-                    textureLoader.setCrossOrigin('anonymous');
+                    // ── Step 1: Fetch image as blob and decode to ImageBitmap ──────────
+                    // Using fetch+blob bypasses the canvas "CORS taint" issue that would
+                    // prevent getImageData() when the image is cross-origin.
+                    let imageBitmap = null;
+                    try {
+                        const resp = await fetch(fullTexturePath);
+                        const blob = await resp.blob();
+                        imageBitmap = await createImageBitmap(blob);
+                    } catch (fetchErr) {
+                        console.warn('Could not fetch texture as blob, falling back to TextureLoader:', fetchErr.message);
+                    }
 
+                    // ── Step 2: Capture raw pixels into originalPixelData ─────────────
+                    if (imageBitmap) {
+                        const capCanvas = document.createElement('canvas');
+                        capCanvas.width = imageBitmap.width;
+                        capCanvas.height = imageBitmap.height;
+                        const capCtx = capCanvas.getContext('2d');
+                        capCtx.drawImage(imageBitmap, 0, 0);
+                        const captured = capCtx.getImageData(0, 0, imageBitmap.width, imageBitmap.height);
+                        this.originalPixelData = new Uint8ClampedArray(captured.data);
+                        this.originalPixelWidth = imageBitmap.width;
+                        this.originalPixelHeight = imageBitmap.height;
+                        console.log(`Pixel data captured: ${imageBitmap.width}×${imageBitmap.height} (${this.originalPixelData.length} bytes)`);
+                        // Notify parent so SimulationPanel / PigmentAnalysisPanel can use the pixel data
+                        this.$emit('pixel-data-ready', { data: this.originalPixelData, width: imageBitmap.width, height: imageBitmap.height });
+                    }
+
+                    // ── Step 3: Load Three.js texture for rendering ───────────────────
+                    const textureLoader = new THREE.TextureLoader();
+                    textureLoader.setCrossOrigin('anonymous');
                     const texture = await new Promise((resolve, reject) => {
                         textureLoader.load(fullTexturePath, resolve, undefined, reject);
                     });
-
-                    // Store original texture for deterioration simulation
                     this.originalTexture = texture;
-
-                    // Log texture info
-                    console.log('Texture loaded:', {
-                        path: fullTexturePath,
-                        image: texture.image,
-                        width: texture.image?.width,
-                        height: texture.image?.height,
-                        complete: texture.image?.complete
-                    });
 
                     this.model.traverse((child) => {
                         if (child instanceof THREE.Mesh) {
                             if (Array.isArray(child.material)) {
-                                child.material.forEach(mat => {
-                                    mat.map = texture;
-                                    mat.needsUpdate = true;
-                                });
+                                child.material.forEach(mat => { mat.map = texture; mat.needsUpdate = true; });
                             } else {
                                 child.material.map = texture;
                                 child.material.needsUpdate = true;
@@ -378,75 +407,111 @@ export default {
          * Apply deterioration to texture using dose-response model
          * Simulates color fading, yellowing, and darkening
          */
-        applyDeteriorationToTexture() {
-            if (!this.originalTexture || !this.model) {
-                console.warn('No texture or model available for deterioration');
+        applyDeteriorationToTexture(pigmentMap, perPigmentParams) {
+            if (!this.model) {
+                // Model still loading — silently skip; watcher will re-fire when ready
+                return;
+            }
+            if (!this.originalPixelData || !this.originalPixelWidth || !this.originalPixelHeight) {
+                console.warn('Pixel data not ready — texture may not have loaded yet');
+                this.showToast('⚠️ Texture pixel data not ready. Try reloading the model.', 'warning', 4000);
                 return;
             }
 
-            const img = this.originalTexture.image;
+            const w = this.originalPixelWidth;
+            const h = this.originalPixelHeight;
 
-            // Check if image is loaded and has valid dimensions
-            if (!img || !img.width || !img.height) {
-                console.error('Texture image not ready or invalid dimensions:', img);
-                return;
-            }
-
-            // Show notification that texture processing is starting
             this.isProcessing = true;
-            this.showToast('⚙️ Applying texture deterioration...', 'info', 0); // No auto-hide
+            this.showToast('⚙️ Applying texture deterioration...', 'info', 0);
 
-            console.log('Applying deterioration to texture:', img.width, 'x', img.height);
+            const degradationFactor = this.enabledChemical ? (this.chemicalDegradationFactor ?? 1.0) : 1.0;
 
-            try {
-                // Use pre-computed degradation factor from SimulationPanel (with configurable params)
-                let k = this.enabledChemical ? (this.chemicalRateConstant || 0) : 0;
-                let degradationFactor = this.enabledChemical ? (this.chemicalDegradationFactor || 1.0) : 1.0;
-                const t_days = this.simDays + (this.simMonths * 30.44) + (this.simYears * 365.25);
-
-                console.log('Degradation params:', { k, t_days, degradationFactor, chemicalEnabled: this.enabledChemical });
-
-                // Create canvas for texture manipulation if not exists
-                if (!this.textureCanvas) {
-                    this.textureCanvas = document.createElement('canvas');
-                    this.textureContext = this.textureCanvas.getContext('2d');
+            if (pigmentMap && perPigmentParams) {
+                // ── Per-pigment deterioration via pigment worker ──────────
+                if (!this.pigmentDeteriorationWorker) {
+                    this.pigmentDeteriorationWorker = new Worker('workers/pigment-deterioration-worker.js');
+                    this.pigmentDeteriorationWorker.onmessage = (e) => this.handleWorkerResult(e.data);
                 }
-
-                this.textureCanvas.width = img.width;
-                this.textureCanvas.height = img.height;
-
-                // Clear canvas first
-                this.textureContext.clearRect(0, 0, img.width, img.height);
-
-                // Draw original image
-                this.textureContext.drawImage(img, 0, 0);
-
-                // Get pixel data
-                const imageData = this.textureContext.getImageData(0, 0, img.width, img.height);
-                const data = imageData.data;
-
-                if (data.length === 0) {
-                    console.error('No pixel data retrieved from canvas');
-                    return;
+                const pixelCopy = new Uint8ClampedArray(this.originalPixelData).buffer;
+                const mapCopy = new Uint8Array(pigmentMap).buffer;
+                // Deep-copy perPigmentParams to a plain object (Vue reactive proxies can't be cloned by postMessage)
+                const plainParams = {};
+                for (const key of Object.keys(perPigmentParams)) {
+                    const p = perPigmentParams[key];
+                    plainParams[key] = {
+                        degradationFactor: p.degradationFactor,
+                        fadedRGB: p.fadedRGB ? [...p.fadedRGB] : null,
+                        targetRGB: p.targetRGB ? [...p.targetRGB] : null
+                    };
                 }
-
-                // Post pixel data to Web Worker for off-main-thread processing
-                this.deteriorationWorker.postMessage({
-                    pixelData: imageData.data.buffer,
-                    width: img.width,
-                    height: img.height,
-                    degradationFactor: degradationFactor,
-                    amplification: 10
-                }, [imageData.data.buffer]);
-
-                console.log(`Sent texture to worker: k=${k.toExponential(3)}, degradationFactor=${degradationFactor.toFixed(6)}`);
-
-            } catch (error) {
-                console.error('Error applying deterioration:', error);
-                this.error = 'Deterioration simulation failed: ' + error.message;
-                this.isProcessing = false;
-                this.showToast(`❌ Error: ${error.message}`, 'error', 5000);
+                console.log(`Per-pigment deterioration: ${Object.keys(plainParams).length} classes, size=${w}×${h}`);
+                this.pigmentDeteriorationWorker.postMessage(
+                    { pixelData: pixelCopy, pigmentMap: mapCopy, pigmentParams: plainParams, width: w, height: h, amplification: 3 },
+                    [pixelCopy, mapCopy]
+                );
+            } else {
+                // ── Uniform deterioration (existing behaviour) ────────────
+                const pixelCopy = new Uint8ClampedArray(this.originalPixelData).buffer;
+                console.log(`Uniform deterioration: degradationFactor=${degradationFactor.toFixed(4)}, size=${w}×${h}`);
+                this.deteriorationWorker.postMessage(
+                    { pixelData: pixelCopy, width: w, height: h, degradationFactor, amplification: 10 },
+                    [pixelCopy]
+                );
             }
+        },
+
+        /** Apply restored (ML-reconstructed) texture to the 3D model */
+        _applyRestoredTexture(result) {
+            if (!this.model || !result || !result.restoredPixels) return;
+            const { restoredPixels, width, height } = result;
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.putImageData(new ImageData(new Uint8ClampedArray(restoredPixels), width, height), 0, 0);
+            this.model.traverse((child) => {
+                if (child.isMesh && child.material) {
+                    const tex = new THREE.CanvasTexture(canvas);
+                    if (child.material.map) { tex.flipY = child.material.map.flipY; tex.wrapS = child.material.map.wrapS; tex.wrapT = child.material.map.wrapT; }
+                    child.material.map = tex;
+                    child.material.needsUpdate = true;
+                }
+            });
+            this.showToast('✨ Restored colours applied', 'success', 3000);
+        },
+
+        /** Render a translucent pigment-class overlay on the 3D model */
+        _applyPigmentOverlay(pigmentMap) {
+            if (!this.model || !pigmentMap || !this.originalPixelData) return;
+            const w = this.originalPixelWidth;
+            const h = this.originalPixelHeight;
+            const overlayColors = [
+                [200,180,150], [0,80,180], [0,140,60], [200,30,15],
+                [245,240,230], [212,175,55], [180,70,30], [15,15,15]
+            ];
+            const out = new Uint8ClampedArray(this.originalPixelData);
+            for (let i = 0; i < w * h; i++) {
+                const cls = pigmentMap[i];
+                const c = overlayColors[cls] || overlayColors[0];
+                const off = i * 4;
+                // 50% blend of original with pigment colour overlay
+                out[off]     = Math.round(out[off] * 0.5 + c[0] * 0.5);
+                out[off + 1] = Math.round(out[off + 1] * 0.5 + c[1] * 0.5);
+                out[off + 2] = Math.round(out[off + 2] * 0.5 + c[2] * 0.5);
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            canvas.getContext('2d').putImageData(new ImageData(out, w, h), 0, 0);
+            this.model.traverse((child) => {
+                if (child.isMesh && child.material) {
+                    const tex = new THREE.CanvasTexture(canvas);
+                    if (child.material.map) { tex.flipY = child.material.map.flipY; tex.wrapS = child.material.map.wrapS; tex.wrapT = child.material.map.wrapT; }
+                    child.material.map = tex;
+                    child.material.needsUpdate = true;
+                }
+            });
+            this.showToast('🎨 Pigment map overlay applied', 'info', 3000);
         },
 
         /**
@@ -462,12 +527,13 @@ export default {
                 this.applyMouldEffect(data, width, height, this.mouldResult);
             }
 
-            if (!this.textureCanvas) {
+            // Ensure canvas exists and matches texture dimensions
+            if (!this.textureCanvas || this.textureCanvas.width !== width || this.textureCanvas.height !== height) {
                 this.textureCanvas = document.createElement('canvas');
                 this.textureContext = this.textureCanvas.getContext('2d');
+                this.textureCanvas.width = width;
+                this.textureCanvas.height = height;
             }
-            this.textureCanvas.width = width;
-            this.textureCanvas.height = height;
             this.textureContext.putImageData(imageData, 0, 0);
 
             // Update Three.js texture

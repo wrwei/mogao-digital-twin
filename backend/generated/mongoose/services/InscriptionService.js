@@ -11,9 +11,11 @@ const InscriptionService = {
      * Create a new Inscription
      */
     create: async (data) => {
-        if (!data.gid) {
+        // Always generate gid server-side to prevent client-supplied collisions
+        {
             data.gid = 'inscription-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
         }
+        delete data._id;
         const inscription = await Inscription.create(data);
         return inscription;
     },

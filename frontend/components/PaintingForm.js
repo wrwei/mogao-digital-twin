@@ -144,7 +144,6 @@ export default {
                 }
 
                 if (this.mode === 'create') {
-                    this.form.gid = 'painting-' + Date.now();
                     const response = await api.paintings.create(this.form);
                     this.$emit('created', response.data);
                 } else {

@@ -11,9 +11,11 @@ const TemperatureService = {
      * Create a new Temperature
      */
     create: async (data) => {
-        if (!data.gid) {
+        // Always generate gid server-side to prevent client-supplied collisions
+        {
             data.gid = 'temp-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
         }
+        delete data._id;
         const temperature = await Temperature.create(data);
         return temperature;
     },

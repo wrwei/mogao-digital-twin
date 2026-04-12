@@ -213,20 +213,11 @@ const [%=entityName%]View = {
                 }
             }
         },
-        async handleFormSubmit(data) {
-            try {
-                if (this.editMode) {
-                    await this.update[%=entityName%](this.editingItem.gid, data);
-                    this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.[%=entityLower%]') }), 'success');
-                } else {
-                    await this.create[%=entityName%](data);
-                    this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.[%=entityLower%]') }), 'success');
-                }
-                this.showForm = false;
-                await this.fetch[%=entityName%]s();
-            } catch (err) {
-                this.$emit('show-message', this.t('actions.saveError', { entity: this.t('entities.[%=entityLower%]') }) + ': ' + err.message, 'error');
-            }
+        async handleFormSubmit() {
+            // Form component owns the API call; here we just refresh the list
+            this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.[%=entityLower%]') }), 'success');
+            this.showForm = false;
+            await this.fetch[%=entityName%]s();
         },
         handleFormCancel() {
             this.showForm = false;

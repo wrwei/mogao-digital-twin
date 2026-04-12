@@ -11,9 +11,11 @@ const ParameterService = {
      * Create a new Parameter
      */
     create: async (data) => {
-        if (!data.gid) {
+        // Always generate gid server-side to prevent client-supplied collisions
+        {
             data.gid = 'param-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
         }
+        delete data._id;
         const parameter = await Parameter.create(data);
         return parameter;
     },

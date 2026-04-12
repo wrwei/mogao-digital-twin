@@ -19,8 +19,30 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '10mb' }));
 
-// Serve uploaded files
+// Serve uploaded files — public, no auth required
+// Must be registered BEFORE authMiddleware so the JWT check never runs on these paths.
 app.use('/exhibit_models', express.static(path.join(__dirname, 'exhibit_models')));
+// Fallback: if the exact path isn't found, search all subdirectories for the filename.
+// This handles stale DB paths where the stored subdir doesn't match where the file landed.
+app.use('/exhibit_models', (req, res) => {
+    const filename = path.basename(req.path);
+    if (!filename || filename.includes('..')) {
+        return res.status(404).json({ error: 'Not found' });
+    }
+    const baseDir = path.join(__dirname, 'exhibit_models');
+    try {
+        const subdirs = fs.readdirSync(baseDir).filter(d =>
+            fs.statSync(path.join(baseDir, d)).isDirectory()
+        );
+        for (const sub of subdirs) {
+            const candidate = path.join(baseDir, sub, filename);
+            if (fs.existsSync(candidate)) {
+                return res.sendFile(candidate);
+            }
+        }
+    } catch (_) {}
+    res.status(404).json({ error: 'Model file not found', path: req.path });
+});
 
 // Authentication
 const { authMiddleware, requireWriteAccess } = require('./middleware/auth');
@@ -102,11 +124,15 @@ app.get('/health', (req, res) => {
 });
 
 // File upload endpoint
+// NOTE: multer's destination callback runs BEFORE req.body is parsed, so req.body.category
+// is always undefined there. We save to a fixed base dir and use req.body.category only when
+// building the returned path (which IS available by the time the route handler runs).
+const fs = require('fs');
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        const category = req.body.category || 'general';
-        const uploadDir = path.join(__dirname, 'exhibit_models', category);
-        const fs = require('fs');
+        // Always save to exhibit_models/uploads/ — category-based subdirs are handled
+        // after the fact by reading req.body.category in the route handler.
+        const uploadDir = path.join(__dirname, 'exhibit_models', 'uploads');
         fs.mkdirSync(uploadDir, { recursive: true });
         cb(null, uploadDir);
     },
@@ -135,7 +161,12 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
     if (!req.file) {
         return res.status(400).json({ error: 'No file uploaded' });
     }
-    const category = req.body.category || 'general';
+    // req.body is now available. Move the file from uploads/ into the category subdir.
+    const category = (req.body.category || 'general').replace(/[^a-zA-Z0-9_-]/g, '');
+    const destDir = path.join(__dirname, 'exhibit_models', category);
+    fs.mkdirSync(destDir, { recursive: true });
+    const destPath = path.join(destDir, req.file.filename);
+    fs.renameSync(req.file.path, destPath);
     const serverPath = '/exhibit_models/' + category + '/' + req.file.filename;
     res.json({ path: serverPath, originalName: req.file.originalname, size: req.file.size });
 });

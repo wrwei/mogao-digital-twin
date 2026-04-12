@@ -11,9 +11,11 @@ const CoordinatesService = {
      * Create a new Coordinates
      */
     create: async (data) => {
-        if (!data.gid) {
+        // Always generate gid server-side to prevent client-supplied collisions
+        {
             data.gid = 'coord-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
         }
+        delete data._id;
         const coordinates = await Coordinates.create(data);
         return coordinates;
     },

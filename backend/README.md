@@ -1,16 +1,26 @@
 # Mogao Digital Twin - Backend
 
-Model-based backend using Eclipse Modeling Framework (EMF) and Epsilon for code generation.
+Model-driven backend using Eclipse EMF, Epsilon EGL, and a generated Node.js/Express/MongoDB runtime.
+
+## Architecture
+
+The backend has two layers:
+
+1. **Design-time** (Java/Micronaut): Reads the Ecore metamodel and runs EGL templates to generate code
+2. **Runtime** (Node.js/Express): The generated REST API server with MongoDB persistence
+
+```
+mogao_dt.ecore  →  EGL Templates  →  Generated Node.js Backend
+                                     (models, routers, controllers, services)
+```
 
 ## Quick Start
 
-### 1. Build the Project
+### 1. Build the Project (First Time)
 
 ```bash
 mvn clean install
 ```
-
-This downloads all EMF and Epsilon dependencies.
 
 ### 2. Generate Code from Metamodel
 
@@ -24,113 +34,138 @@ generate-code.bat
 ./generate-code.sh
 ```
 
-**Or using Maven directly:**
+This generates:
+- **Node.js runtime** in `generated/mongoose/` (Mongoose models, Express routers, controllers, services)
+- **Java DTOs** in `src/main/java/digital/twin/mogao/dto/` (design-time only)
+- **Frontend components** in `../frontend/` (Vue Card, List, Form, DetailView, composables, app.js, i18n.js)
+
+### 3. Start the Runtime Backend
+
 ```bash
-mvn clean compile
-mvn exec:java
+cd generated/mongoose
+npm install    # First time only
+npm start      # Starts Express server on port 8008
 ```
 
-This generates:
-- DTOs in `src/main/java/digital/twin/mogao/dto/`
-- Service classes in `src/main/java/digital/twin/mogao/service/`
+### 4. Verify
+
+```bash
+curl http://localhost:8008/health
+```
 
 ## Project Structure
 
 ```
 backend/
 ├── src/main/
-│   ├── java/
-│   │   └── digital/twin/mogao/
-│   │       ├── codegen/         # Code generation programs
-│   │       ├── example/         # Usage examples
-│   │       └── util/            # EpsilonModelManager
+│   ├── java/digital/twin/mogao/
+│   │   ├── codegen/CodeGenerator.java       # Code generation driver
+│   │   ├── controller/                      # Micronaut controllers (design-time)
+│   │   ├── service/                         # Micronaut services (design-time)
+│   │   ├── dto/                             # Generated DTOs (design-time)
+│   │   └── util/EpsilonModelManager.java    # EMF model loader
 │   └── resources/
-│       ├── metamodel/           # mogao_dt.ecore
-│       ├── models/              # Model instances
-│       │   └── instances/       # example.flexmi
-│       ├── transformation/      # EGL templates
-│       │   ├── GenerateDTO.egl
-│       │   └── GenerateService.egl
-│       └── eol-scripts/         # EOL helper operations
-│           ├── cave/            # Cave operations
-│           ├── defect/          # Defect operations
-│           ├── exhibit/         # Exhibit operations
-│           └── common/          # Model helpers
-├── pom.xml
-├── generate-code.bat           # Windows script
-└── generate-code.sh            # Linux/Mac script
+│       ├── metamodel/mogao_dt.ecore         # Ecore metamodel
+│       ├── models/instances/mogao.model     # Flexmi model instance
+│       ├── transformation/
+│       │   ├── backend/                     # Java DTO/Service/Controller templates
+│       │   ├── mongodb/                     # Mongoose/Express templates
+│       │   ├── frontend/                    # Vue component templates
+│       │   └── eol/                         # EOL helper operations
+│       └── eol-scripts/                     # Domain-specific EOL operations
+│
+├── generated/mongoose/                      # ← RUNTIME BACKEND
+│   ├── server.js                            # Entry point (port 8008)
+│   ├── app.js                               # Express app + middleware + routes
+│   ├── package.json                         # Node.js dependencies
+│   ├── models/                              # Mongoose schemas (14 concrete + 8 abstract base classes)
+│   ├── routers/                             # Express routers (16)
+│   ├── controllers/                         # Request handlers (16)
+│   ├── services/                            # Business logic (16)
+│   │   └── DeteriorationService.js          # Scientific deterioration models
+│   ├── middleware/auth.js                   # JWT + guest authentication
+│   ├── util/jwt.js                          # JWT generation/verification
+│   └── exhibit_models/                      # Uploaded 3D models + textures
+│
+├── pom.xml                                  # Maven (Micronaut 4.2.3, Epsilon 2.8.0, EMF 2.23.0)
+├── generate-code.bat / .sh                  # Code generation scripts
+├── clean-and-regenerate.bat / .sh           # Clean + regenerate scripts
+└── start-backend.bat / .sh                  # Backend start scripts
 ```
 
-## Key Components
+## EGL Templates
 
-### Metamodel
-- Location: [src/main/resources/metamodel/mogao_dt.ecore](src/main/resources/metamodel/mogao_dt.ecore)
-- Defines the structure of the Mogao Digital Twin domain model
-- Contains classes: Cave, Exhibit, Defect, etc.
+### MongoDB/Express Generation
 
-### EGL Templates
-Model-to-text transformations for code generation:
-- [GenerateDTO.egl](src/main/resources/transformation/GenerateDTO.egl) - Generates Data Transfer Objects
-- [GenerateService.egl](src/main/resources/transformation/GenerateService.egl) - Generates Service classes
+| Template | Output | Description |
+|----------|--------|-------------|
+| `GenerateMongooseModel.egl` | `models/*.js` | Mongoose schemas from EClasses |
+| `GenerateExpressRouter.egl` | `routers/*.js` | CRUD + GID endpoints |
+| `GenerateExpressController.egl` | `controllers/*.js` | Request handling |
+| `GenerateExpressService.egl` | `services/*.js` | Business logic + queries |
+| `GenerateExpressApp.egl` | `app.js` | Express app with middleware |
+| `GenerateFileUploadController.egl` | File upload | Multer-based upload |
+| `GenerateHealthController.egl` | Health check | GET /health |
 
-### EOL Scripts
-Helper operations for model manipulation:
-- **Cave**: CRUD operations, get exhibits/defects, environment readings
-- **Defect**: Filter by type/severity, mark urgent, update treatment
-- **Exhibit**: Operations for all exhibit types (Statue, Mural, Painting, Inscription)
-- **Common**: Statistics, validation, utilities
+### Frontend Generation
 
-### Code Generator
-- Main class: [CodeGenerator.java](src/main/java/digital/twin/mogao/codegen/CodeGenerator.java)
-- Loads metamodel and generates DTOs and Services
-- Configured in POM with exec-maven-plugin
+| Template | Output | Description |
+|----------|--------|-------------|
+| `GenerateVueCard.egl` | `components/*Card.js` | Entity card components |
+| `GenerateVueList.egl` | `components/*List.js` | List + filtering |
+| `GenerateVueForm.egl` | `components/*Form.js` | CRUD forms |
+| `GenerateVueDetailView.egl` | `components/*DetailView.js` | Detail views |
+| `GenerateComposable.egl` | `composables/use*.js` | API composables |
+| `GenerateApp.egl` | `app.js` | Main Vue app |
+| `GenerateI18n.egl` | `i18n.js` | i18n resources |
+| `GenerateIndexHtml.egl` | `index.html` | HTML entry point |
 
-## Usage Examples
+## Runtime API
 
-### Generate Code
-```bash
-./generate-code.sh
-```
+The generated Express backend exposes REST endpoints on port 8008:
 
-### Run Example Program
-```java
-// See: src/main/java/digital/twin/mogao/example/TransformationExample.java
-EpsilonModelManager manager = new EpsilonModelManager();
+- **Entity CRUD**: `/caves`, `/statues`, `/murals`, `/paintings`, `/inscriptions`, `/defects`
+- **Polymorphic**: `/exhibits` (base type for all exhibit subtypes)
+- **Environment**: `/temperatures`, `/humidities`, `/lightIntensities`
+- **Utility**: `/coordinates`, `/parameters`, `/assetReferences`, `/dTPackages`
+- **Auth**: `/users` (login, register, profile, admin user management)
+- **Deterioration**: `/deterioration` (assess, chemical, lifetime, mould, salt, defaults)
+- **Upload**: `/api/upload`, `/api/avatar` (inline in app.js)
+- **Health**: `/health` (inline in app.js)
 
-// Execute EOL operation
-Object caves = manager.executeEolOperation(
-    "eol-scripts/cave/CaveOperations.eol",
-    "getAllCaves"
-);
+All entity endpoints support pagination (`?page=N&limit=N&sort=field`) and GID-based access (`/gid/:gid`).
 
-// Generate DTO using EGL template
-Map<String, Object> params = Map.of(
-    "eClass", caveClass,
-    "packageName", "digital.twin.mogao.dto"
-);
-String dtoCode = manager.executeEglTemplate(
-    "transformation/GenerateDTO.egl",
-    params
-);
-```
+## Environment Variables
 
-## Documentation
-
-- [RUN_TRANSFORMATIONS.md](src/main/resources/transformation/RUN_TRANSFORMATIONS.md) - Detailed transformation guide
-- [Models README](src/main/resources/models/README.md) - Model instance creation guide
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | 8008 | Server port |
+| `MONGO_URI` | `mongodb://localhost:27017/mogao_dt` | MongoDB connection |
+| `JWT_SECRET` | Random (dev) / required (prod) | JWT signing secret |
+| `CORS_ORIGINS` | `http://localhost:8009,...` | Allowed CORS origins |
+| `NODE_ENV` | — | `production` enforces JWT_SECRET |
 
 ## Dependencies
 
+### Design-Time (Java)
 - Eclipse EMF 2.23.0
-- Epsilon 2.8.0 (EOL, EGL, ETL, EVL engines)
-- SLF4J / Logback for logging
+- Epsilon 2.8.0 (EOL, EGL, ETL, EVL)
+- Micronaut 4.2.3
 - Java 17
+
+### Runtime (Node.js)
+- Express 4.18.2
+- Mongoose 8.0.0
+- jsonwebtoken 9.0.3
+- bcryptjs 3.0.3
+- multer 1.4.5
+- cors 2.8.5
+- uuid 9.0.0
 
 ## Maven Goals
 
 ```bash
 mvn clean compile      # Compile the project
 mvn exec:java          # Run code generator
-mvn test               # Run tests
 mvn clean install      # Full build
 ```

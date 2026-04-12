@@ -11,9 +11,11 @@ const DefectService = {
      * Create a new Defect
      */
     create: async (data) => {
-        if (!data.gid) {
+        // Always generate gid server-side to prevent client-supplied collisions
+        {
             data.gid = 'defect-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
         }
+        delete data._id;
         const defect = await Defect.create(data);
         return defect;
     },

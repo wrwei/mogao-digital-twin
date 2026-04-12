@@ -11,9 +11,11 @@ const CaveService = {
      * Create a new Cave
      */
     create: async (data) => {
-        if (!data.gid) {
+        // Always generate gid server-side to prevent client-supplied collisions
+        {
             data.gid = 'cave-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
         }
+        delete data._id;
         const cave = await Cave.create(data);
         return cave;
     },

@@ -100,7 +100,6 @@ export default {
                 }
 
                 if (this.mode === 'create') {
-                    this.form.gid = 'defect-' + Date.now();
                     const response = await api.defects.create(this.form);
                     this.$emit('created', response.data);
                 } else {

@@ -147,7 +147,6 @@ export default {
 
                 if (this.mode === 'create') {
                     // Auto-generate gid for new entries
-                    this.form.gid = 'statue-' + Date.now();
                     const response = await api.statues.create(this.form);
                     this.$emit('created', response.data);
                 } else {
