@@ -20,15 +20,18 @@ import { PIGMENT_DATABASE, PIGMENT_NAMES } from '../ml/PigmentDatabase.js';
  * that produce meaningful output for the current model.
  */
 const PRESET_CATALOG = {
-    // Real-world heritage scenarios
-    oneYear:     { temp: 25, rh: 60,  years: 1,   light: 10,   label: '1 Year',                          models: ['chemical', 'salt'] },
-    tenYears:    { temp: 25, rh: 60,  years: 10,  light: 10,   label: '10 Years',                        models: ['chemical', 'salt'] },
-    museum:      { temp: 20, rh: 50,  years: 100, light: 0.15, label: 'Museum 100y',                     models: ['chemical', 'lifetime', 'salt'] },
+    // Real-world heritage scenarios. Every real-world preset includes
+    // 'mould' in its models array so users can observe whether conditions
+    // cross the VTT critical-RH threshold (many won't — and that's the
+    // intended teaching point: "see why these conditions prevent mould").
+    oneYear:     { temp: 25, rh: 60,  years: 1,   light: 10,   label: '1 Year',                          models: ['chemical', 'lifetime', 'mould', 'salt'] },
+    tenYears:    { temp: 25, rh: 60,  years: 10,  light: 10,   label: '10 Years',                        models: ['chemical', 'lifetime', 'mould', 'salt'] },
+    museum:      { temp: 20, rh: 50,  years: 100, light: 0.15, label: 'Museum 100y',                     models: ['chemical', 'lifetime', 'mould', 'salt'] },
     poorStorage: { temp: 30, rh: 80,  years: 50,  light: 5,    label: 'Poor Storage 50y',                models: ['chemical', 'lifetime', 'mould', 'salt'] },
     extreme:     { temp: 40, rh: 100, years: 10,  light: 30,   label: 'Extreme 10y',                     models: ['chemical', 'lifetime', 'mould'] },
-    longTerm200: { temp: 20, rh: 50,  years: 200, light: 0.15, label: '200y Museum',                     models: ['chemical', 'lifetime', 'salt'] },
-    mogao200:    { temp: 13, rh: 35,  years: 200, light: 2,    label: '200y Mogao (cold/dry)',           models: ['chemical', 'lifetime', 'salt'] },
-    tropical200: { temp: 28, rh: 75,  years: 200, light: 5,    label: '200y Tropical (humid/warm)',      models: ['chemical', 'lifetime', 'salt'] },
+    longTerm200: { temp: 20, rh: 50,  years: 200, light: 0.15, label: '200y Museum',                     models: ['chemical', 'lifetime', 'mould', 'salt'] },
+    mogao200:    { temp: 13, rh: 35,  years: 200, light: 2,    label: '200y Mogao (cold/dry)',           models: ['chemical', 'lifetime', 'mould', 'salt'] },
+    tropical200: { temp: 28, rh: 75,  years: 200, light: 5,    label: '200y Tropical (humid/warm)',      models: ['chemical', 'lifetime', 'mould', 'salt'] },
     // Model-dedicated demonstrations
     demoChemical: { temp: 25, rh: 50, years: 50,  light: 20,   label: '⚗️ Light Exposure Test 50y',       models: ['chemical'] },
     demoLifetime: { temp: 5,  rh: 35, years: 200, light: 0,    label: '⏳ Cold Dry Archive 200y',          models: ['lifetime'] },
