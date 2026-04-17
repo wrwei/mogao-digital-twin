@@ -119,16 +119,32 @@ export default {
 
                     // Handle display mode from PigmentAnalysisPanel
                     const displayMode = newData.deterioration.pigmentDisplayMode || 'current';
+                    const activeModel = newData.activeModel || 'chemical';
+
+                    // Reset to original when no exposure time and showing current view
+                    if (newData.deterioration.totalDays === 0 && displayMode === 'current') {
+                        this.resetTexture();
+                        return;
+                    }
+
                     if (displayMode === 'restored' && newData.deterioration.restoredTexture) {
                         this._applyRestoredTexture(newData.deterioration.restoredTexture);
                     } else if (displayMode === 'pigment-map' && newData.deterioration.pigmentMap) {
                         this._applyPigmentOverlay(newData.deterioration.pigmentMap);
-                    } else {
-                        // Normal deterioration (per-pigment if available, otherwise uniform)
+                    } else if (activeModel === 'chemical') {
+                        // Per-pigment chemical fading (Arrhenius)
                         this.applyDeteriorationToTexture(
                             newData.deterioration.pigmentMap || null,
                             newData.deterioration.perPigmentParams || null
                         );
+                    } else if (activeModel === 'mould' && newData.deterioration.mould) {
+                        this._applyMouldEffect(newData.deterioration.mould);
+                    } else if (activeModel === 'salt' && newData.deterioration.saltCryst) {
+                        this._applySaltEffect(newData.deterioration.saltCryst);
+                    } else if (activeModel === 'lifetime' && newData.deterioration.lifetime) {
+                        this._applyLifetimeEffect(newData.deterioration.lifetime, newData.deterioration.totalDays);
+                    } else {
+                        this.applyDeteriorationToTexture(null, null);
                     }
                 } else if (newData === null || !newData) {
                     this.degradationEnabled = false;
@@ -156,34 +172,30 @@ export default {
             ));
             this.camera.position.set(0, 0, 5);
 
-            // Create renderer with high-quality settings
+            // Create renderer
             this.renderer = markRaw(new THREE.WebGLRenderer({
                 antialias: true,
                 alpha: true,
                 powerPreference: 'high-performance',
-                precision: 'highp'
             }));
             this.renderer.setSize(this.width, this.height);
             this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            this.renderer.shadowMap.enabled = true;
-            this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
             this.renderer.outputEncoding = THREE.sRGBEncoding;
-            this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-            this.renderer.toneMappingExposure = 0.75;  // Darker for museum-style lighting
+            // No tone mapping — avoids colour shifts on UV-mapped museum textures
+            this.renderer.toneMapping = THREE.NoToneMapping;
             container.appendChild(this.renderer.domElement);
 
-            // Add museum-style warm lighting - slightly darker
-            // Soft ambient base light
-            const ambientLight = markRaw(new THREE.AmbientLight(0xfff5e6, 0.35));  // Warm white, softer
+            // Museum-style neutral lighting
+            const ambientLight = markRaw(new THREE.AmbientLight(0xffffff, 0.6));
             this.scene.add(ambientLight);
 
-            // Main key light - warm from upper right
-            const directionalLight1 = markRaw(new THREE.DirectionalLight(0xfff8f0, 0.45));  // Warm key light
+            // Key light from upper right
+            const directionalLight1 = markRaw(new THREE.DirectionalLight(0xffffff, 0.5));
             directionalLight1.position.set(5, 5, 5);
             this.scene.add(directionalLight1);
 
-            // Fill light - softer from left
-            const directionalLight2 = markRaw(new THREE.DirectionalLight(0xffeedd, 0.2));  // Subtle warm fill
+            // Fill light from left
+            const directionalLight2 = markRaw(new THREE.DirectionalLight(0xffffff, 0.25));
             directionalLight2.position.set(-5, 3, -5);
             this.scene.add(directionalLight2);
 
@@ -274,13 +286,39 @@ export default {
                     // Apply basic material if no MTL
                     this.model.traverse((child) => {
                         if (child instanceof THREE.Mesh) {
-                            child.material = new THREE.MeshPhongMaterial({
+                            child.material = new THREE.MeshStandardMaterial({
                                 color: 0xcccccc,
-                                shininess: 30
+                                roughness: 0.85,
+                                metalness: 0.0,
                             });
                         }
                     });
                 }
+
+                // Force light-responsive materials — MTL illum 0 creates
+                // MeshBasicMaterial which ignores scene lights and looks flat.
+                // Replace with MeshStandardMaterial for proper shading.
+                this.model.traverse((child) => {
+                    if (child instanceof THREE.Mesh) {
+                        const mats = Array.isArray(child.material) ? child.material : [child.material];
+                        mats.forEach((mat, idx) => {
+                            if (mat.isMeshBasicMaterial || (mat.type === 'MeshBasicMaterial')) {
+                                const replacement = new THREE.MeshStandardMaterial({
+                                    map: mat.map || null,
+                                    color: mat.color ? mat.color.clone() : new THREE.Color(0xcccccc),
+                                    roughness: 0.85,
+                                    metalness: 0.0,
+                                });
+                                if (Array.isArray(child.material)) {
+                                    child.material[idx] = replacement;
+                                } else {
+                                    child.material = replacement;
+                                }
+                                mat.dispose();
+                            }
+                        });
+                    }
+                });
 
                 // Apply texture if available
                 if (texturePath && this.model) {
@@ -322,13 +360,20 @@ export default {
                     });
                     this.originalTexture = texture;
 
+                    // Apply texture to all mesh materials.
+                    // Also unify material type so all face groups render consistently
+                    // (the MTL may split faces across "Solid" and a named material).
                     this.model.traverse((child) => {
                         if (child instanceof THREE.Mesh) {
+                            const applyTex = (mat) => {
+                                mat.map = texture;
+                                mat.color = new THREE.Color(0xffffff);
+                                mat.needsUpdate = true;
+                            };
                             if (Array.isArray(child.material)) {
-                                child.material.forEach(mat => { mat.map = texture; mat.needsUpdate = true; });
+                                child.material.forEach(applyTex);
                             } else {
-                                child.material.map = texture;
-                                child.material.needsUpdate = true;
+                                applyTex(child.material);
                             }
                         }
                     });
@@ -512,6 +557,123 @@ export default {
                 }
             });
             this.showToast('🎨 Pigment map overlay applied', 'info', 3000);
+        },
+
+        /** Mould growth visualisation: green/brown organic overlay */
+        _applyMouldEffect(mouldResult) {
+            if (!this.model || !this.originalPixelData) return;
+            const w = this.originalPixelWidth;
+            const h = this.originalPixelHeight;
+            const out = new Uint8ClampedArray(this.originalPixelData);
+            const coverage = Math.min(1, (mouldResult.mouldIndex || 0) / 6);
+            if (coverage <= 0) {
+                this._applyPixelDataToModel(out, w, h);
+                this.showToast('🦠 Mould index: 0 — no visible growth', 'info', 3000);
+                return;
+            }
+            // Seed-based pseudo-random for consistent mould pattern
+            const seed = 42;
+            for (let i = 0; i < w * h; i++) {
+                const noise = ((i * 2654435761 + seed) >>> 0) / 4294967296;
+                if (noise < coverage) {
+                    const off = i * 4;
+                    const intensity = 0.3 + noise * 0.4;
+                    // Blend towards dark green/brown mould colour
+                    out[off]     = Math.round(out[off] * (1 - intensity) + 45 * intensity);
+                    out[off + 1] = Math.round(out[off + 1] * (1 - intensity) + 65 * intensity);
+                    out[off + 2] = Math.round(out[off + 2] * (1 - intensity) + 30 * intensity);
+                }
+            }
+            this._applyPixelDataToModel(out, w, h);
+            this.showToast('🦠 Mould growth applied (index: ' + mouldResult.mouldIndex.toFixed(1) + '/6)', 'info', 3000);
+        },
+
+        /** Salt crystallisation visualisation: white efflorescence patches */
+        _applySaltEffect(saltResult) {
+            if (!this.model || !this.originalPixelData) return;
+            const w = this.originalPixelWidth;
+            const h = this.originalPixelHeight;
+            const out = new Uint8ClampedArray(this.originalPixelData);
+            const damageRatio = saltResult.damageRatio || 0;
+            const coverage = Math.min(1, damageRatio / 5);
+            if (coverage <= 0) {
+                this._applyPixelDataToModel(out, w, h);
+                this.showToast('🧂 No salt crystallisation at current conditions', 'info', 3000);
+                return;
+            }
+            const seed = 137;
+            for (let i = 0; i < w * h; i++) {
+                const noise = ((i * 2654435761 + seed) >>> 0) / 4294967296;
+                if (noise < coverage) {
+                    const off = i * 4;
+                    const intensity = 0.4 + noise * 0.5;
+                    // Blend towards white/grey salt efflorescence
+                    out[off]     = Math.round(out[off] * (1 - intensity) + 230 * intensity);
+                    out[off + 1] = Math.round(out[off + 1] * (1 - intensity) + 225 * intensity);
+                    out[off + 2] = Math.round(out[off + 2] * (1 - intensity) + 220 * intensity);
+                }
+            }
+            this._applyPixelDataToModel(out, w, h);
+            this.showToast('🧂 Salt efflorescence applied (damage ratio: ' + damageRatio.toFixed(2) + '×)', 'info', 3000);
+        },
+
+        /** Lifetime multiplier visualisation: converts elapsed time into
+         *  reference-condition years via the Michalski multiplier, then
+         *  applies proportional desaturation + slight warm cast. */
+        _applyLifetimeEffect(lifetimeResult, totalDays) {
+            if (!this.model || !this.originalPixelData) return;
+            const w = this.originalPixelWidth;
+            const h = this.originalPixelHeight;
+            const out = new Uint8ClampedArray(this.originalPixelData);
+
+            const multiplier = Math.max(0.01, lifetimeResult.multiplier || 1);
+            const actualYears = Math.max(0, (totalDays || 0) / 365.25);
+            // Convert to equivalent ageing at reference conditions (20°C, 50% RH)
+            const effectiveYears = actualYears / multiplier;
+            // Fade intensity saturates at 200 reference-years
+            const referenceSpan = 200;
+            const fadeIntensity = Math.min(1, effectiveYears / referenceSpan);
+
+            const desaturate = fadeIntensity * 0.75;
+            const yellowing = fadeIntensity * 0.18; // slight warm cast from binder ageing
+
+            for (let i = 0; i < w * h; i++) {
+                const off = i * 4;
+                const r = out[off], g = out[off + 1], b = out[off + 2];
+                const grey = 0.299 * r + 0.587 * g + 0.114 * b;
+                let nr = r * (1 - desaturate) + grey * desaturate;
+                let ng = g * (1 - desaturate) + grey * desaturate;
+                let nb = b * (1 - desaturate) + grey * desaturate;
+                // Warm cast: +R/+G, -B
+                nr += yellowing * 22;
+                ng += yellowing * 10;
+                nb -= yellowing * 22;
+                out[off]     = Math.max(0, Math.min(255, Math.round(nr)));
+                out[off + 1] = Math.max(0, Math.min(255, Math.round(ng)));
+                out[off + 2] = Math.max(0, Math.min(255, Math.round(nb)));
+            }
+            this._applyPixelDataToModel(out, w, h);
+            this.showToast(
+                `⏳ ${multiplier.toFixed(2)}× lifetime → ${actualYears.toFixed(0)}y ≈ ${effectiveYears.toFixed(0)}y at reference conditions`,
+                'info', 3000
+            );
+        },
+
+        /** Helper: apply raw pixel data to the 3D model texture */
+        _applyPixelDataToModel(pixelData, w, h) {
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            canvas.getContext('2d').putImageData(new ImageData(pixelData, w, h), 0, 0);
+            this.model.traverse((child) => {
+                if (child.isMesh && child.material) {
+                    const tex = new THREE.CanvasTexture(canvas);
+                    if (child.material.map) { tex.flipY = child.material.map.flipY; tex.wrapS = child.material.map.wrapS; tex.wrapT = child.material.map.wrapT; }
+                    child.material.map = tex;
+                    child.material.needsUpdate = true;
+                }
+            });
+            this.isProcessing = false;
         },
 
         /**

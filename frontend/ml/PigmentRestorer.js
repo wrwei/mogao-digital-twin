@@ -1,36 +1,36 @@
 /**
  * Pigment Restorer
- * Reconstructs the original vibrant colours of a heritage artefact's texture.
+ * Reconstructs the estimated original vibrant colours of a heritage artefact's texture
+ * using a database-driven per-pigment colour-shift approach.
  *
- * Two modes:
- *   1. Heuristic (default) — per-pigment colour correction using PigmentDatabase target colours.
- *   2. TF.js model — U-Net encoder-decoder (when trained weights exist).
+ * Method: for each texture pixel, look up the target chromaticity of its identified
+ * pigment class (from PigmentDatabase — sourced from Dunhuang Academy conservation
+ * literature and published XRF/Raman studies), then shift the pixel in HSV space
+ * toward that target colour. Restoration intensity is controlled by the `strength`
+ * parameter (0..1).
  *
- * Requires pigmentMap from PigmentIdentifier for the heuristic mode.
+ * References:
+ *   - Tong et al. 2023, Digital technology virtual restoration of the colours and
+ *     textures of polychrome Bodhidharma statue, npj Heritage Science 11:27.
+ *   - Pan & Du 2022, Cave 254 pigment reconstruction, npj Heritage Science 10:98.
+ *   - Dunhuang Academy & Getty Conservation Institute 2010, Conservation of Ancient
+ *     Sites on the Silk Road.
+ *
+ * Note on ML approach: A U-Net inpainting model trained on the MuralDH dataset was
+ * attempted but produced poor results due to domain mismatch (2D murals vs 3D
+ * sculpture UV maps). No public dataset of paired (aged, original) sculpture
+ * textures exists; establishing ground truth requires physical pigment analysis
+ * on a per-object basis, as done in Tong et al. 2023.
  */
 import { PIGMENT_DATABASE, PIGMENT_NAMES, NUM_CLASSES } from './PigmentDatabase.js';
 
 export class PigmentRestorer {
     constructor() {
-        this.model = null;
-        this.mode = 'heuristic';
-        this.ready = false;
+        this.ready = true;
+        this.mode = 'pigment-database';
     }
 
-    async load() {
-        if (window.tf) {
-            try {
-                this.model = await window.tf.loadLayersModel('ml/models/pigment-restorer/model.json');
-                this.mode = 'tfjs';
-                console.log('PigmentRestorer: loaded TF.js model');
-            } catch (_) {
-                console.log('PigmentRestorer: no trained model found, using colour-shift heuristic');
-            }
-        } else {
-            console.log('PigmentRestorer: TF.js not available, using colour-shift heuristic');
-        }
-        this.ready = true;
-    }
+    async load() { /* no-op — no model to load */ }
 
     /**
      * Restore the texture to its estimated original colours.
@@ -42,25 +42,20 @@ export class PigmentRestorer {
      * @returns {{ restoredPixels: Uint8ClampedArray, width: number, height: number }}
      */
     async restore(pixelData, width, height, pigmentMap, strength = 0.65) {
-        if (!this.ready) await this.load();
-
-        let restoredPixels;
-
-        if (this.mode === 'tfjs' && this.model) {
-            restoredPixels = await this._restoreTFJS(pixelData, width, height);
-        } else {
-            restoredPixels = this._restoreHeuristic(pixelData, width, height, pigmentMap, strength);
-        }
-
+        // Yield to the event loop so Vue can render the loading overlay
+        // before starting the (blocking) pixel-level restoration loop.
+        await new Promise(resolve => setTimeout(resolve, 0));
+        const restoredPixels = this._restoreByPigmentDatabase(
+            pixelData, width, height, pigmentMap, strength
+        );
         return { restoredPixels, width, height };
     }
 
-    // ── Heuristic: per-pigment colour correction ─────────────────────
-    _restoreHeuristic(pixelData, width, height, pigmentMap, strength) {
+    // ── Per-pigment database-driven colour reconstruction ────────────
+    _restoreByPigmentDatabase(pixelData, width, height, pigmentMap, strength) {
         const totalPixels = width * height;
         const out = new Uint8ClampedArray(pixelData.length);
 
-        // Pre-compute pigment entries by ID for fast lookup
         const pigmentEntries = new Array(NUM_CLASSES);
         for (const name of PIGMENT_NAMES) {
             const entry = PIGMENT_DATABASE[name];
@@ -77,25 +72,26 @@ export class PigmentRestorer {
             const b = pixelData[off + 2];
             const a = pixelData[off + 3];
 
-            // Blend current colour toward the pigment's original targetRGB
             const tr = entry.targetRGB[0];
             const tg = entry.targetRGB[1];
             const tb = entry.targetRGB[2];
 
-            // Adaptive strength: pixels further from target get stronger correction
-            const dist = Math.sqrt((r - tr) ** 2 + (g - tg) ** 2 + (b - tb) ** 2) / 441; // max dist ≈ 441
+            // Distance-adaptive strength: more degraded pixels get stronger correction
+            const dist = Math.sqrt((r - tr) ** 2 + (g - tg) ** 2 + (b - tb) ** 2) / 441;
             const adaptive = strength * (0.5 + 0.5 * dist);
 
-            // Also boost saturation toward the original
             const { h, s, v } = this._rgbToHsv(r, g, b);
             const { h: th, s: ts, v: tv } = this._rgbToHsv(tr, tg, tb);
 
-            // Blend in HSV space for more natural results
             const nh = this._lerpAngle(h, th, adaptive * 0.7);
             const ns = s + (ts - s) * adaptive;
-            const nv = v + (tv - v) * adaptive * 0.5; // less aggressive on value
+            const nv = v + (tv - v) * adaptive * 0.5;
 
-            const [rr, rg, rb] = this._hsvToRgb(nh, Math.min(1, Math.max(0, ns)), Math.min(1, Math.max(0, nv)));
+            const [rr, rg, rb] = this._hsvToRgb(
+                nh,
+                Math.min(1, Math.max(0, ns)),
+                Math.min(1, Math.max(0, nv))
+            );
 
             out[off] = rr;
             out[off + 1] = rg;
@@ -104,64 +100,6 @@ export class PigmentRestorer {
         }
 
         return out;
-    }
-
-    // ── TF.js inference (U-Net placeholder) ──────────────────────────
-    async _restoreTFJS(pixelData, width, height) {
-        const tf = window.tf;
-        const inputSize = 256;
-
-        // Resize
-        const imgData = new ImageData(new Uint8ClampedArray(pixelData), width, height);
-        const srcCanvas = document.createElement('canvas');
-        srcCanvas.width = width;
-        srcCanvas.height = height;
-        srcCanvas.getContext('2d').putImageData(imgData, 0, 0);
-
-        const canvas = document.createElement('canvas');
-        canvas.width = inputSize;
-        canvas.height = inputSize;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(srcCanvas, 0, 0, inputSize, inputSize);
-        const resized = ctx.getImageData(0, 0, inputSize, inputSize);
-
-        // Prepare tensor (RGB only, normalised to 0-1)
-        const rgb = new Float32Array(inputSize * inputSize * 3);
-        for (let i = 0; i < inputSize * inputSize; i++) {
-            rgb[i * 3] = resized.data[i * 4] / 255;
-            rgb[i * 3 + 1] = resized.data[i * 4 + 1] / 255;
-            rgb[i * 3 + 2] = resized.data[i * 4 + 2] / 255;
-        }
-        const input = tf.tensor4d(rgb, [1, inputSize, inputSize, 3]);
-        const output = this.model.predict(input);
-        const restored = await output.data();
-
-        // Upscale to original resolution via canvas
-        const outCanvas = document.createElement('canvas');
-        outCanvas.width = inputSize;
-        outCanvas.height = inputSize;
-        const outCtx = outCanvas.getContext('2d');
-        const outImgData = outCtx.createImageData(inputSize, inputSize);
-        for (let i = 0; i < inputSize * inputSize; i++) {
-            outImgData.data[i * 4] = Math.round(Math.min(1, Math.max(0, restored[i * 3])) * 255);
-            outImgData.data[i * 4 + 1] = Math.round(Math.min(1, Math.max(0, restored[i * 3 + 1])) * 255);
-            outImgData.data[i * 4 + 2] = Math.round(Math.min(1, Math.max(0, restored[i * 3 + 2])) * 255);
-            outImgData.data[i * 4 + 3] = 255;
-        }
-        outCtx.putImageData(outImgData, 0, 0);
-
-        // Scale to original size
-        const fullCanvas = document.createElement('canvas');
-        fullCanvas.width = width;
-        fullCanvas.height = height;
-        const fullCtx = fullCanvas.getContext('2d');
-        fullCtx.drawImage(outCanvas, 0, 0, width, height);
-        const fullData = fullCtx.getImageData(0, 0, width, height);
-
-        input.dispose();
-        output.dispose();
-
-        return new Uint8ClampedArray(fullData.data);
     }
 
     // ── Colour-space utilities ───────────────────────────────────────
@@ -192,7 +130,11 @@ export class PigmentRestorer {
         else if (h < 240) { g = x; b = c; }
         else if (h < 300) { r = x; b = c; }
         else { r = c; b = x; }
-        return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)];
+        return [
+            Math.round((r + m) * 255),
+            Math.round((g + m) * 255),
+            Math.round((b + m) * 255)
+        ];
     }
 
     _lerpAngle(a, b, t) {
@@ -205,7 +147,5 @@ export class PigmentRestorer {
         return result;
     }
 
-    dispose() {
-        if (this.model) { this.model.dispose(); this.model = null; }
-    }
+    dispose() { /* no-op */ }
 }

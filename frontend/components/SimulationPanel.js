@@ -24,6 +24,18 @@ export default {
         pixelData: {
             type: Object,
             default: null // { data: Uint8ClampedArray, width, height }
+        },
+        externalPigmentMap: {
+            type: Object,
+            default: null
+        },
+        externalRestoredTexture: {
+            type: Object,
+            default: null
+        },
+        externalPigmentDisplayMode: {
+            type: String,
+            default: null
         }
     },
     emits: ['simulation-changed'],
@@ -37,7 +49,6 @@ export default {
             humidity: 50,    // Percentage
             isSimulating: true,   // Always active
             isPlaying: false,    // Time progression play/pause
-            showAdvanced: false,
             temperatureUnit: 'C', // C or F
             simulationSpeed: 1.0, // Multiplier for time-based effects
             // Deterioration simulation parameters
@@ -62,6 +73,8 @@ export default {
             },
             // Active tab
             activeTab: 'chemical',
+            // Selected preset (empty = no preset)
+            selectedPreset: '',
             // Model configuration (expandable)
             showConfig: { chemical: false, lifetime: false, mould: false, saltCryst: false },
             // Configurable model parameters (loaded from backend /deterioration/defaults)
@@ -168,6 +181,28 @@ export default {
         }
     },
     watch: {
+        externalPigmentMap(val) {
+            if (val) { this.pigmentMap = val; this.emitSimulation(); }
+        },
+        externalRestoredTexture(val) {
+            if (val) { this.restoredTexture = val; this.pigmentDisplayMode = 'restored'; this.emitSimulation(); }
+        },
+        externalPigmentDisplayMode(val) {
+            if (val) { this.pigmentDisplayMode = val; this.emitSimulation(); }
+        },
+        activeTab() {
+            // Stop any running simulation and reset texture when switching models
+            if (this.isPlaying) {
+                this.isPlaying = false;
+                this.stopTimeProgression();
+            }
+            this.simDays = 0;
+            this.simMonths = 0;
+            this.simYears = 0;
+            this.mouldIndex = 0;
+            this.selectedPreset = '';
+            this.emitSimulation();
+        },
         temperature() { this.emitSimulation(); },
         humidity() { this.emitSimulation(); },
         simDays() { this.emitSimulation(); },
@@ -265,6 +300,7 @@ export default {
                     value: this.humidity,
                     unit: 'RH'
                 },
+                activeModel: this.activeTab,
                 deterioration: {
                     // Legacy fields for backward compatibility with ModelViewer
                     days: this.simDays,
@@ -344,11 +380,17 @@ export default {
             this.simYears = 0;
             this.simLight = 0;
             this.mouldIndex = 0;
+            this.selectedPreset = '';
         },
 
         resetModelParams(model) {
             // Re-fetch defaults from backend
             this.loadDefaults();
+        },
+
+        onPresetChange(event) {
+            const preset = event.target.value;
+            if (preset) this.applyPreset(preset);
         },
 
         applyPreset(preset) {
@@ -361,6 +403,7 @@ export default {
                 // Long-term heritage scenarios
                 longTerm200: { temp: 20, rh: 50, days: 0, months: 0, years: 200, light: 0.15 },
                 mogao200: { temp: 13, rh: 35, days: 0, months: 0, years: 200, light: 2 },
+                tropical200: { temp: 28, rh: 75, days: 0, months: 0, years: 200, light: 5 },
             };
             const p = presets[preset];
             if (p) {
@@ -568,6 +611,10 @@ export default {
     },
 
     mounted() {
+        // Pick up any pigment data already available from the Pigment Analysis panel
+        if (this.externalPigmentMap) this.pigmentMap = this.externalPigmentMap;
+        if (this.externalRestoredTexture) this.restoredTexture = this.externalRestoredTexture;
+        if (this.externalPigmentDisplayMode) this.pigmentDisplayMode = this.externalPigmentDisplayMode;
         this.loadDefaults();
         this.$nextTick(() => { this.initChart(); this.emitSimulation(); });
     },
@@ -586,7 +633,6 @@ export default {
             <div class="sim-header">
                 <div class="sim-header-top">
                     <h3 class="sim-title">🧪 {{ t('simulation.title') }}</h3>
-                    <button @click="showAdvanced = !showAdvanced" class="sim-gear-btn" :title="t('simulation.advanced')">⚙️</button>
                 </div>
                 <div class="sim-controls">
                     <button @click="toggleTimeProgression" class="sim-play-btn" :class="{ playing: isPlaying }">
@@ -610,21 +656,15 @@ export default {
             </div>
 
             <div class="simulation-body">
-                <!-- ── Model Tabs ─────────────────────────────────── -->
-                <div class="sim-tabs">
-                    <button class="sim-tab" :class="{ active: activeTab === 'chemical' }" @click="activeTab = 'chemical'">
-                        ⚗️ Chemical
-                    </button>
-                    <button class="sim-tab" :class="{ active: activeTab === 'lifetime' }" @click="activeTab = 'lifetime'">
-                        ⏳ Lifetime
-                    </button>
-                    <button class="sim-tab" :class="{ active: activeTab === 'mould' }" @click="activeTab = 'mould'">
-                        🦠 Mould
-                    </button>
-                    <button class="sim-tab" :class="{ active: activeTab === 'salt' }" @click="activeTab = 'salt'">
-                        🧂 Salt
-                    </button>
-                </div>
+                <!-- ── Models card ──────────────────────────────────── -->
+                <div class="sim-card">
+                    <div class="sim-card-title">Models</div>
+                    <select class="preset-select" v-model="activeTab" style="margin-bottom: 14px;">
+                        <option value="chemical">⚗️ Chemical Pigment Fading (Arrhenius + Paltakari–Karlsson)</option>
+                        <option value="lifetime">⏳ Michalski Lifetime Multiplier (Climate for Culture eLM)</option>
+                        <option value="mould">🦠 VTT / Finnish Mould Growth (Hukka &amp; Viitanen 1999)</option>
+                        <option value="salt">🧂 Salt Crystallisation Pressure (Scherer 1999 / Steiger 2005)</option>
+                    </select>
 
                 <!-- ═══ CHEMICAL TAB ═══ -->
                 <!-- ═══ CHEMICAL TAB ═══ -->
@@ -636,21 +676,21 @@ export default {
                                 <span class="sim-compact-label">🌡️ {{ t('simulation.temperature') }}</span>
                                 <span class="sim-compact-value" :style="{ color: temperatureColor }">{{ temperature.toFixed(1) }}°{{ temperatureUnit }}</span>
                             </div>
-                            <input type="range" v-model.number="temperature" :min="temperatureUnit === 'C' ? -10 : 14" :max="temperatureUnit === 'C' ? 40 : 104" step="0.5" class="simulation-slider" :style="{ '--slider-color': temperatureColor }" />
+                            <input type="range" v-model.number="temperature" :min="temperatureUnit === 'C' ? -10 : 14" :max="temperatureUnit === 'C' ? 40 : 104" step="0.5" class="simulation-slider" />
                         </div>
                         <div class="sim-compact-control">
                             <div class="sim-compact-control-header">
                                 <span class="sim-compact-label">💧 {{ t('simulation.humidity') }}</span>
                                 <span class="sim-compact-value" :style="{ color: humidityColor }">{{ humidity.toFixed(0) }}%</span>
                             </div>
-                            <input type="range" v-model.number="humidity" min="10" max="90" step="1" class="simulation-slider" :style="{ '--slider-color': humidityColor }" />
+                            <input type="range" v-model.number="humidity" min="10" max="90" step="1" class="simulation-slider" />
                         </div>
                         <div class="sim-compact-control">
                             <div class="sim-compact-control-header">
                                 <span class="sim-compact-label">💡 {{ t('simulation.light') }}</span>
                                 <span class="sim-compact-value" :style="{ color: lightColor }">{{ simLight.toFixed(1) }} klux</span>
                             </div>
-                            <input type="range" v-model.number="simLight" min="0" max="50" step="0.5" class="simulation-slider" :style="{ '--slider-color': lightColor }" />
+                            <input type="range" v-model.number="simLight" min="0" max="50" step="0.5" class="simulation-slider" />
                         </div>
                         <div class="sim-compact-control">
                             <div class="sim-compact-control-header">
@@ -691,14 +731,14 @@ export default {
                                 <span class="sim-compact-label">🌡️ {{ t('simulation.temperature') }}</span>
                                 <span class="sim-compact-value" :style="{ color: temperatureColor }">{{ temperature.toFixed(1) }}°{{ temperatureUnit }}</span>
                             </div>
-                            <input type="range" v-model.number="temperature" :min="temperatureUnit === 'C' ? -10 : 14" :max="temperatureUnit === 'C' ? 40 : 104" step="0.5" class="simulation-slider" :style="{ '--slider-color': temperatureColor }" />
+                            <input type="range" v-model.number="temperature" :min="temperatureUnit === 'C' ? -10 : 14" :max="temperatureUnit === 'C' ? 40 : 104" step="0.5" class="simulation-slider" />
                         </div>
                         <div class="sim-compact-control">
                             <div class="sim-compact-control-header">
                                 <span class="sim-compact-label">💧 {{ t('simulation.humidity') }}</span>
                                 <span class="sim-compact-value" :style="{ color: humidityColor }">{{ humidity.toFixed(0) }}%</span>
                             </div>
-                            <input type="range" v-model.number="humidity" min="10" max="90" step="1" class="simulation-slider" :style="{ '--slider-color': humidityColor }" />
+                            <input type="range" v-model.number="humidity" min="10" max="90" step="1" class="simulation-slider" />
                         </div>
                     </div>
                     <div class="sim-tab-result">
@@ -726,14 +766,14 @@ export default {
                                 <span class="sim-compact-label">🌡️ {{ t('simulation.temperature') }}</span>
                                 <span class="sim-compact-value" :style="{ color: temperatureColor }">{{ temperature.toFixed(1) }}°{{ temperatureUnit }}</span>
                             </div>
-                            <input type="range" v-model.number="temperature" :min="temperatureUnit === 'C' ? -10 : 14" :max="temperatureUnit === 'C' ? 40 : 104" step="0.5" class="simulation-slider" :style="{ '--slider-color': temperatureColor }" />
+                            <input type="range" v-model.number="temperature" :min="temperatureUnit === 'C' ? -10 : 14" :max="temperatureUnit === 'C' ? 40 : 104" step="0.5" class="simulation-slider" />
                         </div>
                         <div class="sim-compact-control">
                             <div class="sim-compact-control-header">
                                 <span class="sim-compact-label">💧 {{ t('simulation.humidity') }}</span>
                                 <span class="sim-compact-value" :style="{ color: humidityColor }">{{ humidity.toFixed(0) }}%</span>
                             </div>
-                            <input type="range" v-model.number="humidity" min="10" max="90" step="1" class="simulation-slider" :style="{ '--slider-color': humidityColor }" />
+                            <input type="range" v-model.number="humidity" min="10" max="90" step="1" class="simulation-slider" />
                         </div>
                         <div class="sim-compact-control">
                             <div class="sim-compact-control-header">
@@ -776,14 +816,14 @@ export default {
                                 <span class="sim-compact-label">🌡️ {{ t('simulation.temperature') }}</span>
                                 <span class="sim-compact-value" :style="{ color: temperatureColor }">{{ temperature.toFixed(1) }}°{{ temperatureUnit }}</span>
                             </div>
-                            <input type="range" v-model.number="temperature" :min="temperatureUnit === 'C' ? -10 : 14" :max="temperatureUnit === 'C' ? 40 : 104" step="0.5" class="simulation-slider" :style="{ '--slider-color': temperatureColor }" />
+                            <input type="range" v-model.number="temperature" :min="temperatureUnit === 'C' ? -10 : 14" :max="temperatureUnit === 'C' ? 40 : 104" step="0.5" class="simulation-slider" />
                         </div>
                         <div class="sim-compact-control">
                             <div class="sim-compact-control-header">
                                 <span class="sim-compact-label">💧 {{ t('simulation.humidity') }}</span>
                                 <span class="sim-compact-value" :style="{ color: humidityColor }">{{ humidity.toFixed(0) }}%</span>
                             </div>
-                            <input type="range" v-model.number="humidity" min="10" max="90" step="1" class="simulation-slider" :style="{ '--slider-color': humidityColor }" />
+                            <input type="range" v-model.number="humidity" min="10" max="90" step="1" class="simulation-slider" />
                         </div>
                         <div class="sim-compact-control">
                             <div class="sim-compact-control-header">
@@ -828,22 +868,27 @@ export default {
                     </div>
                 </div>
 
-                <!-- Advanced Settings -->
-                <div v-if="showAdvanced" class="simulation-advanced">
-                    <hr style="margin: 16px 0; border: none; border-top: 1px solid #e0e0e0;" />
+                </div>
+                <!-- ── /Models card ─────────────────────────────────── -->
+
+                <!-- ── Advanced card ────────────────────────────────── -->
+                <div class="sim-card">
+                    <div class="sim-card-title">Advanced</div>
 
                     <!-- Quick Presets -->
                     <div class="control-group" style="margin-bottom: 16px;">
                         <label class="control-label" style="font-weight: 600; margin-bottom: 8px; display: block;">📊 Quick Presets:</label>
-                        <div style="display: flex; gap: 5px; flex-wrap: wrap;">
-                            <button @click="applyPreset('oneYear')" class="btn btn-xs">1 Year</button>
-                            <button @click="applyPreset('tenYears')" class="btn btn-xs">10 Years</button>
-                            <button @click="applyPreset('museum')" class="btn btn-xs">Museum 100y</button>
-                            <button @click="applyPreset('poorStorage')" class="btn btn-xs">Poor Storage 50y</button>
-                            <button @click="applyPreset('extreme')" class="btn btn-xs">Extreme 10y</button>
-                            <button @click="applyPreset('longTerm200')" class="btn btn-xs" style="background: #f59e0b; color: white; border-color: #f59e0b;">200y Museum</button>
-                            <button @click="applyPreset('mogao200')" class="btn btn-xs" style="background: #8B4513; color: white; border-color: #8B4513;">200y Mogao</button>
-                        </div>
+                        <select class="preset-select" v-model="selectedPreset" @change="onPresetChange($event)">
+                            <option value="" disabled>Choose a preset…</option>
+                            <option value="oneYear">1 Year — T=25°C, RH=60%, light=10 klux</option>
+                            <option value="tenYears">10 Years — T=25°C, RH=60%, light=10 klux</option>
+                            <option value="museum">Museum 100y — T=20°C, RH=50%, light=0.15 klux</option>
+                            <option value="poorStorage">Poor Storage 50y — T=30°C, RH=80%, light=5 klux</option>
+                            <option value="extreme">Extreme 10y — T=40°C, RH=100%, light=30 klux</option>
+                            <option value="longTerm200">200y Museum — T=20°C, RH=50%, light=0.15 klux</option>
+                            <option value="mogao200">200y Mogao (cold/dry cave) — T=13°C, RH=35%, light=2 klux</option>
+                            <option value="tropical200">200y Tropical (humid/warm) — T=28°C, RH=75%, light=5 klux</option>
+                        </select>
                     </div>
 
                     <!-- Exposure Time Control -->
@@ -868,30 +913,6 @@ export default {
                             <span>50</span>
                             <span>100</span>
                             <span>200 years</span>
-                        </div>
-                    </div>
-
-                    <!-- Light Intensity -->
-                    <div class="simulation-control">
-                        <div class="control-header">
-                            <label class="control-label">
-                                💡 Light Intensity
-                            </label>
-                            <div class="control-value-display">
-                                {{ simLight.toFixed(1) }} klux
-                            </div>
-                        </div>
-                        <input
-                            type="range"
-                            v-model.number="simLight"
-                            min="0"
-                            max="50"
-                            step="0.5"
-                            class="simulation-slider"
-                            :disabled="false"
-                        />
-                        <div class="control-status" style="font-size: 11px; font-style: italic;">
-                            0 = dark, 0.05-0.2 = museum, 10+ = excessive
                         </div>
                     </div>
 
@@ -959,14 +980,6 @@ export default {
                             {{ timeSeriesData.length }} data points
                         </p>
                     </div>
-                    <!-- ML Pigment Analysis -->
-                    <hr style="margin: 16px 0; border: none; border-top: 1px solid #e0e0e0;" />
-                    <pigment-analysis-panel
-                        :pixel-data="pixelData"
-                        @pigment-analyzed="handlePigmentAnalyzed"
-                        @texture-restored="handleTextureRestored"
-                        @display-mode-changed="handleDisplayModeChanged"
-                    ></pigment-analysis-panel>
                 </div>
             </div>
         </div>

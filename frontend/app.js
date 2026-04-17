@@ -1199,6 +1199,7 @@ const app = createApp({
 
             // Theme
             currentTheme: localStorage.getItem('mgemini-theme') || 'mogao',
+
         };
     },
 
@@ -1398,6 +1399,7 @@ const app = createApp({
                         ></settings-view>
                     </div>
                 </div>
+
             </div>
         </div>
     `

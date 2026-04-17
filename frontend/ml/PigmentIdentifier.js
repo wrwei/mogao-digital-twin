@@ -1,10 +1,7 @@
 /**
  * Pigment Identifier
- * Segments a texture image into pigment regions.
- *
- * Two modes:
- *   1. Heuristic (default) — HSV colour-space classification tuned for Dunhuang pigments.
- *   2. TF.js model — MobileNet-v2 encoder + segmentation head (when trained weights exist).
+ * Segments a texture image into pigment regions using HSV colour-space
+ * classification tuned for Dunhuang pigments.
  *
  * Output: per-pixel pigment class ID (Uint8Array) matching PIGMENT_DATABASE keys.
  */
@@ -12,25 +9,7 @@ import { PIGMENT_DATABASE, PIGMENT_NAMES, NUM_CLASSES } from './PigmentDatabase.
 
 export class PigmentIdentifier {
     constructor() {
-        this.model = null;
-        this.mode = 'heuristic'; // 'heuristic' | 'tfjs'
         this.ready = false;
-    }
-
-    async load() {
-        // Try loading a TF.js model; fall back to heuristic silently
-        if (window.tf) {
-            try {
-                this.model = await window.tf.loadLayersModel('ml/models/pigment-identifier/model.json');
-                this.mode = 'tfjs';
-                console.log('PigmentIdentifier: loaded TF.js model');
-            } catch (_) {
-                console.log('PigmentIdentifier: no trained model found, using HSV heuristic');
-            }
-        } else {
-            console.log('PigmentIdentifier: TF.js not available, using HSV heuristic');
-        }
-        this.ready = true;
     }
 
     /**
@@ -41,16 +20,11 @@ export class PigmentIdentifier {
      * @returns {{ pigmentMap: Uint8Array, pigmentNames: string[], confidence: Float32Array, regionSummary: object[] }}
      */
     async identify(pixelData, width, height) {
-        if (!this.ready) await this.load();
-
-        let pigmentMap;
-        let confidence;
-
-        if (this.mode === 'tfjs' && this.model) {
-            ({ pigmentMap, confidence } = await this._inferTFJS(pixelData, width, height));
-        } else {
-            ({ pigmentMap, confidence } = this._inferHeuristic(pixelData, width, height));
-        }
+        this.ready = true;
+        // Yield to the event loop so Vue can render the loading overlay
+        // before starting the (blocking) per-pixel classification loop.
+        await new Promise(resolve => setTimeout(resolve, 0));
+        const { pigmentMap, confidence } = this._inferHeuristic(pixelData, width, height);
 
         // Build region summary
         const counts = new Uint32Array(NUM_CLASSES);
@@ -116,57 +90,6 @@ export class PigmentIdentifier {
         return { pigmentMap, confidence };
     }
 
-    // ── TF.js inference (placeholder) ────────────────────────────────
-    async _inferTFJS(pixelData, width, height) {
-        const tf = window.tf;
-        const inputSize = 256;
-
-        // Resize to model input via canvas
-        const canvas = document.createElement('canvas');
-        canvas.width = inputSize;
-        canvas.height = inputSize;
-        const ctx = canvas.getContext('2d');
-        const imgData = new ImageData(new Uint8ClampedArray(pixelData), width, height);
-        const srcCanvas = document.createElement('canvas');
-        srcCanvas.width = width;
-        srcCanvas.height = height;
-        srcCanvas.getContext('2d').putImageData(imgData, 0, 0);
-        ctx.drawImage(srcCanvas, 0, 0, inputSize, inputSize);
-        const resized = ctx.getImageData(0, 0, inputSize, inputSize);
-
-        // Run model
-        const inputTensor = tf.tensor3d(
-            new Float32Array(resized.data.filter((_, i) => i % 4 !== 3)), // drop alpha
-            [inputSize, inputSize, 3]
-        ).div(255).expandDims(0);
-
-        const output = this.model.predict(inputTensor);
-        const classMap = output.argMax(-1).squeeze();
-        const smallMap = await classMap.data();
-
-        // Upscale to original resolution (nearest-neighbour)
-        const totalPixels = width * height;
-        const pigmentMap = new Uint8Array(totalPixels);
-        const confidence = new Float32Array(totalPixels);
-        const scaleX = inputSize / width;
-        const scaleY = inputSize / height;
-
-        for (let y = 0; y < height; y++) {
-            for (let x = 0; x < width; x++) {
-                const sx = Math.min(inputSize - 1, Math.floor(x * scaleX));
-                const sy = Math.min(inputSize - 1, Math.floor(y * scaleY));
-                pigmentMap[y * width + x] = smallMap[sy * inputSize + sx];
-                confidence[y * width + x] = 0.8;
-            }
-        }
-
-        inputTensor.dispose();
-        output.dispose();
-        classMap.dispose();
-
-        return { pigmentMap, confidence };
-    }
-
     // ── Utility ──────────────────────────────────────────────────────
     _rgbToHsv(r, g, b) {
         r /= 255; g /= 255; b /= 255;
@@ -186,6 +109,6 @@ export class PigmentIdentifier {
     }
 
     dispose() {
-        if (this.model) { this.model.dispose(); this.model = null; }
+        // No resources to release (heuristic-only)
     }
 }

@@ -5,6 +5,7 @@
 import CaveCard from './CaveCard.js';
 import ModelViewer from './ModelViewer.js';
 import SimulationPanel from './SimulationPanel.js';
+import PigmentAnalysisPanel from './PigmentAnalysisPanel.js';
 import StatueForm from './StatueForm.js';
 import MuralForm from './MuralForm.js';
 import PaintingForm from './PaintingForm.js';
@@ -19,7 +20,7 @@ export default {
         return { t, isGuest };
     },
     components: {
-        CaveCard, ModelViewer, SimulationPanel,
+        CaveCard, ModelViewer, SimulationPanel, PigmentAnalysisPanel,
         StatueForm, MuralForm, PaintingForm, InscriptionForm
     },
     props: {
@@ -48,7 +49,16 @@ export default {
             // Edit modal
             editModal: false,
             editType: null,
-            editItem: null
+            editItem: null,
+            // Right-side panel toggle
+            activePanel: 'pigment', // 'pigment' | 'simulation'
+            // Panel busy state
+            panelBusy: false,
+            simDisabledMsg: null,
+            // Shared pigment analysis state
+            pigmentMap: null,
+            restoredTexture: null,
+            pigmentDisplayMode: 'current'
         };
     },
     mounted() {
@@ -116,8 +126,43 @@ export default {
             } catch (err) { console.error('Failed to fetch heritage assets:', err); }
             finally { this.assetsLoading = false; }
         },
+        handleSimulationClick() {
+            if (!this.pigmentMap) {
+                this.simDisabledMsg = 'Run Pigment Analysis first before starting a simulation.';
+                setTimeout(() => { this.simDisabledMsg = null; }, 4000);
+                return;
+            }
+            this.activePanel = 'simulation';
+        },
         handleSimulationChanged(data) { this.simulationData = data; },
         handlePixelDataReady(data) { this.texturePixelData = data; },
+        handlePigmentAnalyzed(result) { this.pigmentMap = result.pigmentMap; },
+        handleTextureRestored(result) {
+            this.restoredTexture = result;
+            this.pigmentDisplayMode = 'restored';
+            this._pushDisplayMode('restored');
+        },
+        handlePigmentDisplayModeChanged(mode) {
+            this.pigmentDisplayMode = mode;
+            this._pushDisplayMode(mode);
+        },
+        /** Directly update ModelViewer with display mode when Simulation panel hasn't emitted */
+        _pushDisplayMode(mode) {
+            this.simulationData = {
+                ...(this.simulationData || {}),
+                activeModel: 'chemical',
+                temperature: this.simulationData?.temperature || { celsius: 20, value: 293.15, unit: 'K' },
+                humidity: this.simulationData?.humidity || { value: 50, unit: 'RH' },
+                deterioration: {
+                    ...(this.simulationData?.deterioration || {}),
+                    totalDays: this.simulationData?.deterioration?.totalDays || 0,
+                    pigmentMap: this.pigmentMap,
+                    perPigmentParams: this.simulationData?.deterioration?.perPigmentParams || null,
+                    restoredTexture: this.restoredTexture,
+                    pigmentDisplayMode: mode
+                }
+            };
+        },
         statusColor(status) {
             return { excellent: '#10b981', good: '#3b82f6', fair: '#f59e0b', poor: '#ef4444', critical: '#dc2626' }[status] || '#6b7280';
         },
@@ -363,6 +408,11 @@ export default {
                     <span class="breadcrumb-sep">/</span>
                     <span class="breadcrumb-current">{{ selectedExhibit.name }}</span>
                 </div>
+                <div class="tool-buttons-bar">
+                    <button class="tool-btn" :class="{ active: activePanel === 'pigment' }" :disabled="panelBusy" @click="activePanel = 'pigment'">Pigment Analysis</button>
+                    <button class="tool-btn" :class="{ active: activePanel === 'simulation' }" :disabled="panelBusy || !pigmentMap" @click="handleSimulationClick">Simulation</button>
+                    <span v-if="simDisabledMsg" class="tool-btn-hint">{{ simDisabledMsg }}</span>
+                </div>
                 <div style="flex: 1; display: flex; flex-direction: row; padding: 16px; overflow: hidden;">
                     <div style="flex: 1; display: flex; flex-direction: column; align-items: center; padding-right: 8px; overflow-y: auto;">
                         <div style="flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; margin: auto 0;">
@@ -379,7 +429,8 @@ export default {
                         <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 3px; height: 32px; background: white; border-radius: 2px; opacity: 0.6;"></div>
                     </div>
                     <div :style="{ width: simulationPanelWidth + 'px', flexShrink: 0, display: 'flex', flexDirection: 'column', height: '100%', overflowY: 'auto', scrollBehavior: 'smooth', paddingLeft: '8px' }">
-                        <simulation-panel :entity="selectedExhibit" :pixel-data="texturePixelData" @simulation-changed="handleSimulationChanged"></simulation-panel>
+                        <simulation-panel v-show="activePanel === 'simulation'" :entity="selectedExhibit" :pixel-data="texturePixelData" :external-pigment-map="pigmentMap" :external-restored-texture="restoredTexture" :external-pigment-display-mode="pigmentDisplayMode" @simulation-changed="handleSimulationChanged"></simulation-panel>
+                        <pigment-analysis-panel v-show="activePanel === 'pigment'" :pixel-data="texturePixelData" @pigment-analyzed="handlePigmentAnalyzed" @texture-restored="handleTextureRestored" @display-mode-changed="handlePigmentDisplayModeChanged" @busy-changed="panelBusy = $event"></pigment-analysis-panel>
                     </div>
                 </div>
             </template>

@@ -81,8 +81,11 @@ app.use('/users', loginRateLimiter, userRouter);
 // Apply auth middleware to all subsequent routes
 app.use(authMiddleware);
 
-// Restrict write operations for guests
-app.use(requireWriteAccess);
+// Restrict write operations for guests (exempt computation endpoints)
+app.use((req, res, next) => {
+    if (req.path.startsWith('/deterioration')) return next();
+    return requireWriteAccess(req, res, next);
+});
 
 // Import routers
 const caveRouter = require('./routers/caveRouter');
