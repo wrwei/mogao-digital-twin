@@ -349,6 +349,25 @@ export const messages = {
             urgent: '需要立即处理'
         },
 
+        // Pigment Analysis Panel
+        pigmentAnalysis: {
+            title: '颜料分析',
+            identifyBtn: '识别颜料',
+            restoreBtn: '恢复色彩',
+            identifying: '正在识别颜料…',
+            restoring: '正在恢复色彩…',
+            displayCurrent: '当前',
+            displayPigmentMap: '颜料分布',
+            displayRestored: '已恢复',
+            restorationStrength: '恢复强度',
+            detectedPigments: '已检测颜料',
+            emptyHint: '点击"识别颜料"以分析贴图',
+            errorNoPixelData: '未找到贴图数据，请先加载带贴图的模型。',
+            errorNoTexture: '无可用贴图数据。',
+            analysisFailed: '分析失败：',
+            restorationFailed: '恢复失败：'
+        },
+
         // Form Validation
         validation: {
             required: '{field}是必填项',
@@ -697,6 +716,25 @@ export const messages = {
             type: 'Type',
             affectedArea: 'Affected Area',
             urgent: 'Requires Immediate Action'
+        },
+
+        // Pigment Analysis Panel
+        pigmentAnalysis: {
+            title: 'Pigment Analysis',
+            identifyBtn: 'Identify Pigments',
+            restoreBtn: 'Restore Colours',
+            identifying: 'Identifying pigments…',
+            restoring: 'Restoring colours…',
+            displayCurrent: 'Current',
+            displayPigmentMap: 'Pigment Map',
+            displayRestored: 'Restored',
+            restorationStrength: 'Restoration Strength',
+            detectedPigments: 'Detected Pigments',
+            emptyHint: 'Click "Identify Pigments" to analyse the texture',
+            errorNoPixelData: 'No texture pixel data available. Load a model with a texture first.',
+            errorNoTexture: 'No texture data available.',
+            analysisFailed: 'Analysis failed: ',
+            restorationFailed: 'Restoration failed: '
         },
 
         // Form Validation

@@ -41,6 +41,20 @@
     border-bottom: 1px solid #e5e5e5;
 }
 
+.salt-note {
+    margin-top: 12px;
+    padding: 10px 12px;
+    background: #fff8e8;
+    border-left: 3px solid #f59e0b;
+    border-radius: 6px;
+    font-size: 11px;
+    line-height: 1.5;
+    color: #5c4a1a;
+}
+
+.salt-note strong { color: #8b5a00; }
+.salt-note em { font-style: italic; }
+
 .preset-select {
     width: 100%;
     padding: 7px 10px;

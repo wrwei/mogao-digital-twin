@@ -54,6 +54,7 @@ export default {
             activePanel: 'pigment', // 'pigment' | 'simulation'
             // Panel busy state
             panelBusy: false,
+            textureProcessing: false,
             simDisabledMsg: null,
             // Shared pigment analysis state
             pigmentMap: null,
@@ -136,6 +137,10 @@ export default {
         },
         handleSimulationChanged(data) { this.simulationData = data; },
         handlePixelDataReady(data) { this.texturePixelData = data; },
+        handleTextureProcessing(v) { this.textureProcessing = v; },
+        handleResetTexture() {
+            if (this.$refs.modelViewer) this.$refs.modelViewer.resetTexture();
+        },
         handlePigmentAnalyzed(result) { this.pigmentMap = result.pigmentMap; },
         handleTextureRestored(result) {
             this.restoredTexture = result;
@@ -277,9 +282,14 @@ export default {
             <!-- ═══ CAVE DETAIL MODE (Principia project-style) ═══ -->
             <template v-if="mode === 'cave' && openedCave">
                 <!-- Top buttons -->
-                <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                <div style="display: flex; gap: 10px; margin-bottom: 12px;">
                     <button class="project-action-btn" @click="backToList" style="padding: 6px 16px;">← {{ t('common.back') }}</button>
                     <button class="project-action-btn" style="color: var(--secondary-color); border-color: var(--secondary-color); padding: 6px 16px;" @click="$emit('edit', openedCave)">{{ t('common.edit') }}</button>
+                </div>
+                <div class="page-breadcrumb">
+                    <span class="breadcrumb-link" @click="backToList">{{ t('entities.caves') }}</span>
+                    <span class="breadcrumb-sep">/</span>
+                    <span class="breadcrumb-current">{{ openedCave.name }}</span>
                 </div>
 
                 <!-- Cave Info Card -->
@@ -409,14 +419,14 @@ export default {
                     <span class="breadcrumb-current">{{ selectedExhibit.name }}</span>
                 </div>
                 <div class="tool-buttons-bar">
-                    <button class="tool-btn" :class="{ active: activePanel === 'pigment' }" :disabled="panelBusy" @click="activePanel = 'pigment'">Pigment Analysis</button>
-                    <button class="tool-btn" :class="{ active: activePanel === 'simulation' }" :disabled="panelBusy || !pigmentMap" @click="handleSimulationClick">Simulation</button>
+                    <button class="tool-btn" :class="{ active: activePanel === 'pigment' }" :disabled="panelBusy || textureProcessing" @click="activePanel = 'pigment'">Pigment Analysis</button>
+                    <button class="tool-btn" :class="{ active: activePanel === 'simulation' }" :disabled="panelBusy || textureProcessing || !pigmentMap" @click="handleSimulationClick">Simulation</button>
                     <span v-if="simDisabledMsg" class="tool-btn-hint">{{ simDisabledMsg }}</span>
                 </div>
                 <div style="flex: 1; display: flex; flex-direction: row; padding: 16px; overflow: hidden;">
                     <div style="flex: 1; display: flex; flex-direction: column; align-items: center; padding-right: 8px; overflow-y: auto;">
                         <div style="flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; margin: auto 0;">
-                            <model-viewer :asset-reference="selectedExhibit.reference" v-model:autoRotate="autoRotate" :width="viewerWidth" :height="viewerHeight" :simulation-data="simulationData" @pixel-data-ready="handlePixelDataReady"></model-viewer>
+                            <model-viewer ref="modelViewer" :asset-reference="selectedExhibit.reference" v-model:autoRotate="autoRotate" :width="viewerWidth" :height="viewerHeight" :simulation-data="simulationData" @pixel-data-ready="handlePixelDataReady" @processing-changed="handleTextureProcessing"></model-viewer>
                             <div style="margin-top: 12px; padding: 8px 16px; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
                                 <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 13px; font-weight: 500;">
                                     <input type="checkbox" v-model="autoRotate" style="cursor: pointer; width: 16px; height: 16px; accent-color: #8B4513;" />
@@ -429,7 +439,7 @@ export default {
                         <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 3px; height: 32px; background: white; border-radius: 2px; opacity: 0.6;"></div>
                     </div>
                     <div :style="{ width: simulationPanelWidth + 'px', flexShrink: 0, display: 'flex', flexDirection: 'column', height: '100%', overflowY: 'auto', scrollBehavior: 'smooth', paddingLeft: '8px' }">
-                        <simulation-panel v-show="activePanel === 'simulation'" :entity="selectedExhibit" :pixel-data="texturePixelData" :external-pigment-map="pigmentMap" :external-restored-texture="restoredTexture" :external-pigment-display-mode="pigmentDisplayMode" @simulation-changed="handleSimulationChanged"></simulation-panel>
+                        <simulation-panel v-show="activePanel === 'simulation'" :entity="selectedExhibit" :pixel-data="texturePixelData" :external-pigment-map="pigmentMap" :external-restored-texture="restoredTexture" :external-pigment-display-mode="pigmentDisplayMode" :texture-processing="textureProcessing" @simulation-changed="handleSimulationChanged" @reset-texture="handleResetTexture" @busy-changed="panelBusy = $event"></simulation-panel>
                         <pigment-analysis-panel v-show="activePanel === 'pigment'" :pixel-data="texturePixelData" @pigment-analyzed="handlePigmentAnalyzed" @texture-restored="handleTextureRestored" @display-mode-changed="handlePigmentDisplayModeChanged" @busy-changed="panelBusy = $event"></pigment-analysis-panel>
                     </div>
                 </div>

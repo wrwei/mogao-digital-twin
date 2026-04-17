@@ -13,6 +13,8 @@ export const PIGMENT_DATABASE = {
     background: {
         id: 0,
         displayName: '底色 Ground/Substrate',
+        displayZh: '底色',
+        displayEn: 'Ground/Substrate',
         Ea_dark: 70000,
         Ea_light: 25000,
         k0_dark: 0.0001,
@@ -26,6 +28,8 @@ export const PIGMENT_DATABASE = {
     azurite: {
         id: 1,
         displayName: '石青 Azurite',
+        displayZh: '石青',
+        displayEn: 'Azurite',
         Ea_dark: 85000,
         Ea_light: 18000,
         k0_dark: 0.00005,
@@ -39,6 +43,8 @@ export const PIGMENT_DATABASE = {
     malachite: {
         id: 2,
         displayName: '石绿 Malachite',
+        displayZh: '石绿',
+        displayEn: 'Malachite',
         Ea_dark: 90000,
         Ea_light: 22000,
         k0_dark: 0.00003,
@@ -52,6 +58,8 @@ export const PIGMENT_DATABASE = {
     vermilion: {
         id: 3,
         displayName: '朱砂 Vermilion',
+        displayZh: '朱砂',
+        displayEn: 'Vermilion',
         Ea_dark: 75000,
         Ea_light: 15000,
         k0_dark: 0.00008,
@@ -65,6 +73,8 @@ export const PIGMENT_DATABASE = {
     leadWhite: {
         id: 4,
         displayName: '铅白 Lead White',
+        displayZh: '铅白',
+        displayEn: 'Lead White',
         Ea_dark: 65000,
         Ea_light: 30000,
         k0_dark: 0.00015,
@@ -78,6 +88,8 @@ export const PIGMENT_DATABASE = {
     goldLeaf: {
         id: 5,
         displayName: '金箔 Gold Leaf',
+        displayZh: '金箔',
+        displayEn: 'Gold Leaf',
         Ea_dark: 120000,
         Ea_light: 50000,
         k0_dark: 0.000001,
@@ -91,6 +103,8 @@ export const PIGMENT_DATABASE = {
     redOchre: {
         id: 6,
         displayName: '赭石 Red Ochre',
+        displayZh: '赭石',
+        displayEn: 'Red Ochre',
         Ea_dark: 95000,
         Ea_light: 35000,
         k0_dark: 0.00002,
@@ -104,6 +118,8 @@ export const PIGMENT_DATABASE = {
     carbonBlack: {
         id: 7,
         displayName: '墨 Carbon Black',
+        displayZh: '墨',
+        displayEn: 'Carbon Black',
         Ea_dark: 110000,
         Ea_light: 45000,
         k0_dark: 0.000005,

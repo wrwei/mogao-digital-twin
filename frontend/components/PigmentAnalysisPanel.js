@@ -15,8 +15,8 @@ export default {
     },
     emits: ['pigment-analyzed', 'texture-restored', 'display-mode-changed', 'busy-changed'],
     setup() {
-        const { t } = useI18n();
-        return { t };
+        const { t, locale } = useI18n();
+        return { t, locale };
     },
     data() {
         return {
@@ -43,7 +43,7 @@ export default {
     methods: {
         async analyzePigments() {
             if (!this.pixelData) {
-                this.error = 'No texture pixel data available. Load a model with a texture first.';
+                this.error = this.t('pigmentAnalysis.errorNoPixelData');
                 return;
             }
             this.analyzing = true;
@@ -65,7 +65,7 @@ export default {
                 });
             } catch (err) {
                 console.error('Pigment analysis failed:', err);
-                this.error = 'Analysis failed: ' + err.message;
+                this.error = this.t('pigmentAnalysis.analysisFailed') + err.message;
             } finally {
                 this.analyzing = false;
                 this.$emit('busy-changed', false);
@@ -74,7 +74,7 @@ export default {
 
         async restoreColors() {
             if (!this.pixelData) {
-                this.error = 'No texture data available.';
+                this.error = this.t('pigmentAnalysis.errorNoTexture');
                 return;
             }
             this.restoring = true;
@@ -97,7 +97,7 @@ export default {
                 this.setDisplayMode('restored');
             } catch (err) {
                 console.error('Colour restoration failed:', err);
-                this.error = 'Restoration failed: ' + err.message;
+                this.error = this.t('pigmentAnalysis.restorationFailed') + err.message;
             } finally {
                 this.restoring = false;
                 this.$emit('busy-changed', false);
@@ -121,13 +121,13 @@ export default {
             <!-- Loading overlay -->
             <div v-if="busy" style="position: absolute; inset: 0; background: rgba(255,255,255,0.8); border-radius: 12px; z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;">
                 <div class="pigment-spinner"></div>
-                <span style="font-size: 13px; font-weight: 500; color: #555;">{{ analyzing ? 'Identifying pigments...' : 'Restoring colours...' }}</span>
+                <span style="font-size: 13px; font-weight: 500; color: #555;">{{ analyzing ? t('pigmentAnalysis.identifying') : t('pigmentAnalysis.restoring') }}</span>
             </div>
 
             <!-- Header -->
             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
                 <span style="font-size: 18px;">🎨</span>
-                <span style="font-weight: 600; font-size: 14px;">Pigment Analysis</span>
+                <span style="font-weight: 600; font-size: 14px;">{{ t('pigmentAnalysis.title') }}</span>
             </div>
 
             <!-- Error -->
@@ -140,11 +140,11 @@ export default {
             <div style="display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap;">
                 <button @click="analyzePigments" :disabled="busy || !pixelData"
                         class="btn btn-sm" style="background: #4f6ef7; color: white; border-color: #4f6ef7; font-size: 12px;">
-                    Identify Pigments
+                    {{ t('pigmentAnalysis.identifyBtn') }}
                 </button>
                 <button @click="restoreColors" :disabled="busy || !pixelData"
                         class="btn btn-sm" style="background: #10b981; color: white; border-color: #10b981; font-size: 12px;">
-                    Restore Colours
+                    {{ t('pigmentAnalysis.restoreBtn') }}
                 </button>
             </div>
 
@@ -152,22 +152,22 @@ export default {
             <div v-if="pigmentMap || restoredPixels" style="display: flex; gap: 4px; margin-bottom: 14px; background: #f5f3f0; border-radius: 8px; padding: 3px;">
                 <button @click="setDisplayMode('current')" :disabled="busy" class="btn btn-xs"
                         :style="displayMode === 'current' ? 'background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.1);' : 'background: transparent;'">
-                    Current
+                    {{ t('pigmentAnalysis.displayCurrent') }}
                 </button>
                 <button v-if="pigmentMap" @click="setDisplayMode('pigment-map')" :disabled="busy" class="btn btn-xs"
                         :style="displayMode === 'pigment-map' ? 'background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.1);' : 'background: transparent;'">
-                    Pigment Map
+                    {{ t('pigmentAnalysis.displayPigmentMap') }}
                 </button>
                 <button v-if="restoredPixels" @click="setDisplayMode('restored')" :disabled="busy" class="btn btn-xs"
                         :style="displayMode === 'restored' ? 'background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.1);' : 'background: transparent;'">
-                    Restored
+                    {{ t('pigmentAnalysis.displayRestored') }}
                 </button>
             </div>
 
             <!-- Restoration strength slider -->
             <div v-if="pigmentMap" style="margin-bottom: 14px;">
                 <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary); margin-bottom: 4px;">
-                    <span>Restoration Strength</span>
+                    <span>{{ t('pigmentAnalysis.restorationStrength') }}</span>
                     <span style="font-weight: 600;">{{ Math.round(restorationStrength * 100) }}%</span>
                 </div>
                 <input type="range" v-model.number="restorationStrength" min="0" max="1" step="0.05"
@@ -177,12 +177,12 @@ export default {
             <!-- Region summary -->
             <div v-if="regionSummary" style="margin-top: 8px;">
                 <div style="font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em;">
-                    Detected Pigments
+                    {{ t('pigmentAnalysis.detectedPigments') }}
                 </div>
                 <div v-for="region in regionSummary" :key="region.pigmentName"
                      style="display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid #f0ece7; font-size: 12px;">
                     <div :style="{ width: '14px', height: '14px', borderRadius: '3px', background: rgbStyle(region.color), flexShrink: 0, border: '1px solid rgba(0,0,0,0.1)' }"></div>
-                    <span style="flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ region.displayName }}</span>
+                    <span style="flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ locale === 'zh' ? (region.displayZh || region.displayName) : (region.displayEn || region.displayName) }}</span>
                     <span style="color: var(--text-secondary); font-weight: 600; min-width: 40px; text-align: right;">{{ region.percentage }}%</span>
                     <div :style="{ width: region.percentage + '%', maxWidth: '60px', height: '4px', borderRadius: '2px', background: rgbStyle(region.color) }"></div>
                 </div>
@@ -190,7 +190,7 @@ export default {
 
             <!-- Mode indicator -->
             <div v-if="!pigmentMap && !analyzing" style="text-align: center; padding: 16px; color: var(--text-secondary); font-size: 12px; font-style: italic;">
-                Click "Identify Pigments" to analyse the texture
+                {{ t('pigmentAnalysis.emptyHint') }}
             </div>
         </div>
     `

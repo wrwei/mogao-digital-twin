@@ -13,6 +13,32 @@ import { useI18n } from '../i18n.js';
 import PigmentAnalysisPanel from './PigmentAnalysisPanel.js';
 import { PIGMENT_DATABASE, PIGMENT_NAMES } from '../ml/PigmentDatabase.js';
 
+/**
+ * Unified preset catalog. Each entry declares the environmental conditions
+ * plus which deterioration models it's intended to demonstrate. The UI uses
+ * `models` to filter the dropdown per active tab so users only see presets
+ * that produce meaningful output for the current model.
+ */
+const PRESET_CATALOG = {
+    // Real-world heritage scenarios
+    oneYear:     { temp: 25, rh: 60,  years: 1,   light: 10,   label: '1 Year',                          models: ['chemical', 'salt'] },
+    tenYears:    { temp: 25, rh: 60,  years: 10,  light: 10,   label: '10 Years',                        models: ['chemical', 'salt'] },
+    museum:      { temp: 20, rh: 50,  years: 100, light: 0.15, label: 'Museum 100y',                     models: ['chemical', 'lifetime', 'salt'] },
+    poorStorage: { temp: 30, rh: 80,  years: 50,  light: 5,    label: 'Poor Storage 50y',                models: ['chemical', 'lifetime', 'mould', 'salt'] },
+    extreme:     { temp: 40, rh: 100, years: 10,  light: 30,   label: 'Extreme 10y',                     models: ['chemical', 'lifetime', 'mould'] },
+    longTerm200: { temp: 20, rh: 50,  years: 200, light: 0.15, label: '200y Museum',                     models: ['chemical', 'lifetime', 'salt'] },
+    mogao200:    { temp: 13, rh: 35,  years: 200, light: 2,    label: '200y Mogao (cold/dry)',           models: ['chemical', 'lifetime', 'salt'] },
+    tropical200: { temp: 28, rh: 75,  years: 200, light: 5,    label: '200y Tropical (humid/warm)',      models: ['chemical', 'lifetime', 'salt'] },
+    // Model-dedicated demonstrations
+    demoChemical: { temp: 25, rh: 50, years: 50,  light: 20,   label: '⚗️ Light Exposure Test 50y',       models: ['chemical'] },
+    demoLifetime: { temp: 5,  rh: 35, years: 200, light: 0,    label: '⏳ Cold Dry Archive 200y',          models: ['lifetime'] },
+    demoMould:    { temp: 25, rh: 90, years: 10,  light: 1,    label: '🦠 Humid Mould Bloom 10y',          models: ['mould'] },
+    demoSalt:     { temp: 20, rh: 45, years: 100, light: 0.15, label: '🧂 Salt Cycling Zone 100y',         models: ['salt'] },
+};
+
+/** Map the dropdown's `activeTab` name to the model keys used in PRESET_CATALOG. */
+const TAB_TO_MODEL = { chemical: 'chemical', lifetime: 'lifetime', mould: 'mould', salt: 'salt' };
+
 export default {
     name: 'SimulationPanel',
     components: { PigmentAnalysisPanel },
@@ -36,9 +62,13 @@ export default {
         externalPigmentDisplayMode: {
             type: String,
             default: null
+        },
+        textureProcessing: {
+            type: Boolean,
+            default: false
         }
     },
-    emits: ['simulation-changed'],
+    emits: ['simulation-changed', 'reset-texture', 'busy-changed'],
     setup() {
         const { t } = useI18n();
         return { t };
@@ -75,6 +105,8 @@ export default {
             activeTab: 'chemical',
             // Selected preset (empty = no preset)
             selectedPreset: '',
+            // Loading state during preset application (reset → apply → wait for texture)
+            presetLoading: false,
             // Model configuration (expandable)
             showConfig: { chemical: false, lifetime: false, mould: false, saltCryst: false },
             // Configurable model parameters (loaded from backend /deterioration/defaults)
@@ -178,18 +210,37 @@ export default {
             if (!this.mouldResult.isAboveThreshold && this.humidity < this.mouldResult.rhCritical - 5) return this.t('simulation.mould.safe');
             if (!this.mouldResult.isAboveThreshold) return this.t('simulation.mould.warning');
             return this.t('simulation.mould.active');
+        },
+        busy() { return this.presetLoading || this.textureProcessing; },
+        /** Presets whose `models` array includes the current activeTab. */
+        availablePresets() {
+            const model = TAB_TO_MODEL[this.activeTab] || this.activeTab;
+            return Object.entries(PRESET_CATALOG)
+                .filter(([, p]) => p.models.includes(model))
+                .map(([key, p]) => {
+                    const lightPart = p.light > 0 ? `, light=${p.light}` : '';
+                    return {
+                        key,
+                        label: p.label,
+                        desc: `T=${p.temp}°C, RH=${p.rh}%${lightPart} klux · ${p.years}y`
+                    };
+                });
         }
     },
     watch: {
+        busy(v) { this.$emit('busy-changed', v); },
         externalPigmentMap(val) {
             if (val) { this.pigmentMap = val; this.emitSimulation(); }
         },
         externalRestoredTexture(val) {
-            if (val) { this.restoredTexture = val; this.pigmentDisplayMode = 'restored'; this.emitSimulation(); }
+            // Keep the restored pixels available for per-pigment lookup but do NOT
+            // override the display mode — when the Simulation panel is active we
+            // always want the simulation effect rendered, not the restored overlay.
+            if (val) { this.restoredTexture = val; }
         },
-        externalPigmentDisplayMode(val) {
-            if (val) { this.pigmentDisplayMode = val; this.emitSimulation(); }
-        },
+        // externalPigmentDisplayMode is intentionally not synced — the Simulation
+        // panel always emits displayMode='current' so its effect wins over the
+        // PigmentAnalysisPanel's overlay/restored modes.
         activeTab() {
             // Stop any running simulation and reset texture when switching models
             if (this.isPlaying) {
@@ -260,6 +311,9 @@ export default {
                     saltCrystParams: this.saltCrystParams
                 });
                 this._assessmentResults = response.data;
+                // Re-emit with fresh backend results so ModelViewer renders
+                // the correct texture (fixes stale-data bug on preset changes).
+                this._emitCurrent();
             } catch (error) {
                 console.error('Deterioration API error:', error);
             }
@@ -280,8 +334,12 @@ export default {
 
         emitSimulation() {
             if (!this.isSimulating) return;
-
             this.fetchAssessment();
+            this._emitCurrent();
+        },
+
+        _emitCurrent() {
+            if (!this.isSimulating) return;
             const results = this.assessmentResults;
             const totalDays = this.getTotalDays();
 
@@ -320,7 +378,9 @@ export default {
                     pigmentMap: this.pigmentMap,
                     perPigmentParams: this.perPigmentParams,
                     restoredTexture: this.restoredTexture,
-                    pigmentDisplayMode: this.pigmentDisplayMode
+                    // Always 'current' so the simulation effect is rendered —
+                    // the PigmentAnalysisPanel controls overlays independently.
+                    pigmentDisplayMode: 'current'
                 },
                 timestamp: Date.now(),
                 speed: this.simulationSpeed
@@ -388,30 +448,44 @@ export default {
             this.loadDefaults();
         },
 
-        onPresetChange(event) {
+        async onPresetChange(event) {
             const preset = event.target.value;
-            if (preset) this.applyPreset(preset);
+            if (!preset) return;
+            this.presetLoading = true;
+            try {
+                // 1. Stop any running time progression
+                if (this.isPlaying) {
+                    this.isPlaying = false;
+                    this.stopTimeProgression();
+                }
+                // 2. Reset the texture to original (via parent → ModelViewer)
+                this.$emit('reset-texture');
+                await this.$nextTick();
+                // 3. Apply preset parameters — watchers will trigger emitSimulation
+                this.applyPreset(preset);
+                // 4. Wait for the backend assessment to complete (debounce 150ms + API).
+                //    _doFetchAssessment will re-emit with fresh data, triggering texture rerender.
+                await new Promise(r => setTimeout(r, 500));
+                // 5. Wait for ModelViewer's isProcessing to clear (via textureProcessing prop).
+                const start = Date.now();
+                while (this.textureProcessing && Date.now() - start < 10000) {
+                    await new Promise(r => setTimeout(r, 50));
+                }
+                // 6. Small grace period so the overlay doesn't flicker
+                await new Promise(r => setTimeout(r, 100));
+            } finally {
+                this.presetLoading = false;
+            }
         },
 
         applyPreset(preset) {
-            const presets = {
-                museum: { temp: 20, rh: 50, days: 0, months: 0, years: 100, light: 0.15 },
-                oneYear: { temp: 25, rh: 60, days: 0, months: 0, years: 1, light: 10 },
-                tenYears: { temp: 25, rh: 60, days: 0, months: 0, years: 10, light: 10 },
-                poorStorage: { temp: 30, rh: 80, days: 0, months: 0, years: 50, light: 5 },
-                extreme: { temp: 40, rh: 100, days: 0, months: 0, years: 10, light: 30 },
-                // Long-term heritage scenarios
-                longTerm200: { temp: 20, rh: 50, days: 0, months: 0, years: 200, light: 0.15 },
-                mogao200: { temp: 13, rh: 35, days: 0, months: 0, years: 200, light: 2 },
-                tropical200: { temp: 28, rh: 75, days: 0, months: 0, years: 200, light: 5 },
-            };
-            const p = presets[preset];
+            const p = PRESET_CATALOG[preset];
             if (p) {
                 this.temperature = p.temp;
                 this.humidity = p.rh;
-                this.simDays = p.days;
-                this.simMonths = p.months;
-                this.simYears = p.years;
+                this.simDays = p.days || 0;
+                this.simMonths = p.months || 0;
+                this.simYears = p.years || 0;
                 this.simLight = p.light;
                 this.mouldIndex = 0; // Reset mould on preset change
             }
@@ -611,10 +685,10 @@ export default {
     },
 
     mounted() {
-        // Pick up any pigment data already available from the Pigment Analysis panel
+        // Pick up any pigment data already available from the Pigment Analysis panel.
+        // We do NOT sync externalPigmentDisplayMode — simulation renders its own effect.
         if (this.externalPigmentMap) this.pigmentMap = this.externalPigmentMap;
         if (this.externalRestoredTexture) this.restoredTexture = this.externalRestoredTexture;
-        if (this.externalPigmentDisplayMode) this.pigmentDisplayMode = this.externalPigmentDisplayMode;
         this.loadDefaults();
         this.$nextTick(() => { this.initChart(); this.emitSimulation(); });
     },
@@ -629,7 +703,14 @@ export default {
     },
 
     template: `
-        <div class="simulation-panel simulation-active">
+        <div class="simulation-panel simulation-active" style="position: relative;">
+            <!-- Loading overlay shown during preset application or texture processing -->
+            <div v-if="busy" style="position: absolute; inset: 0; background: rgba(255,255,255,0.82); border-radius: 12px; z-index: 20; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; pointer-events: all;">
+                <div class="pigment-spinner"></div>
+                <span style="font-size: 13px; font-weight: 500; color: #555;">
+                    {{ presetLoading ? 'Applying preset…' : 'Rendering texture…' }}
+                </span>
+            </div>
             <div class="sim-header">
                 <div class="sim-header-top">
                     <h3 class="sim-title">🧪 {{ t('simulation.title') }}</h3>
@@ -853,6 +934,9 @@ export default {
                             <span v-else style="color: #10b981; font-weight: 600;"> ({{ t('simulation.saltCryst.dissolved') }})</span>
                         </div>
                         <span class="deterioration-badge" style="margin-top: 8px;" :style="{ background: saltCrystResult.label === 'critical' ? '#ef4444' : saltCrystResult.label === 'high' ? '#f59e0b' : saltCrystResult.label === 'moderate' ? '#eab308' : '#10b981', color: 'white' }">{{ saltCrystResult.label }}</span>
+                        <div class="salt-note">
+                            <strong>ℹ️ Note:</strong> This value is the <em>instantaneous</em> crystallisation pressure from Correns' equation (P = RT/V<sub>m</sub> · ln(DRH/RH)). Pressure is highest when RH ≪ DRH because supersaturation drives crystal growth against pore walls. <strong>Real heritage damage requires RH cycling</strong> across the DRH threshold (dissolution ⇄ recrystallisation events), which this steady-state model does not capture. A constantly dry environment shows high static pressure but little ongoing damage; a fluctuating one near DRH is far more destructive in practice.
+                        </div>
                     </div>
                     <button class="config-toggle-btn" style="margin-top: 8px; width: 100%;" @click="showConfig.saltCryst = !showConfig.saltCryst">{{ showConfig.saltCryst ? '▼' : '▶' }} {{ t('simulation.params.configure') }}</button>
                     <div v-if="showConfig.saltCryst" class="param-config">
@@ -880,14 +964,7 @@ export default {
                         <label class="control-label" style="font-weight: 600; margin-bottom: 8px; display: block;">📊 Quick Presets:</label>
                         <select class="preset-select" v-model="selectedPreset" @change="onPresetChange($event)">
                             <option value="" disabled>Choose a preset…</option>
-                            <option value="oneYear">1 Year — T=25°C, RH=60%, light=10 klux</option>
-                            <option value="tenYears">10 Years — T=25°C, RH=60%, light=10 klux</option>
-                            <option value="museum">Museum 100y — T=20°C, RH=50%, light=0.15 klux</option>
-                            <option value="poorStorage">Poor Storage 50y — T=30°C, RH=80%, light=5 klux</option>
-                            <option value="extreme">Extreme 10y — T=40°C, RH=100%, light=30 klux</option>
-                            <option value="longTerm200">200y Museum — T=20°C, RH=50%, light=0.15 klux</option>
-                            <option value="mogao200">200y Mogao (cold/dry cave) — T=13°C, RH=35%, light=2 klux</option>
-                            <option value="tropical200">200y Tropical (humid/warm) — T=28°C, RH=75%, light=5 klux</option>
+                            <option v-for="p in availablePresets" :key="p.key" :value="p.key">{{ p.label }} — {{ p.desc }}</option>
                         </select>
                     </div>
 

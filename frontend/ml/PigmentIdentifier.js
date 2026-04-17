@@ -34,6 +34,8 @@ export class PigmentIdentifier {
         const regionSummary = PIGMENT_NAMES.map((name, idx) => ({
             pigmentName: name,
             displayName: PIGMENT_DATABASE[name].displayName,
+            displayZh: PIGMENT_DATABASE[name].displayZh,
+            displayEn: PIGMENT_DATABASE[name].displayEn,
             pixelCount: counts[idx],
             percentage: ((counts[idx] / totalPixels) * 100).toFixed(1),
             color: PIGMENT_DATABASE[name].targetRGB

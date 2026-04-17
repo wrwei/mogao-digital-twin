@@ -28,7 +28,7 @@ export default {
             default: null
         }
     },
-    emits: ['update:autoRotate', 'pixel-data-ready'],
+    emits: ['update:autoRotate', 'pixel-data-ready', 'processing-changed'],
     data() {
         return {
             loading: true,
@@ -89,6 +89,9 @@ export default {
         this.cleanup();
     },
     watch: {
+        isProcessing(v) {
+            this.$emit('processing-changed', v);
+        },
         autoRotate(newVal) {
             if (this.controls) {
                 this.controls.autoRotate = newVal;
@@ -559,38 +562,106 @@ export default {
             this.showToast('🎨 Pigment map overlay applied', 'info', 3000);
         },
 
-        /** Mould growth visualisation: green/brown organic overlay */
+        /** Mould growth visualisation (VTT Hukka-Viitanen): spatially-coherent
+         *  green/brown patches biased toward shadowed texture regions where
+         *  moisture retention is higher. Patch density scales with mould index. */
         _applyMouldEffect(mouldResult) {
             if (!this.model || !this.originalPixelData) return;
+            this.isProcessing = true;
             const w = this.originalPixelWidth;
             const h = this.originalPixelHeight;
             const out = new Uint8ClampedArray(this.originalPixelData);
-            const coverage = Math.min(1, (mouldResult.mouldIndex || 0) / 6);
+            const mouldIndex = mouldResult.mouldIndex || 0;
+            const coverage = Math.min(1, mouldIndex / 6);
+
             if (coverage <= 0) {
                 this._applyPixelDataToModel(out, w, h);
-                this.showToast('🦠 Mould index: 0 — no visible growth', 'info', 3000);
+                this.showToast('🦠 Mould index: 0 — below critical RH, no growth', 'info', 3000);
                 return;
             }
-            // Seed-based pseudo-random for consistent mould pattern
-            const seed = 42;
-            for (let i = 0; i < w * h; i++) {
-                const noise = ((i * 2654435761 + seed) >>> 0) / 4294967296;
-                if (noise < coverage) {
-                    const off = i * 4;
-                    const intensity = 0.3 + noise * 0.4;
-                    // Blend towards dark green/brown mould colour
-                    out[off]     = Math.round(out[off] * (1 - intensity) + 45 * intensity);
-                    out[off + 1] = Math.round(out[off + 1] * (1 - intensity) + 65 * intensity);
-                    out[off + 2] = Math.round(out[off + 2] * (1 - intensity) + 30 * intensity);
+
+            // Low-resolution noise grid for spatial coherence (32×32 patches)
+            const G = 32;
+            const noiseField = new Float32Array(G * G);
+            for (let i = 0; i < G * G; i++) {
+                noiseField[i] = ((i * 2654435761 + 42) >>> 0) / 4294967296;
+            }
+            // 3×3 box blur for soft patch edges
+            const smoothed = new Float32Array(G * G);
+            for (let y = 0; y < G; y++) {
+                for (let x = 0; x < G; x++) {
+                    let sum = 0, count = 0;
+                    for (let dy = -1; dy <= 1; dy++) {
+                        for (let dx = -1; dx <= 1; dx++) {
+                            const nx = x + dx, ny = y + dy;
+                            if (nx >= 0 && nx < G && ny >= 0 && ny < G) {
+                                sum += noiseField[ny * G + nx];
+                                count++;
+                            }
+                        }
+                    }
+                    smoothed[y * G + x] = sum / count;
                 }
             }
+
+            const scaleX = (G - 1) / w;
+            const scaleY = (G - 1) / h;
+            const threshold = 1 - coverage;
+
+            for (let y = 0; y < h; y++) {
+                for (let x = 0; x < w; x++) {
+                    const pixIdx = y * w + x;
+                    const off = pixIdx * 4;
+
+                    // Bilinear lookup into smoothed noise field
+                    const gx = x * scaleX, gy = y * scaleY;
+                    const gx0 = Math.floor(gx), gy0 = Math.floor(gy);
+                    const fx = gx - gx0, fy = gy - gy0;
+                    const gx1 = Math.min(G - 1, gx0 + 1), gy1 = Math.min(G - 1, gy0 + 1);
+                    const n00 = smoothed[gy0 * G + gx0];
+                    const n01 = smoothed[gy0 * G + gx1];
+                    const n10 = smoothed[gy1 * G + gx0];
+                    const n11 = smoothed[gy1 * G + gx1];
+                    const ny0 = n00 * (1 - fx) + n01 * fx;
+                    const ny1 = n10 * (1 - fx) + n11 * fx;
+                    let noise = ny0 * (1 - fy) + ny1 * fy;
+
+                    // Bias toward darker (shadowed, moisture-retentive) regions
+                    const r = out[off], g = out[off + 1], b = out[off + 2];
+                    const brightness = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+                    noise += (0.5 - brightness) * 0.3;
+
+                    if (noise > threshold) {
+                        const patchStrength = Math.min(1, (noise - threshold) / Math.max(0.05, 1 - threshold));
+                        const intensity = 0.35 + patchStrength * 0.55;
+
+                        // Hue variation: mix of green-brown shades
+                        const hueNoise = (((x * 37 + y * 41 + 17) >>> 0) % 100) / 100;
+                        const mouldR = 40 + hueNoise * 35;
+                        const mouldG = 55 + hueNoise * 30;
+                        const mouldB = 25 + hueNoise * 20;
+
+                        out[off]     = Math.round(r * (1 - intensity) + mouldR * intensity);
+                        out[off + 1] = Math.round(g * (1 - intensity) + mouldG * intensity);
+                        out[off + 2] = Math.round(b * (1 - intensity) + mouldB * intensity);
+                    }
+                }
+            }
+
             this._applyPixelDataToModel(out, w, h);
-            this.showToast('🦠 Mould growth applied (index: ' + mouldResult.mouldIndex.toFixed(1) + '/6)', 'info', 3000);
+            const growthNote = mouldResult.isAboveThreshold
+                ? ` (RH ${(mouldResult.rhCritical).toFixed(0)}% threshold exceeded)`
+                : '';
+            this.showToast(
+                `🦠 Mould index ${mouldIndex.toFixed(1)}/6${growthNote}`,
+                'info', 3000
+            );
         },
 
         /** Salt crystallisation visualisation: white efflorescence patches */
         _applySaltEffect(saltResult) {
             if (!this.model || !this.originalPixelData) return;
+            this.isProcessing = true;
             const w = this.originalPixelWidth;
             const h = this.originalPixelHeight;
             const out = new Uint8ClampedArray(this.originalPixelData);
@@ -622,6 +693,7 @@ export default {
          *  applies proportional desaturation + slight warm cast. */
         _applyLifetimeEffect(lifetimeResult, totalDays) {
             if (!this.model || !this.originalPixelData) return;
+            this.isProcessing = true;
             const w = this.originalPixelWidth;
             const h = this.originalPixelHeight;
             const out = new Uint8ClampedArray(this.originalPixelData);
@@ -682,12 +754,6 @@ export default {
         handleWorkerResult(result) {
             const { pixelData, width, height } = result;
             const imageData = new ImageData(new Uint8ClampedArray(pixelData), width, height);
-            const data = imageData.data;
-
-            // ── Phase 2: Apply mould spots (VTT model) ─────────────────
-            if (this.mouldResult && this.mouldResult.mouldIndex > 0.1) {
-                this.applyMouldEffect(data, width, height, this.mouldResult);
-            }
 
             // Ensure canvas exists and matches texture dimensions
             if (!this.textureCanvas || this.textureCanvas.width !== width || this.textureCanvas.height !== height) {
