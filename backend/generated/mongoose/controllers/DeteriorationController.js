@@ -101,13 +101,31 @@ module.exports = {
         }
     },
 
+    // POST /deterioration/fatigue — hygro-mechanical fatigue only
+    async fatigue(req, res) {
+        try {
+            const { RH_amplitude, totalDays, params } = req.body;
+            if (RH_amplitude == null || totalDays == null) {
+                return res.status(400).json({
+                    error: 'Missing required parameters: RH_amplitude, totalDays'
+                });
+            }
+            const result = DeteriorationService.fatigueDamage(RH_amplitude, totalDays, params);
+            res.json(result);
+        } catch (error) {
+            console.error('Fatigue damage error:', error);
+            res.status(500).json({ error: error.message });
+        }
+    },
+
     // GET /deterioration/defaults — return default parameter sets
     async defaults(req, res) {
         res.json({
             chemical: DeteriorationService.CHEMICAL_DEFAULTS,
             lifetime: DeteriorationService.LIFETIME_DEFAULTS,
             mould: DeteriorationService.MOULD_DEFAULTS,
-            salt: DeteriorationService.SALT_DEFAULTS
+            salt: DeteriorationService.SALT_DEFAULTS,
+            fatigue: DeteriorationService.FATIGUE_DEFAULTS
         });
     }
 };

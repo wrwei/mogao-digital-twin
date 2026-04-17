@@ -24,23 +24,24 @@ const PRESET_CATALOG = {
     // 'mould' in its models array so users can observe whether conditions
     // cross the VTT critical-RH threshold (many won't — and that's the
     // intended teaching point: "see why these conditions prevent mould").
-    oneYear:     { temp: 25, rh: 60,  years: 1,   light: 10,   label: '1 Year',                          models: ['chemical', 'lifetime', 'mould', 'salt'] },
-    tenYears:    { temp: 25, rh: 60,  years: 10,  light: 10,   label: '10 Years',                        models: ['chemical', 'lifetime', 'mould', 'salt'] },
-    museum:      { temp: 20, rh: 50,  years: 100, light: 0.15, label: 'Museum 100y',                     models: ['chemical', 'lifetime', 'mould', 'salt'] },
-    poorStorage: { temp: 30, rh: 80,  years: 50,  light: 5,    label: 'Poor Storage 50y',                models: ['chemical', 'lifetime', 'mould', 'salt'] },
-    extreme:     { temp: 40, rh: 100, years: 10,  light: 30,   label: 'Extreme 10y',                     models: ['chemical', 'lifetime', 'mould'] },
-    longTerm200: { temp: 20, rh: 50,  years: 200, light: 0.15, label: '200y Museum',                     models: ['chemical', 'lifetime', 'mould', 'salt'] },
-    mogao200:    { temp: 13, rh: 35,  years: 200, light: 2,    label: '200y Mogao (cold/dry)',           models: ['chemical', 'lifetime', 'mould', 'salt'] },
-    tropical200: { temp: 28, rh: 75,  years: 200, light: 5,    label: '200y Tropical (humid/warm)',      models: ['chemical', 'lifetime', 'mould', 'salt'] },
+    oneYear:     { temp: 25, rh: 60,  years: 1,   light: 10,   rhAmplitude: 10, label: '1 Year',                          models: ['chemical', 'lifetime', 'mould', 'salt', 'fatigue'] },
+    tenYears:    { temp: 25, rh: 60,  years: 10,  light: 10,   rhAmplitude: 10, label: '10 Years',                        models: ['chemical', 'lifetime', 'mould', 'salt', 'fatigue'] },
+    museum:      { temp: 20, rh: 50,  years: 100, light: 0.15, rhAmplitude: 5,  label: 'Museum 100y',                     models: ['chemical', 'lifetime', 'mould', 'salt', 'fatigue'] },
+    poorStorage: { temp: 30, rh: 80,  years: 50,  light: 5,    rhAmplitude: 20, label: 'Poor Storage 50y',                models: ['chemical', 'lifetime', 'mould', 'salt', 'fatigue'] },
+    extreme:     { temp: 40, rh: 100, years: 10,  light: 30,   rhAmplitude: 30, label: 'Extreme 10y',                     models: ['chemical', 'lifetime', 'mould', 'fatigue'] },
+    longTerm200: { temp: 20, rh: 50,  years: 200, light: 0.15, rhAmplitude: 5,  label: '200y Museum',                     models: ['chemical', 'lifetime', 'mould', 'salt', 'fatigue'] },
+    mogao200:    { temp: 13, rh: 35,  years: 200, light: 2,    rhAmplitude: 15, label: '200y Mogao (cold/dry)',           models: ['chemical', 'lifetime', 'mould', 'salt', 'fatigue'] },
+    tropical200: { temp: 28, rh: 75,  years: 200, light: 5,    rhAmplitude: 20, label: '200y Tropical (humid/warm)',      models: ['chemical', 'lifetime', 'mould', 'salt', 'fatigue'] },
     // Model-dedicated demonstrations
-    demoChemical: { temp: 25, rh: 50, years: 50,  light: 20,   label: '⚗️ Light Exposure Test 50y',       models: ['chemical'] },
-    demoLifetime: { temp: 5,  rh: 35, years: 200, light: 0,    label: '⏳ Cold Dry Archive 200y',          models: ['lifetime'] },
-    demoMould:    { temp: 25, rh: 90, years: 10,  light: 1,    label: '🦠 Humid Mould Bloom 10y',          models: ['mould'] },
-    demoSalt:     { temp: 20, rh: 45, years: 100, light: 0.15, label: '🧂 Salt Cycling Zone 100y',         models: ['salt'] },
+    demoChemical: { temp: 25, rh: 50, years: 50,  light: 20,   rhAmplitude: 10, label: '⚗️ Light Exposure Test 50y',       models: ['chemical'] },
+    demoLifetime: { temp: 5,  rh: 35, years: 200, light: 0,    rhAmplitude: 5,  label: '⏳ Cold Dry Archive 200y',          models: ['lifetime'] },
+    demoMould:    { temp: 25, rh: 90, years: 10,  light: 1,    rhAmplitude: 5,  label: '🦠 Humid Mould Bloom 10y',          models: ['mould'] },
+    demoSalt:     { temp: 20, rh: 45, years: 100, light: 0.15, rhAmplitude: 5,  label: '🧂 Salt Cycling Zone 100y',         models: ['salt'] },
+    demoFatigue:  { temp: 20, rh: 50, years: 50,  light: 0.15, rhAmplitude: 30, label: '🧱 Large RH Swings 50y',             models: ['fatigue'] },
 };
 
 /** Map the dropdown's `activeTab` name to the model keys used in PRESET_CATALOG. */
-const TAB_TO_MODEL = { chemical: 'chemical', lifetime: 'lifetime', mould: 'mould', salt: 'salt' };
+const TAB_TO_MODEL = { chemical: 'chemical', lifetime: 'lifetime', mould: 'mould', salt: 'salt', fatigue: 'fatigue' };
 
 export default {
     name: 'SimulationPanel',
@@ -89,6 +90,7 @@ export default {
             simMonths: 0,    // Exposure time in months
             simYears: 0,     // Exposure time in years
             simLight: 0,     // Light intensity in klux
+            simRHAmplitude: 10, // RH cycle amplitude (%), drives hygro-mechanical fatigue
             // Mould growth tracking
             mouldIndex: 0,   // Running mould index (0-6)
             // Time progression
@@ -102,7 +104,8 @@ export default {
                 chemical: true,
                 lifetime: true,
                 mould: true,
-                saltCryst: true
+                saltCryst: true,
+                fatigue: true
             },
             // Active tab
             activeTab: 'chemical',
@@ -114,12 +117,13 @@ export default {
             // in-flight onPresetChange knows it's been superseded and exits.
             _presetGeneration: 0,
             // Model configuration (expandable)
-            showConfig: { chemical: false, lifetime: false, mould: false, saltCryst: false },
+            showConfig: { chemical: false, lifetime: false, mould: false, saltCryst: false, fatigue: false },
             // Configurable model parameters (loaded from backend /deterioration/defaults)
             chemicalParams: { Ea_dark: 70000, Ea_light: 25000, k0_dark: 0.0001, k0_light: 0.001, q: 0.8, p: 0.9 },
             lifetimeParams: { Ea: 70000, n: 1.3, T0: 20, RH0: 50 },
             mouldParams: { growthCoeff: 0.13, declineRate: -0.128 },
             saltCrystParams: { Vm: 5.33e-5, DRH_ref: 84.2, DRH_slope: -0.17, T_ref: 25, tensileStrength: 3.0, cyclesPerYear: 120 },
+            fatigueParams: { beta_diff: 5e-5, E: 2000, sigma_fail: 10.0, basquin_b: 6, cyclesPerYear: 365 },
             // Cached assessment results from backend API
             _assessmentResults: null,
             _assessDebounceTimer: null,
@@ -187,7 +191,8 @@ export default {
                 chemical: { rateConstant: 0, degradationFactor: 1, scientificDegradation: 0, risk: 0, label: 'low', visualEffect: { fadeFactor: 1, type: 'chemical' } },
                 lifetime: { multiplier: 1, label: 'longer', color: '#10b981' },
                 mould: { mouldIndex: 0, rhCritical: 80, isAboveThreshold: false, risk: 0, label: 'low', growthRate: 0, visualEffect: { coverage: 0, intensity: 0, type: 'mould' } },
-                saltCryst: { pressure_MPa: 0, DRH: 84.2, isCrystallizing: false, damageRatio: 0, cumulativeDamage: 0, risk: 0, label: 'safe', visualEffect: { spalling: 0, type: 'salt' } }
+                saltCryst: { pressure_MPa: 0, DRH: 84.2, isCrystallizing: false, damageRatio: 0, cumulativeDamage: 0, risk: 0, label: 'safe', visualEffect: { spalling: 0, type: 'salt' } },
+                fatigue: { stress_MPa: 0, cyclesToFailure: null, cyclesApplied: 0, cumulativeDamage: 0, crackDensity: 0, risk: 0, label: 'low', visualEffect: { crackDensity: 0, type: 'fatigue' } }
             };
         },
         lifetimeResult() {
@@ -201,6 +206,9 @@ export default {
         },
         saltCrystResult() {
             return this.assessmentResults.saltCryst;
+        },
+        fatigueResult() {
+            return this.assessmentResults.fatigue;
         },
         displayMouldIndex() {
             // Use assessment result (correct in both static and play modes)
@@ -225,10 +233,12 @@ export default {
                 .filter(([, p]) => p.models.includes(model))
                 .map(([key, p]) => {
                     const lightPart = p.light > 0 ? `, light=${p.light}` : '';
+                    const ampPart = (model === 'fatigue' && p.rhAmplitude != null)
+                        ? `, ±${p.rhAmplitude}%RH` : '';
                     return {
                         key,
                         label: p.label,
-                        desc: `T=${p.temp}°C, RH=${p.rh}%${lightPart} klux · ${p.years}y`
+                        desc: `T=${p.temp}°C, RH=${p.rh}%${lightPart} klux${ampPart} · ${p.years}y`
                     };
                 });
         }
@@ -290,6 +300,7 @@ export default {
             this.emitSimulation();
         },
         simLight() { this.emitSimulation(); },
+        simRHAmplitude() { this.emitSimulation(); },
         enabledModels: {
             deep: true,
             handler() { this.emitSimulation(); }
@@ -307,6 +318,10 @@ export default {
             handler() { this.emitSimulation(); }
         },
         saltCrystParams: {
+            deep: true,
+            handler() { this.emitSimulation(); }
+        },
+        fatigueParams: {
             deep: true,
             handler() { this.emitSimulation(); }
         }
@@ -335,10 +350,12 @@ export default {
                     light_klux: this.simLight,
                     totalDays: this.getTotalDays(),
                     prevMouldIndex: this.mouldIndex,
+                    RH_amplitude: this.simRHAmplitude,
                     chemicalParams: this.chemicalParams,
                     lifetimeParams: this.lifetimeParams,
                     mouldParams: this.mouldParams,
-                    saltCrystParams: this.saltCrystParams
+                    saltCrystParams: this.saltCrystParams,
+                    fatigueParams: this.fatigueParams
                 });
                 this._assessmentResults = response.data;
                 // Re-emit with fresh backend results so ModelViewer renders
@@ -357,6 +374,7 @@ export default {
                 this.lifetimeParams = { ...d.lifetime };
                 this.mouldParams = { ...d.mould };
                 this.saltCrystParams = { ...d.salt };
+                if (d.fatigue) this.fatigueParams = { ...d.fatigue };
             } catch (error) {
                 console.error('Failed to load deterioration defaults:', error);
             }
@@ -404,6 +422,8 @@ export default {
                     lifetime: this.enabledModels.lifetime ? results.lifetime : null,
                     mould: this.enabledModels.mould ? results.mould : null,
                     saltCryst: this.enabledModels.saltCryst ? results.saltCryst : null,
+                    fatigue: this.enabledModels.fatigue ? results.fatigue : null,
+                    RH_amplitude: this.simRHAmplitude,
                     // ML pigment data
                     pigmentMap: this.pigmentMap,
                     perPigmentParams: this.perPigmentParams,
@@ -532,6 +552,7 @@ export default {
                 this.simMonths = p.months || 0;
                 this.simYears = p.years || 0;
                 this.simLight = p.light;
+                if (p.rhAmplitude != null) this.simRHAmplitude = p.rhAmplitude;
                 this.mouldIndex = 0; // Reset mould on preset change
             }
         },
@@ -790,6 +811,7 @@ export default {
                         <option value="lifetime">⏳ Michalski Lifetime Multiplier (Climate for Culture eLM)</option>
                         <option value="mould">🦠 VTT / Finnish Mould Growth (Hukka &amp; Viitanen 1999)</option>
                         <option value="salt">🧂 Salt Crystallisation Pressure (Scherer 1999 / Steiger 2005)</option>
+                        <option value="fatigue">🧱 Hygro-mechanical Fatigue (HERIe / Bratasz 2013)</option>
                     </select>
 
                 <!-- ═══ CHEMICAL TAB ═══ -->
@@ -994,6 +1016,66 @@ export default {
                             <div class="param-field"><label>{{ t('simulation.params.saltCryst.T_ref') }}</label><input type="number" v-model.number="saltCrystParams.T_ref" step="1" /></div>
                         </div>
                         <button class="param-reset-btn" @click="resetModelParams('saltCryst')">{{ t('simulation.params.resetDefaults') }}</button>
+                    </div>
+                </div>
+
+                <!-- ═══ HYGRO-MECHANICAL FATIGUE TAB ═══ -->
+                <div v-if="activeTab === 'fatigue'" class="sim-tab-content">
+                    <div class="sim-tab-controls">
+                        <div class="sim-compact-control">
+                            <div class="sim-compact-control-header">
+                                <span class="sim-compact-label">🌡️ Temperature</span>
+                                <span class="sim-compact-value">{{ temperature.toFixed(1) }}°{{ temperatureUnit }}</span>
+                            </div>
+                            <input type="range" v-model.number="temperature" :min="temperatureUnit === 'C' ? -10 : 14" :max="temperatureUnit === 'C' ? 40 : 104" step="0.5" class="simulation-slider" />
+                        </div>
+                        <div class="sim-compact-control">
+                            <div class="sim-compact-control-header">
+                                <span class="sim-compact-label">💧 Mean RH</span>
+                                <span class="sim-compact-value">{{ humidity.toFixed(0) }}%</span>
+                            </div>
+                            <input type="range" v-model.number="humidity" min="10" max="90" step="1" class="simulation-slider" />
+                        </div>
+                        <div class="sim-compact-control">
+                            <div class="sim-compact-control-header">
+                                <span class="sim-compact-label">📈 RH Cycle Amplitude (±)</span>
+                                <span class="sim-compact-value">{{ simRHAmplitude.toFixed(0) }}%</span>
+                            </div>
+                            <input type="range" v-model.number="simRHAmplitude" min="0" max="40" step="1" class="simulation-slider" />
+                        </div>
+                        <div class="sim-compact-control">
+                            <div class="sim-compact-control-header">
+                                <span class="sim-compact-label">⏱️ Exposure</span>
+                                <span class="sim-compact-value">{{ simYears }} yr</span>
+                            </div>
+                            <input type="range" v-model.number="simYears" min="0" max="200" step="1" class="simulation-slider" />
+                        </div>
+                    </div>
+                    <div class="sim-tab-result">
+                        <div class="sim-result-main" :style="{ color: fatigueResult.label === 'critical' ? '#ef4444' : fatigueResult.label === 'high' ? '#f59e0b' : fatigueResult.label === 'moderate' ? '#eab308' : '#10b981' }">
+                            D = {{ fatigueResult.cumulativeDamage.toFixed(2) }}
+                        </div>
+                        <div class="sim-result-sub">Cumulative fatigue damage (Miner's rule)</div>
+                        <div style="margin-top: 8px; font-size: 11px; color: #666;">
+                            <div>Stress: <strong>{{ fatigueResult.stress_MPa.toFixed(3) }} MPa</strong></div>
+                            <div>Cycles applied: <strong>{{ fatigueResult.cyclesApplied.toLocaleString() }}</strong></div>
+                            <div v-if="fatigueResult.cyclesToFailure">Cycles to failure: <strong>{{ fatigueResult.cyclesToFailure.toLocaleString() }}</strong></div>
+                        </div>
+                        <span class="deterioration-badge" style="margin-top: 8px;" :style="{ background: fatigueResult.label === 'critical' ? '#ef4444' : fatigueResult.label === 'high' ? '#f59e0b' : fatigueResult.label === 'moderate' ? '#eab308' : '#10b981', color: 'white' }">{{ fatigueResult.label }}</span>
+                        <div class="salt-note" style="margin-top: 12px;">
+                            <strong>ℹ️ Note:</strong> Damage D = 1 indicates first-crack onset; D ≥ 2 widespread cracking; D ≥ 3 severe flaking. Stress is driven by the RH cycle amplitude — even moderate RH swings can accumulate damage over decades. Buffer caves against daily/seasonal humidity swings to suppress this mechanism.
+                        </div>
+                    </div>
+                    <button class="config-toggle-btn" style="margin-top: 8px; width: 100%;" @click="showConfig.fatigue = !showConfig.fatigue">{{ showConfig.fatigue ? '▼' : '▶' }} Params</button>
+                    <div v-if="showConfig.fatigue" class="param-config">
+                        <div class="param-config-grid">
+                            <div class="param-field"><label>β_diff (/%RH)</label><input type="number" v-model.number="fatigueParams.beta_diff" step="0.0001" min="0" /></div>
+                            <div class="param-field"><label>E (MPa)</label><input type="number" v-model.number="fatigueParams.E" step="100" min="1" /></div>
+                            <div class="param-field"><label>σ_fail (MPa)</label><input type="number" v-model.number="fatigueParams.sigma_fail" step="0.5" min="0.1" /></div>
+                            <div class="param-field"><label>Basquin b</label><input type="number" v-model.number="fatigueParams.basquin_b" step="0.5" min="1" max="20" /></div>
+                            <div class="param-field"><label>Cycles / year</label><input type="number" v-model.number="fatigueParams.cyclesPerYear" step="1" min="1" /></div>
+                        </div>
+                        <button class="param-reset-btn" @click="resetModelParams('fatigue')">Reset defaults</button>
                     </div>
                 </div>
 

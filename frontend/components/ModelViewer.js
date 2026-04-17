@@ -147,6 +147,8 @@ export default {
                         this._applySaltEffect(newData.deterioration.saltCryst);
                     } else if (activeModel === 'lifetime' && newData.deterioration.lifetime) {
                         this._applyLifetimeEffect(newData.deterioration.lifetime, newData.deterioration.totalDays);
+                    } else if (activeModel === 'fatigue' && newData.deterioration.fatigue) {
+                        this._applyFatigueEffect(newData.deterioration.fatigue);
                     } else {
                         this.applyDeteriorationToTexture(null, null);
                     }
@@ -731,6 +733,121 @@ export default {
                 `⏳ ${multiplier.toFixed(2)}× lifetime → ${actualYears.toFixed(0)}y ≈ ${effectiveYears.toFixed(0)}y at reference conditions`,
                 'info', 3000
             );
+        },
+
+        /** Hygro-mechanical fatigue visualisation (HERIe / Bratasz):
+         *  cumulativeDamage drives the density and length of crack lines
+         *  drawn as darker streaks across the texture. Uses a deterministic
+         *  pseudo-random field so the same damage value produces the same
+         *  crack pattern every time. */
+        _applyFatigueEffect(fatigueResult) {
+            if (!this.model || !this.originalPixelData) return;
+            this.isProcessing = true;
+            const w = this.originalPixelWidth;
+            const h = this.originalPixelHeight;
+            const out = new Uint8ClampedArray(this.originalPixelData);
+            const D = fatigueResult.cumulativeDamage || 0;
+            const density = Math.min(1, fatigueResult.crackDensity || (D / 3));
+
+            if (density <= 0.01) {
+                this._applyPixelDataToModel(out, w, h);
+                this.showToast(`🧱 D = ${D.toFixed(3)} — no cracking yet`, 'info', 3000);
+                return;
+            }
+
+            // Seeded hash function (Weyl sequence)
+            const rand = (i) => ((i * 2654435761) >>> 0) / 4294967296;
+
+            // Craquelure approach: draw many thin wandering cracks that
+            // curve and occasionally branch, forming an interconnected
+            // network rather than isolated blobs. Single-pixel wide lines
+            // read as cracks; thicker bands read as paint loss which is
+            // reserved for the highest damage stage.
+            const minDim = Math.min(w, h);
+            const totalCrackPixels = Math.round(density * w * h * 0.02); // target ~2% coverage at D=1
+            // Each crack is longer (wandering), covering ~400 linear px on 8192 texture
+            const crackLen = Math.max(40, Math.round(minDim * 0.08));
+            const numCracks = Math.max(30, Math.round(totalCrackPixels / crackLen));
+            // Subtle, semi-transparent dark line — not a black blob
+            const darkness = 0.35 + density * 0.25; // 0.35 → 0.60 range
+
+            for (let k = 0; k < numCracks; k++) {
+                // Seed position and initial direction
+                let x = rand(k * 5 + 1) * w;
+                let y = rand(k * 5 + 2) * h;
+                let angle = rand(k * 5 + 3) * Math.PI * 2;
+                // Slight curvature per step gives organic wandering paths
+                const curveFreq = 0.04 + rand(k * 5 + 4) * 0.06;
+                const curveAmp = 0.08 + rand(k * 5 + 7) * 0.12;
+
+                for (let t = 0; t < crackLen; t++) {
+                    // Wander the angle gently so the crack curves naturally
+                    angle += Math.sin(t * curveFreq + k) * curveAmp - curveAmp * 0.5;
+                    x += Math.cos(angle);
+                    y += Math.sin(angle);
+                    const px = Math.round(x);
+                    const py = Math.round(y);
+                    if (px < 0 || px >= w || py < 0 || py >= h) break;
+                    const off = (py * w + px) * 4;
+                    out[off]     = Math.max(0, Math.round(out[off]     * (1 - darkness)));
+                    out[off + 1] = Math.max(0, Math.round(out[off + 1] * (1 - darkness)));
+                    out[off + 2] = Math.max(0, Math.round(out[off + 2] * (1 - darkness)));
+
+                    // Occasional short branch so the network has Y/T junctions
+                    if (t > 10 && t < crackLen - 10 && rand(k * 1009 + t) < 0.004) {
+                        const branchAngle = angle + (rand(k * 2003 + t) - 0.5) * 1.6;
+                        const branchLen = Math.round(crackLen * 0.15);
+                        let bx = x, by = y;
+                        for (let s = 0; s < branchLen; s++) {
+                            bx += Math.cos(branchAngle);
+                            by += Math.sin(branchAngle);
+                            const bpx = Math.round(bx);
+                            const bpy = Math.round(by);
+                            if (bpx < 0 || bpx >= w || bpy < 0 || bpy >= h) break;
+                            const boff = (bpy * w + bpx) * 4;
+                            out[boff]     = Math.max(0, Math.round(out[boff]     * (1 - darkness)));
+                            out[boff + 1] = Math.max(0, Math.round(out[boff + 1] * (1 - darkness)));
+                            out[boff + 2] = Math.max(0, Math.round(out[boff + 2] * (1 - darkness)));
+                        }
+                    }
+                }
+            }
+
+            // At severe damage (D >= 2.5), add small paint-loss patches on top
+            // to represent actual flaking off the substrate.
+            if (D >= 2.5) {
+                const lossFactor = Math.min(1, (D - 2.5) / 1.5);
+                const numPatches = Math.round(lossFactor * 40);
+                const patchRadius = Math.max(3, Math.round(minDim / 200));
+                // Pale clay substrate colour showing through flaked-off paint
+                const substrateR = 190, substrateG = 170, substrateB = 145;
+                for (let p = 0; p < numPatches; p++) {
+                    const cx = Math.floor(rand(p * 11 + 7) * w);
+                    const cy = Math.floor(rand(p * 11 + 13) * h);
+                    const radius = patchRadius + Math.round(rand(p * 11 + 17) * patchRadius);
+                    for (let dy = -radius; dy <= radius; dy++) {
+                        for (let dx = -radius; dx <= radius; dx++) {
+                            const d2 = dx * dx + dy * dy;
+                            if (d2 > radius * radius) continue;
+                            const px = cx + dx, py = cy + dy;
+                            if (px < 0 || px >= w || py < 0 || py >= h) continue;
+                            const edgeFade = 1 - Math.sqrt(d2) / radius;
+                            const blend = edgeFade * 0.85;
+                            const off = (py * w + px) * 4;
+                            out[off]     = Math.round(out[off]     * (1 - blend) + substrateR * blend);
+                            out[off + 1] = Math.round(out[off + 1] * (1 - blend) + substrateG * blend);
+                            out[off + 2] = Math.round(out[off + 2] * (1 - blend) + substrateB * blend);
+                        }
+                    }
+                }
+            }
+
+            this._applyPixelDataToModel(out, w, h);
+            const stageLabel = D >= 3 ? 'severe flaking'
+                             : D >= 2 ? 'widespread cracks'
+                             : D >= 1 ? 'first cracks appearing'
+                             : 'early fatigue';
+            this.showToast(`🧱 D = ${D.toFixed(2)} — ${stageLabel}`, 'info', 3000);
         },
 
         /** Clear processing state and surface worker failures so the UI unlocks. */
