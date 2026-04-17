@@ -183,6 +183,38 @@ export default {
             return map[this.editType] || '';
         }
     },
+    watch: {
+        /** Clear cross-exhibit state whenever the user opens a different 3D
+         *  exhibit or returns to the cave view. Prevents pigment-map,
+         *  restored texture, or simulation results from the previous exhibit
+         *  bleeding into the new one. */
+        selectedExhibit(newVal, oldVal) {
+            if (newVal !== oldVal) {
+                this.pigmentMap = null;
+                this.restoredTexture = null;
+                this.simulationData = null;
+                this.pigmentDisplayMode = 'current';
+                this.texturePixelData = null;
+                this.activePanel = 'pigment';
+                this.panelBusy = false;
+                this.textureProcessing = false;
+                this.simDisabledMsg = null;
+            }
+        },
+        /** Restore the user's chosen pigment display mode when returning to
+         *  the Pigment Analysis panel. Otherwise the simulation effect lingers
+         *  on the 3D texture even though the Pigment panel is showing
+         *  "Pigment Map" or "Restored" as the active button. */
+        activePanel(newVal) {
+            if (newVal === 'pigment' && this.pigmentMap) {
+                // Re-push whatever display mode the pigment panel was last on.
+                // If only 'current' was active this is a no-op visually; if the
+                // user had selected Pigment Map or Restored, the overlay is
+                // reinstated now that Simulation is no longer rendering.
+                this._pushDisplayMode(this.pigmentDisplayMode || 'current');
+            }
+        }
+    },
     computed: {
         viewerWidth() { return Math.max(500, this.windowWidth - 240 - this.simulationPanelWidth - 80); },
         viewerHeight() { return Math.max(400, this.windowHeight - 56 - 52 - 64); },

@@ -107,6 +107,9 @@ export default {
             selectedPreset: '',
             // Loading state during preset application (reset → apply → wait for texture)
             presetLoading: false,
+            // Monotonic counter; bumped on every preset change so an earlier
+            // in-flight onPresetChange knows it's been superseded and exits.
+            _presetGeneration: 0,
             // Model configuration (expandable)
             showConfig: { chemical: false, lifetime: false, mould: false, saltCryst: false },
             // Configurable model parameters (loaded from backend /deterioration/defaults)
@@ -230,13 +233,17 @@ export default {
     watch: {
         busy(v) { this.$emit('busy-changed', v); },
         externalPigmentMap(val) {
-            if (val) { this.pigmentMap = val; this.emitSimulation(); }
+            // Sync both directions: set on new value, clear on null (e.g. exhibit switch)
+            this.pigmentMap = val || null;
+            if (!val) this.perPigmentParams = null;
+            this.emitSimulation();
         },
         externalRestoredTexture(val) {
             // Keep the restored pixels available for per-pigment lookup but do NOT
             // override the display mode — when the Simulation panel is active we
             // always want the simulation effect rendered, not the restored overlay.
-            if (val) { this.restoredTexture = val; }
+            // Also clear on null so exhibit-switch resets propagate.
+            this.restoredTexture = val || null;
         },
         // externalPigmentDisplayMode is intentionally not synced — the Simulation
         // panel always emits displayMode='current' so its effect wins over the
@@ -254,11 +261,31 @@ export default {
             this.selectedPreset = '';
             this.emitSimulation();
         },
-        temperature() { this.emitSimulation(); },
-        humidity() { this.emitSimulation(); },
-        simDays() { this.emitSimulation(); },
-        simMonths() { this.emitSimulation(); },
-        simYears() { this.emitSimulation(); },
+        temperature() {
+            // Manual environment change invalidates the play-mode accumulator:
+            // growth rate depends on T, so the carried-over index is stale.
+            if (!this.isPlaying) this.mouldIndex = 0;
+            this.emitSimulation();
+        },
+        humidity() {
+            if (!this.isPlaying) this.mouldIndex = 0;
+            this.emitSimulation();
+        },
+        simDays() {
+            // Only reset when the user is scrubbing manually — during play,
+            // tickSimulation is mutating simDays every frame and we must
+            // keep the accumulator intact so growth integrates over time.
+            if (!this.isPlaying) this.mouldIndex = 0;
+            this.emitSimulation();
+        },
+        simMonths() {
+            if (!this.isPlaying) this.mouldIndex = 0;
+            this.emitSimulation();
+        },
+        simYears() {
+            if (!this.isPlaying) this.mouldIndex = 0;
+            this.emitSimulation();
+        },
         simLight() { this.emitSimulation(); },
         enabledModels: {
             deep: true,
@@ -451,6 +478,12 @@ export default {
         async onPresetChange(event) {
             const preset = event.target.value;
             if (!preset) return;
+
+            // Bump the generation; any in-flight older run will see a
+            // mismatch at its next checkpoint and exit cleanly.
+            const gen = ++this._presetGeneration;
+            const stillActive = () => gen === this._presetGeneration;
+
             this.presetLoading = true;
             try {
                 // 1. Stop any running time progression
@@ -461,20 +494,29 @@ export default {
                 // 2. Reset the texture to original (via parent → ModelViewer)
                 this.$emit('reset-texture');
                 await this.$nextTick();
+                if (!stillActive()) return;
+
                 // 3. Apply preset parameters — watchers will trigger emitSimulation
                 this.applyPreset(preset);
+
                 // 4. Wait for the backend assessment to complete (debounce 150ms + API).
                 //    _doFetchAssessment will re-emit with fresh data, triggering texture rerender.
                 await new Promise(r => setTimeout(r, 500));
+                if (!stillActive()) return;
+
                 // 5. Wait for ModelViewer's isProcessing to clear (via textureProcessing prop).
                 const start = Date.now();
                 while (this.textureProcessing && Date.now() - start < 10000) {
                     await new Promise(r => setTimeout(r, 50));
+                    if (!stillActive()) return;
                 }
+
                 // 6. Small grace period so the overlay doesn't flicker
                 await new Promise(r => setTimeout(r, 100));
             } finally {
-                this.presetLoading = false;
+                // Only the latest generation may clear the loading flag —
+                // older runs bailed out and must leave it for the winner.
+                if (stillActive()) this.presetLoading = false;
             }
         },
 
@@ -962,7 +1004,7 @@ export default {
                     <!-- Quick Presets -->
                     <div class="control-group" style="margin-bottom: 16px;">
                         <label class="control-label" style="font-weight: 600; margin-bottom: 8px; display: block;">📊 Quick Presets:</label>
-                        <select class="preset-select" v-model="selectedPreset" @change="onPresetChange($event)">
+                        <select class="preset-select" v-model="selectedPreset" :disabled="busy" @change="onPresetChange($event)">
                             <option value="" disabled>Choose a preset…</option>
                             <option v-for="p in availablePresets" :key="p.key" :value="p.key">{{ p.label }} — {{ p.desc }}</option>
                         </select>

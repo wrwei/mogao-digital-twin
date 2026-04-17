@@ -82,6 +82,7 @@ export default {
         this.deteriorationWorker.onmessage = (e) => {
             this.handleWorkerResult(e.data);
         };
+        this.deteriorationWorker.onerror = (err) => this._handleWorkerError('uniform', err);
     },
     beforeUnmount() {
         if (this.deteriorationWorker) this.deteriorationWorker.terminate();
@@ -479,6 +480,7 @@ export default {
                 if (!this.pigmentDeteriorationWorker) {
                     this.pigmentDeteriorationWorker = new Worker('workers/pigment-deterioration-worker.js');
                     this.pigmentDeteriorationWorker.onmessage = (e) => this.handleWorkerResult(e.data);
+                    this.pigmentDeteriorationWorker.onerror = (err) => this._handleWorkerError('per-pigment', err);
                 }
                 const pixelCopy = new Uint8ClampedArray(this.originalPixelData).buffer;
                 const mapCopy = new Uint8Array(pigmentMap).buffer;
@@ -729,6 +731,14 @@ export default {
                 `⏳ ${multiplier.toFixed(2)}× lifetime → ${actualYears.toFixed(0)}y ≈ ${effectiveYears.toFixed(0)}y at reference conditions`,
                 'info', 3000
             );
+        },
+
+        /** Clear processing state and surface worker failures so the UI unlocks. */
+        _handleWorkerError(kind, err) {
+            console.error(`${kind} deterioration worker failed:`, err);
+            this.isProcessing = false;
+            const msg = (err && err.message) ? err.message : 'unknown error';
+            this.showToast(`⚠️ Texture processing failed (${kind}): ${msg}`, 'error', 5000);
         },
 
         /** Helper: apply raw pixel data to the 3D model texture */

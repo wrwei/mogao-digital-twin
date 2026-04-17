@@ -30,6 +30,11 @@ export default {
             restorationStrength: 0.65,
             displayMode: 'current', // 'current' | 'restored' | 'pigment-map'
             error: null,
+            // Monotonic counter; bumped whenever pixelData changes so in-flight
+            // analyses/restorations can check whether they're still valid
+            // before mutating component state (prevents stale results from a
+            // previous exhibit clobbering the new one).
+            _taskGeneration: 0,
         };
     },
     created() {
@@ -46,29 +51,35 @@ export default {
                 this.error = this.t('pigmentAnalysis.errorNoPixelData');
                 return;
             }
+            const gen = this._taskGeneration;
+            const pxWidth = this.pixelData.width;
+            const pxHeight = this.pixelData.height;
             this.analyzing = true;
             this.error = null;
             this.$emit('busy-changed', true);
             try {
                 const result = await this.identifier.identify(
-                    this.pixelData.data,
-                    this.pixelData.width,
-                    this.pixelData.height
+                    this.pixelData.data, pxWidth, pxHeight
                 );
+                // Discard if the underlying texture changed while we were working
+                if (gen !== this._taskGeneration) return;
                 this.pigmentMap = result.pigmentMap;
                 this.regionSummary = result.regionSummary;
                 this.$emit('pigment-analyzed', {
                     pigmentMap: result.pigmentMap,
                     regionSummary: result.regionSummary,
-                    width: this.pixelData.width,
-                    height: this.pixelData.height
+                    width: pxWidth,
+                    height: pxHeight
                 });
             } catch (err) {
+                if (gen !== this._taskGeneration) return;
                 console.error('Pigment analysis failed:', err);
                 this.error = this.t('pigmentAnalysis.analysisFailed') + err.message;
             } finally {
-                this.analyzing = false;
-                this.$emit('busy-changed', false);
+                if (gen === this._taskGeneration) {
+                    this.analyzing = false;
+                    this.$emit('busy-changed', false);
+                }
             }
         },
 
@@ -77,6 +88,7 @@ export default {
                 this.error = this.t('pigmentAnalysis.errorNoTexture');
                 return;
             }
+            const gen = this._taskGeneration;
             this.restoring = true;
             this.error = null;
             this.$emit('busy-changed', true);
@@ -88,6 +100,8 @@ export default {
                     this.pigmentMap,
                     this.restorationStrength
                 );
+                // Discard if the underlying texture changed while we were working
+                if (gen !== this._taskGeneration) return;
                 this.restoredPixels = result.restoredPixels;
                 this.$emit('texture-restored', {
                     restoredPixels: result.restoredPixels,
@@ -96,11 +110,14 @@ export default {
                 });
                 this.setDisplayMode('restored');
             } catch (err) {
+                if (gen !== this._taskGeneration) return;
                 console.error('Colour restoration failed:', err);
                 this.error = this.t('pigmentAnalysis.restorationFailed') + err.message;
             } finally {
-                this.restoring = false;
-                this.$emit('busy-changed', false);
+                if (gen === this._taskGeneration) {
+                    this.restoring = false;
+                    this.$emit('busy-changed', false);
+                }
             }
         },
 
@@ -115,6 +132,30 @@ export default {
     },
     computed: {
         busy() { return this.analyzing || this.restoring; }
+    },
+    watch: {
+        /** Reset internal analysis state whenever the underlying texture
+         *  changes (e.g. user switches to a different exhibit). Prevents
+         *  a stale pigment map or restored texture from a prior exhibit
+         *  being re-used for a new exhibit's pixels. Also bumps the task
+         *  generation so any in-flight analyze/restore discards its result
+         *  instead of clobbering the new state. */
+        pixelData(newVal, oldVal) {
+            if (newVal === oldVal) return;
+            this._taskGeneration++;
+            this.pigmentMap = null;
+            this.regionSummary = null;
+            this.restoredPixels = null;
+            this.displayMode = 'current';
+            this.error = null;
+            // Clear busy flags and notify parent so the UI unlocks even if
+            // an analyze/restore was mid-flight when the texture changed.
+            if (this.analyzing || this.restoring) {
+                this.analyzing = false;
+                this.restoring = false;
+                this.$emit('busy-changed', false);
+            }
+        }
     },
     template: `
         <div class="pigment-panel" style="padding: 16px 20px; background: white; border-radius: 12px; border: 2px solid #e0e0e0; box-shadow: 0 2px 8px rgba(0,0,0,0.08); position: relative;">
