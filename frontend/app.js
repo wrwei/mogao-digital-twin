@@ -46,6 +46,7 @@ import DefectList from './components/DefectList.js';
 import DefectDetailView from './components/DefectDetailView.js';
 
 import SettingsView from './components/SettingsView.js';
+import SensorDashboard from './components/SensorDashboard.js';
 
 // ============================================
 // Generated Composable Imports
@@ -176,7 +177,7 @@ const LoginPage = {
 // Shared UI Components
 // ============================================
 const AppSidebar = {
-    props: ['currentView', 'backendOnline'],
+    props: ['currentView', 'backendOnline', 'isAdmin'],
     emits: ['change-view'],
     setup() {
         const { t } = useI18n();
@@ -200,6 +201,10 @@ const AppSidebar = {
                 <div class="sidebar-nav-item" :class="{ active: currentView === 'defects' }" @click="$emit('change-view', 'defects')">
                     <span class="sidebar-nav-icon">⚠️</span>
                     <span>{{ t('entities.defects') }}</span>
+                </div>
+                <div v-if="isAdmin" class="sidebar-nav-item" :class="{ active: currentView === 'sensors' }" @click="$emit('change-view', 'sensors')">
+                    <span class="sidebar-nav-icon">📡</span>
+                    <span>Sensors</span>
                 </div>
                 <div class="sidebar-nav-item" :class="{ active: currentView === 'settings' }" @click="$emit('change-view', 'settings')" style="margin-top: auto;">
                     <span class="sidebar-nav-icon">&#9881;</span>
@@ -1155,6 +1160,7 @@ const app = createApp({
         InscriptionView,
         DefectView,
         SettingsView,
+        SensorDashboard,
     },
     setup() {
         const { locale, t, setLocale } = useI18n();
@@ -1171,7 +1177,13 @@ const app = createApp({
         });
         Vue.provide('isGuest', isGuest);
 
+        const isAdmin = Vue.computed(() => {
+            const user = JSON.parse(localStorage.getItem('mgemini-user') || 'null');
+            return !!(user && user.role === 'admin');
+        });
+
         return {
+            isAdmin,
             locale, t, setLocale,
             isGuest,
             dashCaves: cavesComposable,
@@ -1327,6 +1339,7 @@ const app = createApp({
             <app-sidebar
                 :current-view="currentView"
                 :backend-online="backendOnline"
+                :is-admin="isAdmin"
                 @change-view="changeView"
             ></app-sidebar>
 
@@ -1397,6 +1410,9 @@ const app = createApp({
                             @preferences-changed="handlePreferencesChanged"
                             @profile-updated="handleProfileUpdated"
                         ></settings-view>
+                        <sensor-dashboard
+                            v-if="currentView === 'sensors' && isAdmin"
+                        ></sensor-dashboard>
                     </div>
                 </div>
 

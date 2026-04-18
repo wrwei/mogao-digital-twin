@@ -120,6 +120,26 @@ const TelemetryService = {
         ).select('-apiKeyHash');
     },
 
+    /**
+     * Generate a fresh API key for a sensor and invalidate the previous one.
+     * Returns the plaintext key once — it cannot be recovered after this.
+     */
+    async rotateKey(sensorGid) {
+        const secret = crypto.randomBytes(24).toString('base64url');
+        const prefix = crypto.randomBytes(4).toString('hex');
+        const apiKey = `${prefix}.${secret}`;
+        const apiKeyHash = await bcrypt.hash(apiKey, BCRYPT_ROUNDS);
+
+        const sensor = await Sensor.findOneAndUpdate(
+            { gid: sensorGid },
+            { $set: { apiKeyHash, apiKeyPrefix: prefix } },
+            { new: true }
+        ).select('-apiKeyHash');
+
+        if (!sensor) return null;
+        return { sensor, apiKey };
+    },
+
     // ── Sample ingestion ─────────────────────────────────────────────────
 
     /**

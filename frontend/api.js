@@ -223,6 +223,7 @@ const api = {
             apiClient.post(`/sensors/${gid}/link-artifact`, { artifactGid }),
         unlinkArtifact: (gid, artifactGid) =>
             apiClient.delete(`/sensors/${gid}/link-artifact/${artifactGid}`),
+        rotateKey: (gid) => apiClient.post(`/sensors/${gid}/rotate-key`),
         uploadCSV: (gid, file) => {
             const fd = new FormData();
             fd.append('file', file);

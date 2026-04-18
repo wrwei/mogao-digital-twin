@@ -1,0 +1,361 @@
+/**
+ * Sensor Dashboard (admin-only full-page view)
+ * Fleet management for all registered sensors: health status, per-sensor
+ * detail rows, bulk CSV backfill.
+ */
+import { useI18n } from '../i18n.js';
+
+const STALE_MS_WARNING  = 30 * 60 * 1000;       // > 30 min since last sample → warning
+const STALE_MS_OFFLINE  = 6  * 60 * 60 * 1000;  // > 6 h → offline
+
+export default {
+    name: 'SensorDashboard',
+    setup() {
+        const { t } = useI18n();
+        return { t };
+    },
+    data() {
+        return {
+            sensors: [],
+            loading: false,
+            error: null,
+            search: '',
+            statusFilter: 'all',      // all | online | warning | offline | inactive
+
+            // Inline new-sensor form
+            showNewSensorForm: false,
+            newSensorForm: { name: '', model: '', serialNumber: '', cave: '' },
+            newSensorApiKey: null,
+
+            // Bulk import
+            bulkFiles: [],            // [{ file, sensorGid }]
+            bulkProgress: null,       // [{ name, status, result }]
+            bulkRunning: false
+        };
+    },
+    computed: {
+        now() { return Date.now(); },
+        sensorsDecorated() {
+            const now = Date.now();
+            return this.sensors.map(s => {
+                const last = s.status?.lastSeenAt ? new Date(s.status.lastSeenAt).getTime() : null;
+                const age = last ? now - last : null;
+                let health = 'unknown';
+                if (!s.status?.active) health = 'inactive';
+                else if (last === null) health = 'new';
+                else if (age < STALE_MS_WARNING) health = 'online';
+                else if (age < STALE_MS_OFFLINE) health = 'warning';
+                else health = 'offline';
+                return { ...s, _health: health, _ageMs: age };
+            });
+        },
+        filteredSensors() {
+            const q = this.search.trim().toLowerCase();
+            return this.sensorsDecorated.filter(s => {
+                if (this.statusFilter !== 'all' && s._health !== this.statusFilter) return false;
+                if (!q) return true;
+                return (s.name || '').toLowerCase().includes(q)
+                    || (s.model || '').toLowerCase().includes(q)
+                    || (s.gid || '').toLowerCase().includes(q)
+                    || (s.location?.cave || '').toLowerCase().includes(q);
+            });
+        },
+        stats() {
+            const byHealth = { online: 0, warning: 0, offline: 0, inactive: 0, new: 0, unknown: 0 };
+            let totalSamples = 0;
+            for (const s of this.sensorsDecorated) {
+                byHealth[s._health] = (byHealth[s._health] || 0) + 1;
+                totalSamples += (s.status?.samplesTotal || 0);
+            }
+            return { total: this.sensors.length, byHealth, totalSamples };
+        }
+    },
+    async mounted() {
+        await this.loadSensors();
+    },
+    methods: {
+        async loadSensors() {
+            this.loading = true;
+            this.error = null;
+            try {
+                const res = await window.api.sensors.list();
+                this.sensors = res.data;
+            } catch (err) {
+                this.error = err.response?.data?.error || err.message;
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        humanAge(ms) {
+            if (ms == null) return '—';
+            const s = Math.floor(ms / 1000);
+            if (s < 60) return `${s}s ago`;
+            if (s < 3600) return `${Math.floor(s/60)}m ago`;
+            if (s < 86400) return `${Math.floor(s/3600)}h ago`;
+            return `${Math.floor(s/86400)}d ago`;
+        },
+
+        healthColor(h) {
+            return { online: '#10b981', warning: '#f59e0b', offline: '#ef4444',
+                     inactive: '#6b7280', new: '#3b82f6', unknown: '#6b7280' }[h] || '#6b7280';
+        },
+
+        healthLabel(h) {
+            return { online: 'Online', warning: 'Warning', offline: 'Offline',
+                     inactive: 'Inactive', new: 'New (no data)', unknown: 'Unknown' }[h] || h;
+        },
+
+        async registerNewSensor() {
+            if (!this.newSensorForm.name) return;
+            this.loading = true;
+            this.error = null;
+            this.newSensorApiKey = null;
+            try {
+                const payload = {
+                    name: this.newSensorForm.name,
+                    model: this.newSensorForm.model || undefined,
+                    serialNumber: this.newSensorForm.serialNumber || undefined,
+                    location: { cave: this.newSensorForm.cave || undefined }
+                };
+                const res = await window.api.sensors.register(payload);
+                this.newSensorApiKey = res.data.apiKey;
+                this.newSensorForm = { name: '', model: '', serialNumber: '', cave: '' };
+                await this.loadSensors();
+            } catch (err) {
+                this.error = err.response?.data?.error || err.message;
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        async deactivate(gid) {
+            if (!confirm('Deactivate this sensor? It will stop accepting new samples.')) return;
+            try {
+                await window.api.sensors.deactivate(gid);
+                await this.loadSensors();
+            } catch (err) {
+                this.error = err.response?.data?.error || err.message;
+            }
+        },
+
+        // ── Bulk import ─────────────────────────────────────────────────
+        onBulkFilesChange(e) {
+            const files = Array.from(e.target.files || []);
+            this.bulkFiles = files.map(file => {
+                // Try to auto-match sensor by filename containing the sensor gid
+                const stem = file.name.replace(/\.[^.]+$/, '');
+                const match = this.sensors.find(s => stem.includes(s.gid) || stem.includes(s.name.replace(/\s+/g, '-')));
+                return { file, sensorGid: match ? match.gid : '' };
+            });
+            this.bulkProgress = null;
+        },
+
+        removeBulkFile(idx) {
+            this.bulkFiles = this.bulkFiles.filter((_, i) => i !== idx);
+        },
+
+        async runBulkImport() {
+            if (this.bulkFiles.some(f => !f.sensorGid)) {
+                alert('Every file must be assigned to a sensor before importing.');
+                return;
+            }
+            this.bulkRunning = true;
+            this.bulkProgress = this.bulkFiles.map(f => ({ name: f.file.name, status: 'pending', result: null }));
+            for (let i = 0; i < this.bulkFiles.length; i++) {
+                const entry = this.bulkFiles[i];
+                this.bulkProgress[i].status = 'uploading';
+                try {
+                    const res = await window.api.sensors.uploadCSV(entry.sensorGid, entry.file);
+                    this.bulkProgress[i].status = 'done';
+                    this.bulkProgress[i].result = res.data;
+                } catch (err) {
+                    this.bulkProgress[i].status = 'failed';
+                    this.bulkProgress[i].result = { error: err.response?.data?.error || err.message };
+                }
+            }
+            this.bulkRunning = false;
+            await this.loadSensors();
+        },
+
+        clearBulkImport() {
+            this.bulkFiles = [];
+            this.bulkProgress = null;
+        }
+    },
+    template: `
+        <div style="padding: 24px; max-width: 1400px; margin: 0 auto;">
+
+            <!-- Header -->
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
+                <h2 style="margin: 0; font-size: 22px; font-weight: 700;">📡 Sensor Fleet</h2>
+                <span style="flex: 1;"></span>
+                <button class="btn btn-sm" @click="loadSensors" :disabled="loading">↻ Refresh</button>
+                <button class="btn btn-sm btn-primary" @click="showNewSensorForm = !showNewSensorForm">
+                    {{ showNewSensorForm ? 'Cancel' : '+ Register sensor' }}
+                </button>
+            </div>
+
+            <!-- Error -->
+            <div v-if="error" style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 12px; margin-bottom: 16px; color: #dc2626; font-size: 13px;">
+                {{ error }}
+            </div>
+
+            <!-- Register sensor form -->
+            <div v-if="showNewSensorForm" class="sim-card" style="margin-bottom: 16px;">
+                <div class="sim-card-title">Register new sensor</div>
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 8px;">
+                    <input v-model="newSensorForm.name" placeholder="Name *" class="form-input" />
+                    <input v-model="newSensorForm.model" placeholder="Model (e.g. HOBO MX2301A)" class="form-input" />
+                    <input v-model="newSensorForm.serialNumber" placeholder="Serial #" class="form-input" />
+                    <input v-model="newSensorForm.cave" placeholder="Cave gid" class="form-input" />
+                </div>
+                <button class="btn btn-sm btn-primary" @click="registerNewSensor" :disabled="loading || !newSensorForm.name">Register</button>
+                <div v-if="newSensorApiKey" style="margin-top: 10px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 6px; padding: 10px;">
+                    <div style="font-weight: 600; color: #065f46; margin-bottom: 4px; font-size: 13px;">✓ Sensor registered — save this API key (shown once):</div>
+                    <code style="display: block; background: white; padding: 6px 8px; border-radius: 4px; word-break: break-all; user-select: all; font-size: 12px;">{{ newSensorApiKey }}</code>
+                </div>
+            </div>
+
+            <!-- Stats row -->
+            <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 16px;">
+                <div class="stat-card" style="padding: 12px;">
+                    <div style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Total</div>
+                    <div style="font-size: 24px; font-weight: 700;">{{ stats.total }}</div>
+                </div>
+                <div class="stat-card" @click="statusFilter='online'" style="padding: 12px; cursor: pointer;" :style="statusFilter==='online' ? 'outline: 2px solid #10b981;' : ''">
+                    <div style="font-size: 11px; color: #10b981; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Online</div>
+                    <div style="font-size: 24px; font-weight: 700; color: #10b981;">{{ stats.byHealth.online || 0 }}</div>
+                </div>
+                <div class="stat-card" @click="statusFilter='warning'" style="padding: 12px; cursor: pointer;" :style="statusFilter==='warning' ? 'outline: 2px solid #f59e0b;' : ''">
+                    <div style="font-size: 11px; color: #f59e0b; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Warning</div>
+                    <div style="font-size: 24px; font-weight: 700; color: #f59e0b;">{{ stats.byHealth.warning || 0 }}</div>
+                </div>
+                <div class="stat-card" @click="statusFilter='offline'" style="padding: 12px; cursor: pointer;" :style="statusFilter==='offline' ? 'outline: 2px solid #ef4444;' : ''">
+                    <div style="font-size: 11px; color: #ef4444; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Offline</div>
+                    <div style="font-size: 24px; font-weight: 700; color: #ef4444;">{{ stats.byHealth.offline || 0 }}</div>
+                </div>
+                <div class="stat-card" @click="statusFilter='inactive'" style="padding: 12px; cursor: pointer;" :style="statusFilter==='inactive' ? 'outline: 2px solid #6b7280;' : ''">
+                    <div style="font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Inactive</div>
+                    <div style="font-size: 24px; font-weight: 700; color: #6b7280;">{{ stats.byHealth.inactive || 0 }}</div>
+                </div>
+                <div class="stat-card" style="padding: 12px;">
+                    <div style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Samples</div>
+                    <div style="font-size: 24px; font-weight: 700;">{{ stats.totalSamples.toLocaleString() }}</div>
+                </div>
+            </div>
+
+            <!-- Search + filter -->
+            <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+                <input v-model="search" placeholder="Search sensors by name, model, gid, or cave…" class="form-input" style="flex: 1;" />
+                <button v-if="statusFilter !== 'all'" class="btn btn-sm" @click="statusFilter='all'">Clear filter</button>
+            </div>
+
+            <!-- Sensor table -->
+            <div class="sim-card" style="padding: 0; overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                    <thead>
+                        <tr style="background: #f5f5f5; border-bottom: 2px solid #e5e5e5;">
+                            <th style="text-align: left; padding: 10px;">Status</th>
+                            <th style="text-align: left; padding: 10px;">Name</th>
+                            <th style="text-align: left; padding: 10px;">Model</th>
+                            <th style="text-align: left; padding: 10px;">Cave</th>
+                            <th style="text-align: right; padding: 10px;">Samples</th>
+                            <th style="text-align: right; padding: 10px;">Last seen</th>
+                            <th style="text-align: left; padding: 10px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-if="filteredSensors.length === 0">
+                            <td colspan="7" style="padding: 20px; text-align: center; color: var(--text-secondary); font-style: italic;">
+                                {{ loading ? 'Loading…' : 'No sensors match the filter.' }}
+                            </td>
+                        </tr>
+                        <tr v-for="s in filteredSensors" :key="s.gid" style="border-bottom: 1px solid #f0f0f0;">
+                            <td style="padding: 8px 10px;">
+                                <span :style="{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600, color: healthColor(s._health) }">
+                                    <span :style="{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: healthColor(s._health) }"></span>
+                                    {{ healthLabel(s._health) }}
+                                </span>
+                            </td>
+                            <td style="padding: 8px 10px;">
+                                <div style="font-weight: 600;">{{ s.name }}</div>
+                                <div style="font-size: 10px; color: var(--text-secondary); font-family: monospace;">{{ s.gid }}</div>
+                            </td>
+                            <td style="padding: 8px 10px; color: var(--text-secondary);">{{ s.model || '—' }}</td>
+                            <td style="padding: 8px 10px; color: var(--text-secondary);">{{ s.location?.cave || '—' }}</td>
+                            <td style="padding: 8px 10px; text-align: right;">{{ (s.status?.samplesTotal || 0).toLocaleString() }}</td>
+                            <td style="padding: 8px 10px; text-align: right; color: var(--text-secondary); font-size: 11px;">
+                                {{ humanAge(s._ageMs) }}
+                            </td>
+                            <td style="padding: 8px 10px;">
+                                <button v-if="s.status?.active" class="btn btn-xs" @click="deactivate(s.gid)" style="background: #fee2e2; color: #991b1b;">Deactivate</button>
+                                <span v-else style="font-size: 11px; color: var(--text-secondary);">—</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Bulk import -->
+            <div class="sim-card" style="margin-top: 16px;">
+                <div class="sim-card-title">📦 Bulk CSV import</div>
+                <p style="font-size: 12px; color: var(--text-secondary); margin: 0 0 10px 0;">
+                    Select multiple CSV files at once. Files are auto-matched to sensors when the filename contains the sensor's gid or name; otherwise pick the target sensor manually.
+                </p>
+
+                <input type="file" accept=".csv,text/csv" multiple @change="onBulkFilesChange" style="margin-bottom: 10px;" />
+
+                <div v-if="bulkFiles.length > 0">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 10px;">
+                        <thead>
+                            <tr style="background: #f5f5f5;">
+                                <th style="text-align: left; padding: 6px;">File</th>
+                                <th style="text-align: left; padding: 6px;">Size</th>
+                                <th style="text-align: left; padding: 6px;">Target sensor</th>
+                                <th style="text-align: left; padding: 6px;">Status</th>
+                                <th style="padding: 6px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="(entry, i) in bulkFiles" :key="entry.file.name + i" style="border-bottom: 1px solid #f0f0f0;">
+                                <td style="padding: 6px;">{{ entry.file.name }}</td>
+                                <td style="padding: 6px; color: var(--text-secondary);">{{ (entry.file.size / 1024).toFixed(1) }} KB</td>
+                                <td style="padding: 6px;">
+                                    <select v-model="entry.sensorGid" :disabled="bulkRunning" class="preset-select" style="padding: 3px 6px; font-size: 11px;">
+                                        <option value="" disabled>Select…</option>
+                                        <option v-for="s in sensors" :key="s.gid" :value="s.gid">{{ s.name }} ({{ s.gid.substring(0, 20) }}…)</option>
+                                    </select>
+                                </td>
+                                <td style="padding: 6px;">
+                                    <span v-if="bulkProgress && bulkProgress[i]">
+                                        <span v-if="bulkProgress[i].status === 'pending'" style="color: var(--text-secondary);">pending</span>
+                                        <span v-else-if="bulkProgress[i].status === 'uploading'" style="color: #3b82f6;">uploading…</span>
+                                        <span v-else-if="bulkProgress[i].status === 'done'" style="color: #10b981;">
+                                            ✓ {{ bulkProgress[i].result.accepted }} accepted,
+                                            {{ bulkProgress[i].result.duplicates }} dup,
+                                            {{ bulkProgress[i].result.rejected }} rejected
+                                        </span>
+                                        <span v-else style="color: #ef4444;">✗ {{ bulkProgress[i].result.error }}</span>
+                                    </span>
+                                    <span v-else style="color: var(--text-secondary);">ready</span>
+                                </td>
+                                <td style="padding: 6px;">
+                                    <button v-if="!bulkRunning" class="btn btn-xs" @click="removeBulkFile(i)" style="padding: 1px 6px;">✕</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-sm btn-primary" @click="runBulkImport" :disabled="bulkRunning || bulkFiles.length === 0">
+                            {{ bulkRunning ? 'Importing…' : 'Import all (' + bulkFiles.length + ')' }}
+                        </button>
+                        <button class="btn btn-sm" @click="clearBulkImport" :disabled="bulkRunning">Clear</button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    `
+};

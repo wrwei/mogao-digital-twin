@@ -128,6 +128,24 @@ module.exports = {
         }
     },
 
+    async rotateKey(req, res) {
+        try {
+            if (!req.user || req.user.role !== 'admin') {
+                return res.status(403).json({ error: 'Only admin can rotate sensor keys' });
+            }
+            const result = await TelemetryService.rotateKey(req.params.gid);
+            if (!result) return res.status(404).json({ error: 'Sensor not found' });
+            res.json({
+                sensor: result.sensor,
+                apiKey: result.apiKey,
+                note: 'Store this apiKey securely. The previous key is now invalid and this new key will not be shown again.'
+            });
+        } catch (err) {
+            console.error('rotateKey error:', err);
+            res.status(500).json({ error: err.message });
+        }
+    },
+
     async adminIngestCSV(req, res) {
         try {
             if (!req.user || req.user.role !== 'admin') {

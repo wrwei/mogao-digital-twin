@@ -33,6 +33,7 @@ adminRouter.patch('/:gid',                         TelemetryController.updateSen
 adminRouter.delete('/:gid',                        TelemetryController.deactivateSensor);
 adminRouter.post('/:gid/link-artifact',            TelemetryController.linkArtifact);
 adminRouter.delete('/:gid/link-artifact/:artifactGid', TelemetryController.unlinkArtifact);
+adminRouter.post('/:gid/rotate-key',               TelemetryController.rotateKey);
 adminRouter.post(
     '/:gid/samples/upload',
     TelemetryController.csvUploadMiddleware,
