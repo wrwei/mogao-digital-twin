@@ -203,6 +203,35 @@ const api = {
         setInspection: (gid, data) => apiClient.put(`/exhibits/${gid}/inspection`, data),
         updateConservationStatus: (gid, data) => apiClient.put(`/exhibits/${gid}/conservation-status`, data),
         setCoordinates: (gid, data) => apiClient.put(`/exhibits/${gid}/coordinates`, data),
+        /**
+         * Query environment time-series for an artifact.
+         * @param gid      Artifact gid
+         * @param params   { from?, to?, interval?: 'raw'|'hourly'|'daily' }
+         */
+        getEnvironment: (gid, params = {}) =>
+            apiClient.get(`/exhibits/${gid}/environment`, { params }),
+    },
+
+    // Sensor management (admin)
+    sensors: {
+        list: () => apiClient.get('/sensors'),
+        get: (gid) => apiClient.get(`/sensors/${gid}`),
+        register: (data) => apiClient.post('/sensors', data),
+        update: (gid, patch) => apiClient.patch(`/sensors/${gid}`, patch),
+        deactivate: (gid) => apiClient.delete(`/sensors/${gid}`),
+        linkArtifact: (gid, artifactGid) =>
+            apiClient.post(`/sensors/${gid}/link-artifact`, { artifactGid }),
+        unlinkArtifact: (gid, artifactGid) =>
+            apiClient.delete(`/sensors/${gid}/link-artifact/${artifactGid}`),
+        uploadCSV: (gid, file) => {
+            const fd = new FormData();
+            fd.append('file', file);
+            return apiClient.post(`/sensors/${gid}/samples/upload`, fd, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+        },
+        batch: (gid, samples) =>
+            apiClient.post(`/sensors/${gid}/samples/batch`, { samples }),
     },
 
     // Health check

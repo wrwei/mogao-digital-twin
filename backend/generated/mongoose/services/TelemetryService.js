@@ -85,6 +85,41 @@ const TelemetryService = {
         ).select('-apiKeyHash');
     },
 
+    /**
+     * Partial update of a sensor's mutable fields. Disallows changes to
+     * gid, apiKey*, samplesTotal, firstSeenAt, lastSeenAt.
+     */
+    async updateSensor(gid, patch) {
+        const allowed = ['name', 'model', 'serialNumber', 'channels', 'location', 'calibration'];
+        const set = {};
+        for (const k of allowed) if (patch[k] !== undefined) set[k] = patch[k];
+        if (patch.active !== undefined) set['status.active'] = !!patch.active;
+        return Sensor.findOneAndUpdate(
+            { gid },
+            { $set: set },
+            { new: true, runValidators: true }
+        ).select('-apiKeyHash');
+    },
+
+    /**
+     * Add an artifact gid to a sensor's explicitArtifacts list (if not already present).
+     */
+    async linkArtifact(sensorGid, artifactGid) {
+        return Sensor.findOneAndUpdate(
+            { gid: sensorGid },
+            { $addToSet: { 'location.explicitArtifacts': artifactGid } },
+            { new: true }
+        ).select('-apiKeyHash');
+    },
+
+    async unlinkArtifact(sensorGid, artifactGid) {
+        return Sensor.findOneAndUpdate(
+            { gid: sensorGid },
+            { $pull: { 'location.explicitArtifacts': artifactGid } },
+            { new: true }
+        ).select('-apiKeyHash');
+    },
+
     // ── Sample ingestion ─────────────────────────────────────────────────
 
     /**

@@ -1,5 +1,6 @@
 const multer = require('multer');
 const TelemetryService = require('../services/TelemetryService');
+const { Sensor } = require('../models/Sensor');
 
 // In-memory CSV upload (bounded at 20 MB — roughly 100k sample rows)
 const csvUpload = multer({
@@ -61,6 +62,85 @@ module.exports = {
             if (!s) return res.status(404).json({ error: 'Sensor not found' });
             res.json(s);
         } catch (err) {
+            res.status(500).json({ error: err.message });
+        }
+    },
+
+    async updateSensor(req, res) {
+        try {
+            if (!req.user || req.user.role !== 'admin') {
+                return res.status(403).json({ error: 'Only admin can update sensors' });
+            }
+            const s = await TelemetryService.updateSensor(req.params.gid, req.body);
+            if (!s) return res.status(404).json({ error: 'Sensor not found' });
+            res.json(s);
+        } catch (err) {
+            res.status(500).json({ error: err.message });
+        }
+    },
+
+    async linkArtifact(req, res) {
+        try {
+            if (!req.user || req.user.role !== 'admin') {
+                return res.status(403).json({ error: 'Only admin can link artifacts' });
+            }
+            const { artifactGid } = req.body;
+            if (!artifactGid) return res.status(400).json({ error: 'artifactGid is required' });
+            const s = await TelemetryService.linkArtifact(req.params.gid, artifactGid);
+            if (!s) return res.status(404).json({ error: 'Sensor not found' });
+            res.json(s);
+        } catch (err) {
+            res.status(500).json({ error: err.message });
+        }
+    },
+
+    async unlinkArtifact(req, res) {
+        try {
+            if (!req.user || req.user.role !== 'admin') {
+                return res.status(403).json({ error: 'Only admin can unlink artifacts' });
+            }
+            const s = await TelemetryService.unlinkArtifact(req.params.gid, req.params.artifactGid);
+            if (!s) return res.status(404).json({ error: 'Sensor not found' });
+            res.json(s);
+        } catch (err) {
+            res.status(500).json({ error: err.message });
+        }
+    },
+
+    // ── Admin ingestion (no sensor key needed — JWT already authenticates) ──
+
+    async adminIngestBatch(req, res) {
+        try {
+            if (!req.user || req.user.role !== 'admin') {
+                return res.status(403).json({ error: 'Only admin can ingest via this endpoint' });
+            }
+            const sensor = await Sensor.findOne({ gid: req.params.gid });
+            if (!sensor) return res.status(404).json({ error: 'Sensor not found' });
+            const { samples } = req.body;
+            if (!Array.isArray(samples)) {
+                return res.status(400).json({ error: 'samples must be an array' });
+            }
+            const result = await TelemetryService.ingestBatch(sensor, samples);
+            res.status(201).json(result);
+        } catch (err) {
+            console.error('adminIngestBatch error:', err);
+            res.status(500).json({ error: err.message });
+        }
+    },
+
+    async adminIngestCSV(req, res) {
+        try {
+            if (!req.user || req.user.role !== 'admin') {
+                return res.status(403).json({ error: 'Only admin can ingest via this endpoint' });
+            }
+            if (!req.file) return res.status(400).json({ error: 'file field is required' });
+            const sensor = await Sensor.findOne({ gid: req.params.gid });
+            if (!sensor) return res.status(404).json({ error: 'Sensor not found' });
+            const csvText = req.file.buffer.toString('utf-8');
+            const result = await TelemetryService.ingestCSV(sensor, csvText);
+            res.status(201).json(result);
+        } catch (err) {
+            console.error('adminIngestCSV error:', err);
             res.status(500).json({ error: err.message });
         }
     },

@@ -6,6 +6,7 @@ import CaveCard from './CaveCard.js';
 import ModelViewer from './ModelViewer.js';
 import SimulationPanel from './SimulationPanel.js';
 import PigmentAnalysisPanel from './PigmentAnalysisPanel.js';
+import LiveDataPanel from './LiveDataPanel.js';
 import StatueForm from './StatueForm.js';
 import MuralForm from './MuralForm.js';
 import PaintingForm from './PaintingForm.js';
@@ -17,10 +18,14 @@ export default {
     setup() {
         const { t } = useI18n();
         const isGuest = Vue.inject('isGuest', Vue.ref(false));
-        return { t, isGuest };
+        const isAdmin = Vue.computed(() => {
+            const user = JSON.parse(localStorage.getItem('mgemini-user') || 'null');
+            return !!(user && user.role === 'admin');
+        });
+        return { t, isGuest, isAdmin };
     },
     components: {
-        CaveCard, ModelViewer, SimulationPanel, PigmentAnalysisPanel,
+        CaveCard, ModelViewer, SimulationPanel, PigmentAnalysisPanel, LiveDataPanel,
         StatueForm, MuralForm, PaintingForm, InscriptionForm
     },
     props: {
@@ -51,7 +56,7 @@ export default {
             editType: null,
             editItem: null,
             // Right-side panel toggle
-            activePanel: 'pigment', // 'pigment' | 'simulation'
+            activePanel: 'pigment', // 'pigment' | 'simulation' | 'live'
             // Panel busy state
             panelBusy: false,
             textureProcessing: false,
@@ -453,6 +458,7 @@ export default {
                 <div class="tool-buttons-bar">
                     <button class="tool-btn" :class="{ active: activePanel === 'pigment' }" :disabled="panelBusy || textureProcessing" @click="activePanel = 'pigment'">Pigment Analysis</button>
                     <button class="tool-btn" :class="{ active: activePanel === 'simulation' }" :disabled="panelBusy || textureProcessing || !pigmentMap" @click="handleSimulationClick">Simulation</button>
+                    <button class="tool-btn" :class="{ active: activePanel === 'live' }" :disabled="panelBusy || textureProcessing" @click="activePanel = 'live'">Live Data</button>
                     <span v-if="simDisabledMsg" class="tool-btn-hint">{{ simDisabledMsg }}</span>
                 </div>
                 <div style="flex: 1; display: flex; flex-direction: row; padding: 16px; overflow: hidden;">
@@ -473,6 +479,7 @@ export default {
                     <div :style="{ width: simulationPanelWidth + 'px', flexShrink: 0, display: 'flex', flexDirection: 'column', height: '100%', overflowY: 'auto', scrollBehavior: 'smooth', paddingLeft: '8px' }">
                         <simulation-panel v-show="activePanel === 'simulation'" :entity="selectedExhibit" :pixel-data="texturePixelData" :external-pigment-map="pigmentMap" :external-restored-texture="restoredTexture" :external-pigment-display-mode="pigmentDisplayMode" :texture-processing="textureProcessing" @simulation-changed="handleSimulationChanged" @reset-texture="handleResetTexture" @busy-changed="panelBusy = $event"></simulation-panel>
                         <pigment-analysis-panel v-show="activePanel === 'pigment'" :pixel-data="texturePixelData" @pigment-analyzed="handlePigmentAnalyzed" @texture-restored="handleTextureRestored" @display-mode-changed="handlePigmentDisplayModeChanged" @busy-changed="panelBusy = $event"></pigment-analysis-panel>
+                        <live-data-panel v-if="activePanel === 'live'" :entity="selectedExhibit" :is-admin="isAdmin" @busy-changed="panelBusy = $event"></live-data-panel>
                     </div>
                 </div>
             </template>

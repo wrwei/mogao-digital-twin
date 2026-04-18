@@ -26,9 +26,18 @@ sensorRouter.post(
 
 // ── Admin-authenticated router (for sensor management) ──────────────────
 const adminRouter = express.Router();
-adminRouter.post('/',          TelemetryController.registerSensor);
-adminRouter.get('/',           TelemetryController.listSensors);
-adminRouter.get('/:gid',       TelemetryController.getSensor);
-adminRouter.delete('/:gid',    TelemetryController.deactivateSensor);
+adminRouter.post('/',                              TelemetryController.registerSensor);
+adminRouter.get('/',                               TelemetryController.listSensors);
+adminRouter.get('/:gid',                           TelemetryController.getSensor);
+adminRouter.patch('/:gid',                         TelemetryController.updateSensor);
+adminRouter.delete('/:gid',                        TelemetryController.deactivateSensor);
+adminRouter.post('/:gid/link-artifact',            TelemetryController.linkArtifact);
+adminRouter.delete('/:gid/link-artifact/:artifactGid', TelemetryController.unlinkArtifact);
+adminRouter.post(
+    '/:gid/samples/upload',
+    TelemetryController.csvUploadMiddleware,
+    TelemetryController.adminIngestCSV
+);
+adminRouter.post('/:gid/samples/batch',            TelemetryController.adminIngestBatch);
 
 module.exports = { sensorRouter, adminRouter };
