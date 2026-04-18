@@ -102,8 +102,15 @@ export default {
         },
 
         healthLabel(h) {
-            return { online: 'Online', warning: 'Warning', offline: 'Offline',
-                     inactive: 'Inactive', new: 'New (no data)', unknown: 'Unknown' }[h] || h;
+            const map = {
+                online: this.t('sensorDashboard.online'),
+                warning: this.t('sensorDashboard.warning'),
+                offline: this.t('sensorDashboard.offline'),
+                inactive: this.t('sensorDashboard.inactive'),
+                new: this.t('sensorDashboard.new'),
+                unknown: this.t('sensorDashboard.unknown')
+            };
+            return map[h] || h;
         },
 
         async registerNewSensor() {
@@ -130,7 +137,7 @@ export default {
         },
 
         async deactivate(gid) {
-            if (!confirm('Deactivate this sensor? It will stop accepting new samples.')) return;
+            if (!confirm(this.t('sensorDashboard.deactivateConfirm'))) return;
             try {
                 await window.api.sensors.deactivate(gid);
                 await this.loadSensors();
@@ -188,11 +195,11 @@ export default {
 
             <!-- Header -->
             <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
-                <h2 style="margin: 0; font-size: 22px; font-weight: 700;">📡 Sensor Fleet</h2>
+                <h2 style="margin: 0; font-size: 22px; font-weight: 700;">📡 {{ t('sensorDashboard.title') }}</h2>
                 <span style="flex: 1;"></span>
-                <button class="btn btn-sm" @click="loadSensors" :disabled="loading">↻ Refresh</button>
+                <button class="btn btn-sm" @click="loadSensors" :disabled="loading">{{ t('sensorDashboard.refresh') }}</button>
                 <button class="btn btn-sm btn-primary" @click="showNewSensorForm = !showNewSensorForm">
-                    {{ showNewSensorForm ? 'Cancel' : '+ Register sensor' }}
+                    {{ showNewSensorForm ? t('sensorDashboard.cancel') : t('sensorDashboard.registerSensor') }}
                 </button>
             </div>
 
@@ -220,35 +227,35 @@ export default {
             <!-- Stats row -->
             <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 16px;">
                 <div class="stat-card" style="padding: 12px;">
-                    <div style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Total</div>
+                    <div style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">{{ t('sensorDashboard.total') }}</div>
                     <div style="font-size: 24px; font-weight: 700;">{{ stats.total }}</div>
                 </div>
                 <div class="stat-card" @click="statusFilter='online'" style="padding: 12px; cursor: pointer;" :style="statusFilter==='online' ? 'outline: 2px solid #10b981;' : ''">
-                    <div style="font-size: 11px; color: #10b981; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Online</div>
+                    <div style="font-size: 11px; color: #10b981; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">{{ t('sensorDashboard.online') }}</div>
                     <div style="font-size: 24px; font-weight: 700; color: #10b981;">{{ stats.byHealth.online || 0 }}</div>
                 </div>
                 <div class="stat-card" @click="statusFilter='warning'" style="padding: 12px; cursor: pointer;" :style="statusFilter==='warning' ? 'outline: 2px solid #f59e0b;' : ''">
-                    <div style="font-size: 11px; color: #f59e0b; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Warning</div>
+                    <div style="font-size: 11px; color: #f59e0b; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">{{ t('sensorDashboard.warning') }}</div>
                     <div style="font-size: 24px; font-weight: 700; color: #f59e0b;">{{ stats.byHealth.warning || 0 }}</div>
                 </div>
                 <div class="stat-card" @click="statusFilter='offline'" style="padding: 12px; cursor: pointer;" :style="statusFilter==='offline' ? 'outline: 2px solid #ef4444;' : ''">
-                    <div style="font-size: 11px; color: #ef4444; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Offline</div>
+                    <div style="font-size: 11px; color: #ef4444; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">{{ t('sensorDashboard.offline') }}</div>
                     <div style="font-size: 24px; font-weight: 700; color: #ef4444;">{{ stats.byHealth.offline || 0 }}</div>
                 </div>
                 <div class="stat-card" @click="statusFilter='inactive'" style="padding: 12px; cursor: pointer;" :style="statusFilter==='inactive' ? 'outline: 2px solid #6b7280;' : ''">
-                    <div style="font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Inactive</div>
+                    <div style="font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">{{ t('sensorDashboard.inactive') }}</div>
                     <div style="font-size: 24px; font-weight: 700; color: #6b7280;">{{ stats.byHealth.inactive || 0 }}</div>
                 </div>
                 <div class="stat-card" style="padding: 12px;">
-                    <div style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Samples</div>
+                    <div style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">{{ t('sensorDashboard.samples') }}</div>
                     <div style="font-size: 24px; font-weight: 700;">{{ stats.totalSamples.toLocaleString() }}</div>
                 </div>
             </div>
 
             <!-- Search + filter -->
             <div style="display: flex; gap: 8px; margin-bottom: 10px;">
-                <input v-model="search" placeholder="Search sensors by name, model, gid, or cave…" class="form-input" style="flex: 1;" />
-                <button v-if="statusFilter !== 'all'" class="btn btn-sm" @click="statusFilter='all'">Clear filter</button>
+                <input v-model="search" :placeholder="t('sensorDashboard.search')" class="form-input" style="flex: 1;" />
+                <button v-if="statusFilter !== 'all'" class="btn btn-sm" @click="statusFilter='all'">{{ t('sensorDashboard.clearFilter') }}</button>
             </div>
 
             <!-- Sensor table -->
@@ -256,19 +263,19 @@ export default {
                 <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
                     <thead>
                         <tr style="background: #f5f5f5; border-bottom: 2px solid #e5e5e5;">
-                            <th style="text-align: left; padding: 10px;">Status</th>
-                            <th style="text-align: left; padding: 10px;">Name</th>
-                            <th style="text-align: left; padding: 10px;">Model</th>
-                            <th style="text-align: left; padding: 10px;">Cave</th>
-                            <th style="text-align: right; padding: 10px;">Samples</th>
-                            <th style="text-align: right; padding: 10px;">Last seen</th>
-                            <th style="text-align: left; padding: 10px;">Actions</th>
+                            <th style="text-align: left; padding: 10px;">{{ t('sensorDashboard.colStatus') }}</th>
+                            <th style="text-align: left; padding: 10px;">{{ t('sensorDashboard.colName') }}</th>
+                            <th style="text-align: left; padding: 10px;">{{ t('sensorDashboard.colModel') }}</th>
+                            <th style="text-align: left; padding: 10px;">{{ t('sensorDashboard.colCave') }}</th>
+                            <th style="text-align: right; padding: 10px;">{{ t('sensorDashboard.colSamples') }}</th>
+                            <th style="text-align: right; padding: 10px;">{{ t('sensorDashboard.colLastSeen') }}</th>
+                            <th style="text-align: left; padding: 10px;">{{ t('sensorDashboard.colActions') }}</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr v-if="filteredSensors.length === 0">
                             <td colspan="7" style="padding: 20px; text-align: center; color: var(--text-secondary); font-style: italic;">
-                                {{ loading ? 'Loading…' : 'No sensors match the filter.' }}
+                                {{ loading ? t('liveData.loading') : t('sensorDashboard.noMatch') }}
                             </td>
                         </tr>
                         <tr v-for="s in filteredSensors" :key="s.gid" style="border-bottom: 1px solid #f0f0f0;">
@@ -289,7 +296,7 @@ export default {
                                 {{ humanAge(s._ageMs) }}
                             </td>
                             <td style="padding: 8px 10px;">
-                                <button v-if="s.status?.active" class="btn btn-xs" @click="deactivate(s.gid)" style="background: #fee2e2; color: #991b1b;">Deactivate</button>
+                                <button v-if="s.status?.active" class="btn btn-xs" @click="deactivate(s.gid)" style="background: #fee2e2; color: #991b1b;">{{ t('sensorDashboard.deactivate') }}</button>
                                 <span v-else style="font-size: 11px; color: var(--text-secondary);">—</span>
                             </td>
                         </tr>
@@ -299,9 +306,9 @@ export default {
 
             <!-- Bulk import -->
             <div class="sim-card" style="margin-top: 16px;">
-                <div class="sim-card-title">📦 Bulk CSV import</div>
+                <div class="sim-card-title">{{ t('sensorDashboard.bulkTitle') }}</div>
                 <p style="font-size: 12px; color: var(--text-secondary); margin: 0 0 10px 0;">
-                    Select multiple CSV files at once. Files are auto-matched to sensors when the filename contains the sensor's gid or name; otherwise pick the target sensor manually.
+                    {{ t('sensorDashboard.bulkHint') }}
                 </p>
 
                 <input type="file" accept=".csv,text/csv" multiple @change="onBulkFilesChange" style="margin-bottom: 10px;" />
@@ -349,9 +356,9 @@ export default {
 
                     <div style="display: flex; gap: 8px;">
                         <button class="btn btn-sm btn-primary" @click="runBulkImport" :disabled="bulkRunning || bulkFiles.length === 0">
-                            {{ bulkRunning ? 'Importing…' : 'Import all (' + bulkFiles.length + ')' }}
+                            {{ bulkRunning ? t('sensorDashboard.bulkImporting') : (t('sensorDashboard.bulkImportAll') + ' (' + bulkFiles.length + ')') }}
                         </button>
-                        <button class="btn btn-sm" @click="clearBulkImport" :disabled="bulkRunning">Clear</button>
+                        <button class="btn btn-sm" @click="clearBulkImport" :disabled="bulkRunning">{{ t('sensorDashboard.bulkClear') }}</button>
                     </div>
                 </div>
             </div>

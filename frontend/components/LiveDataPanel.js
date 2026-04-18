@@ -18,8 +18,8 @@ export default {
     },
     emits: ['busy-changed'],
     setup() {
-        const { t } = useI18n();
-        return { t };
+        const { t, locale } = useI18n();
+        return { t, locale };
     },
     data() {
         return {
@@ -352,16 +352,15 @@ export default {
             <!-- Header -->
             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 14px;">
                 <span style="font-size: 18px;">📡</span>
-                <span style="font-weight: 600; font-size: 14px;">Environment Monitoring</span>
+                <span style="font-weight: 600; font-size: 14px;">{{ t('liveData.title') }}</span>
                 <span v-if="sensorsForArtifact.length" style="margin-left: auto; font-size: 11px; color: var(--text-secondary);">
-                    {{ sensorsForArtifact.length }} sensor{{ sensorsForArtifact.length > 1 ? 's' : '' }} · {{ sampleCount }} samples
+                    {{ sensorsForArtifact.length }} {{ t('liveData.sensors') }} · {{ sampleCount }} {{ t('liveData.samples') }}
                 </span>
             </div>
 
             <!-- No sensors hint -->
             <div v-if="!loading && sensorsForArtifact.length === 0 && !error" style="background: #fff8e8; border-left: 3px solid #f59e0b; padding: 10px 12px; border-radius: 6px; font-size: 12px; color: #5c4a1a;">
-                No sensors are linked to this artifact or its parent cave yet.
-                <span v-if="isAdmin">Use the admin panel below to link one or register a new sensor.</span>
+                {{ t('liveData.noSensors') }}
             </div>
 
             <!-- Error -->
@@ -372,15 +371,15 @@ export default {
             <!-- Current reading summary -->
             <div v-if="latestSample" style="display: flex; gap: 12px; margin-bottom: 14px;">
                 <div style="flex: 1; background: #fef2f2; border-radius: 8px; padding: 10px; text-align: center;">
-                    <div style="font-size: 10px; color: #991b1b; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Temp</div>
+                    <div style="font-size: 10px; color: #991b1b; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">{{ t('liveData.currentTemp') }}</div>
                     <div style="font-size: 22px; font-weight: 700; color: #dc2626;">{{ latestSample.temperature.toFixed(1) }}°C</div>
                 </div>
                 <div style="flex: 1; background: #eff6ff; border-radius: 8px; padding: 10px; text-align: center;">
-                    <div style="font-size: 10px; color: #1e40af; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">RH</div>
+                    <div style="font-size: 10px; color: #1e40af; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">{{ t('liveData.currentRh') }}</div>
                     <div style="font-size: 22px; font-weight: 700; color: #2563eb;">{{ latestSample.humidity.toFixed(0) }}%</div>
                 </div>
                 <div v-if="summary && summary.humidity" style="flex: 1; background: #fef3c7; border-radius: 8px; padding: 10px; text-align: center;">
-                    <div style="font-size: 10px; color: #92400e; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Daily ΔRH</div>
+                    <div style="font-size: 10px; color: #92400e; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">{{ t('liveData.dailyRhAmplitude') }}</div>
                     <div style="font-size: 22px; font-weight: 700; color: #b45309;">{{ summary.humidity.dailyAmplitudeMean.toFixed(1) }}%</div>
                 </div>
             </div>
@@ -388,33 +387,33 @@ export default {
             <!-- Controls -->
             <div v-if="sensorsForArtifact.length" style="display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; font-size: 12px;">
                 <div>
-                    <label style="display: block; font-size: 10px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Range</label>
+                    <label style="display: block; font-size: 10px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">{{ t('liveData.range') }}</label>
                     <select v-model="range" class="preset-select" style="padding: 4px 8px; font-size: 12px;">
-                        <option value="24h">Last 24h</option>
-                        <option value="7d">Last 7 days</option>
-                        <option value="30d">Last 30 days</option>
-                        <option value="1y">Last year</option>
-                        <option value="all">All time</option>
+                        <option value="24h">{{ t('liveData.last24h') }}</option>
+                        <option value="7d">{{ t('liveData.last7d') }}</option>
+                        <option value="30d">{{ t('liveData.last30d') }}</option>
+                        <option value="1y">{{ t('liveData.last1y') }}</option>
+                        <option value="all">{{ t('liveData.allTime') }}</option>
                     </select>
                 </div>
                 <div>
-                    <label style="display: block; font-size: 10px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Interval</label>
+                    <label style="display: block; font-size: 10px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">{{ t('liveData.interval') }}</label>
                     <select v-model="interval" class="preset-select" style="padding: 4px 8px; font-size: 12px;">
-                        <option value="raw">Raw (10 min)</option>
-                        <option value="hourly">Hourly</option>
-                        <option value="daily">Daily</option>
+                        <option value="raw">{{ t('liveData.raw') }}</option>
+                        <option value="hourly">{{ t('liveData.hourly') }}</option>
+                        <option value="daily">{{ t('liveData.daily') }}</option>
                     </select>
                 </div>
                 <div>
-                    <label style="display: block; font-size: 10px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Auto-refresh</label>
+                    <label style="display: block; font-size: 10px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">{{ t('liveData.autoRefresh') }}</label>
                     <select v-model.number="autoRefreshSeconds" class="preset-select" style="padding: 4px 8px; font-size: 12px;">
-                        <option :value="0">Off</option>
+                        <option :value="0">{{ t('liveData.off') }}</option>
                         <option :value="30">30 s</option>
                         <option :value="120">2 min</option>
                         <option :value="600">10 min</option>
                     </select>
                 </div>
-                <button @click="refresh" class="btn btn-xs" :disabled="busy" style="align-self: flex-end;">↻ Refresh</button>
+                <button @click="refresh" class="btn btn-xs" :disabled="busy" style="align-self: flex-end;">↻ {{ t('liveData.refresh') }}</button>
             </div>
 
             <!-- Chart -->
@@ -451,7 +450,7 @@ export default {
             <!-- Admin panel (collapsible) -->
             <div v-if="isAdmin" style="border-top: 1px solid #e5e5e5; padding-top: 10px;">
                 <button @click="showAdmin = !showAdmin" class="btn btn-xs" style="width: 100%; text-align: left;">
-                    {{ showAdmin ? '▼' : '▶' }} Admin controls
+                    {{ showAdmin ? '▼' : '▶' }} {{ t('liveData.adminControls') }}
                 </button>
 
                 <div v-if="showAdmin" style="margin-top: 10px;">

@@ -204,7 +204,7 @@ const AppSidebar = {
                 </div>
                 <div v-if="isAdmin" class="sidebar-nav-item" :class="{ active: currentView === 'sensors' }" @click="$emit('change-view', 'sensors')">
                     <span class="sidebar-nav-icon">📡</span>
-                    <span>Sensors</span>
+                    <span>{{ t('nav.sensors') || 'Sensors' }}</span>
                 </div>
                 <div class="sidebar-nav-item" :class="{ active: currentView === 'settings' }" @click="$emit('change-view', 'settings')" style="margin-top: auto;">
                     <span class="sidebar-nav-icon">&#9881;</span>

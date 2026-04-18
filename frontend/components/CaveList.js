@@ -456,9 +456,9 @@ export default {
                     <span class="breadcrumb-current">{{ selectedExhibit.name }}</span>
                 </div>
                 <div class="tool-buttons-bar">
-                    <button class="tool-btn" :class="{ active: activePanel === 'pigment' }" :disabled="panelBusy || textureProcessing" @click="activePanel = 'pigment'">Pigment Analysis</button>
-                    <button class="tool-btn" :class="{ active: activePanel === 'simulation' }" :disabled="panelBusy || textureProcessing || !pigmentMap" @click="handleSimulationClick">Simulation</button>
-                    <button class="tool-btn" :class="{ active: activePanel === 'live' }" :disabled="panelBusy || textureProcessing" @click="activePanel = 'live'">Live Data</button>
+                    <button class="tool-btn" :class="{ active: activePanel === 'pigment' }" :disabled="panelBusy || textureProcessing" @click="activePanel = 'pigment'">{{ t('pigmentAnalysis.title') }}</button>
+                    <button class="tool-btn" :class="{ active: activePanel === 'simulation' }" :disabled="panelBusy || textureProcessing || !pigmentMap" @click="handleSimulationClick">{{ t('simulation.title') }}</button>
+                    <button class="tool-btn" :class="{ active: activePanel === 'live' }" :disabled="panelBusy || textureProcessing" @click="activePanel = 'live'">{{ t('liveData.title') }}</button>
                     <span v-if="simDisabledMsg" class="tool-btn-hint">{{ simDisabledMsg }}</span>
                 </div>
                 <div style="flex: 1; display: flex; flex-direction: row; padding: 16px; overflow: hidden;">
