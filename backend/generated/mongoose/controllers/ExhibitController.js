@@ -1,4 +1,5 @@
 const ExhibitService = require('../services/ExhibitService');
+const TelemetryService = require('../services/TelemetryService');
 
 /**
  * ExhibitController
@@ -137,6 +138,50 @@ const ExhibitController = {
             res.status(500).json({ message: 'Failed to set coordinates', error: error.message });
         }
     },
+
+    // GET /exhibits/:gid/environment?from=...&to=...&interval=raw|hourly|daily
+    getEnvironment: async (req, res) => {
+        try {
+            const { gid } = req.params;
+            const { from, to, interval = 'hourly' } = req.query;
+
+            // Resolve artifact and its parent cave
+            const found = await ExhibitService._findByGid(gid);
+            if (!found) return res.status(404).json({ error: `Exhibit ${gid} not found` });
+            const caveGid = await ExhibitService._findParentCaveGid(gid);
+
+            // Resolve which sensors speak for this artifact
+            const sensors = await TelemetryService.sensorsForArtifact(gid, caveGid);
+            if (sensors.length === 0) {
+                return res.json({
+                    artifactGid: gid,
+                    artifactType: found.type,
+                    caveGid,
+                    sensors: [],
+                    samples: [],
+                    summary: null,
+                    note: 'No sensors are linked to this artifact or its parent cave.'
+                });
+            }
+
+            const sensorIds = sensors.map(s => s._id);
+            const result = await TelemetryService.queryEnvironment(sensorIds, {
+                from, to, interval, limit: 50000
+            });
+
+            res.json({
+                artifactGid: gid,
+                artifactType: found.type,
+                caveGid,
+                sensors: sensors.map(s => ({ gid: s.gid, name: s.name, model: s.model })),
+                interval,
+                ...result
+            });
+        } catch (error) {
+            console.error('Failed to query environment:', error);
+            res.status(500).json({ message: 'Failed to query environment', error: error.message });
+        }
+    }
 };
 
 module.exports = ExhibitController;

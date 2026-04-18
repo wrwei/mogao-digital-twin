@@ -2,6 +2,7 @@ const { Statue } = require('../models/Statue');
 const { Mural } = require('../models/Mural');
 const { Painting } = require('../models/Painting');
 const { Inscription } = require('../models/Inscription');
+const { Cave } = require('../models/Cave');
 
 const MODELS = [
     { model: Statue, type: 'statue' },
@@ -37,6 +38,23 @@ const ExhibitService = {
         for (const { model, type } of MODELS) {
             const doc = await model.findOne({ gid });
             if (doc) return { doc, type, model };
+        }
+        return null;
+    },
+
+    /**
+     * Find the parent Cave of an exhibit by scanning the caves.exhibits
+     * array for either embedded references or nested .gid fields.
+     */
+    _findParentCaveGid: async (exhibitGid) => {
+        const caves = await Cave.find({}).lean();
+        for (const c of caves) {
+            const exhibits = c.exhibits || [];
+            for (const e of exhibits) {
+                if (e === exhibitGid) return c.gid;
+                if (e && typeof e === 'object' && e.gid === exhibitGid) return c.gid;
+                if (e && typeof e === 'object' && e.$ref && e.$id === exhibitGid) return c.gid;
+            }
         }
         return null;
     },

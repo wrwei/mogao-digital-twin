@@ -78,6 +78,12 @@ function loginRateLimiter(req, res, next) {
 // User routes (login/register are public, rest require auth)
 app.use('/users', loginRateLimiter, userRouter);
 
+// Telemetry sample-ingestion routes use sensor-API-key auth (NOT JWT), so
+// they must be mounted BEFORE the global authMiddleware.
+const { sensorRouter: telemetryIngestRouter, adminRouter: sensorAdminRouter }
+    = require('./routers/telemetryRouter');
+app.use('/telemetry', telemetryIngestRouter);
+
 // Apply auth middleware to all subsequent routes
 app.use(authMiddleware);
 
@@ -103,6 +109,7 @@ const humidityRouter = require('./routers/humidityRouter');
 const lightIntensityRouter = require('./routers/lightIntensityRouter');
 const deteriorationRouter = require('./routers/deteriorationRouter');
 const exhibitRouter = require('./routers/exhibitRouter');
+// sensorAdminRouter is defined above (before authMiddleware) alongside telemetryIngestRouter
 
 // Mount routes (no /api prefix to match existing frontend)
 app.use('/caves', caveRouter);
@@ -120,6 +127,7 @@ app.use('/humidities', humidityRouter);
 app.use('/lightIntensities', lightIntensityRouter);
 app.use('/deterioration', deteriorationRouter);
 app.use('/exhibits', exhibitRouter);
+app.use('/sensors', sensorAdminRouter);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
