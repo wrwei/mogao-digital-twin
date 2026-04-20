@@ -149,6 +149,30 @@ body {
     flex-shrink: 0;
 }
 
+.sidebar-badge {
+    display: inline-block;
+    min-width: 20px;
+    padding: 2px 7px;
+    border-radius: 10px;
+    background: #f59e0b;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    text-align: center;
+    line-height: 1.2;
+    flex-shrink: 0;
+}
+
+.sidebar-badge.critical {
+    background: #ef4444;
+    animation: sidebar-badge-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes sidebar-badge-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.55); }
+    50%      { box-shadow: 0 0 0 5px rgba(239, 68, 68, 0); }
+}
+
 .sidebar-section-label {
     padding: 16px 20px 6px;
     font-size: 11px;

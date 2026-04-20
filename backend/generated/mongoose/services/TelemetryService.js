@@ -3,6 +3,16 @@ const bcrypt = require('bcryptjs');
 const { Sensor } = require('../models/Sensor');
 const { EnvironmentSample } = require('../models/EnvironmentSample');
 
+// Lazy-required to avoid circular dependency with DeteriorationReplayService.
+let _replayService = null;
+function replayService() {
+    if (_replayService === null) {
+        try { _replayService = require('./DeteriorationReplayService'); }
+        catch (_) { _replayService = {}; }
+    }
+    return _replayService;
+}
+
 const BCRYPT_ROUNDS = 10;
 
 function clamp(v, lo, hi) { return v < lo ? lo : (v > hi ? hi : v); }
@@ -83,6 +93,40 @@ const TelemetryService = {
             { $set: { 'status.active': false } },
             { new: true }
         ).select('-apiKeyHash');
+    },
+
+    /**
+     * Permanently remove a sensor and every sample it ever produced. Also
+     * flushes the replay cache for all artifacts whose environment this
+     * sensor represented. Returns a small summary of what was deleted.
+     */
+    async deleteSensor(gid) {
+        const sensor = await Sensor.findOne({ gid });
+        if (!sensor) return null;
+
+        const explicit = (sensor.location && sensor.location.explicitArtifacts) || [];
+        const caveGid  = sensor.location && sensor.location.cave;
+
+        const sampleResult = await EnvironmentSample.deleteMany({ sensor: sensor._id });
+        await Sensor.deleteOne({ _id: sensor._id });
+
+        // Invalidate replay cache for every artifact this sensor covered.
+        const invalidate = replayService().invalidateArtifact;
+        if (typeof invalidate === 'function') {
+            for (const g of explicit) invalidate(g);
+            if (caveGid) {
+                try {
+                    const artifacts = await this._artifactsInCave(caveGid);
+                    for (const g of artifacts) invalidate(g);
+                } catch (_) { /* best-effort */ }
+            }
+        }
+
+        return {
+            gid,
+            samplesDeleted: sampleResult.deletedCount || 0,
+            artifactsAffected: explicit.length + (caveGid ? 1 : 0)
+        };
     },
 
     /**
@@ -209,7 +253,39 @@ const TelemetryService = {
             );
         }
 
+        // Invalidate replay cache for any artifact whose environment this sensor represents.
+        if (accepted > 0) {
+            const invalidate = replayService().invalidateArtifact;
+            if (typeof invalidate === 'function') {
+                const explicit = (sensor.location && sensor.location.explicitArtifacts) || [];
+                for (const g of explicit) invalidate(g);
+                const caveGid = sensor.location && sensor.location.cave;
+                if (caveGid) {
+                    try {
+                        const artifacts = await this._artifactsInCave(caveGid);
+                        for (const g of artifacts) invalidate(g);
+                    } catch (_) { /* cache invalidation best-effort */ }
+                }
+            }
+        }
+
         return { accepted, duplicates, rejected, errors };
+    },
+
+    /** Collect gids of every artifact in a cave by walking cave.exhibits. */
+    async _artifactsInCave(caveGid) {
+        const { Cave } = require('../models/Cave');
+        const cave = await Cave.findOne({ gid: caveGid }).lean();
+        if (!cave || !Array.isArray(cave.exhibits)) return [];
+        const gids = [];
+        for (const e of cave.exhibits) {
+            if (typeof e === 'string') gids.push(e);
+            else if (e && typeof e === 'object') {
+                if (e.gid) gids.push(e.gid);
+                else if (e.$id) gids.push(e.$id);
+            }
+        }
+        return gids;
     },
 
     /** Parse a CSV and ingest. Auto-detects timestamp/T/RH/light columns. */

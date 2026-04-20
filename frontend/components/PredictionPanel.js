@@ -218,7 +218,71 @@ export default {
             });
         },
 
-        _annotations(historyEnd) { return {}; }
+        _annotations(historyEnd) { return {}; },
+
+        exportReport() {
+            const jsPDF = window.jspdf && window.jspdf.jsPDF;
+            if (!jsPDF) {
+                alert('PDF library not loaded — reload the page and try again.');
+                return;
+            }
+            if (!this.result) return;
+            const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+            const W = doc.internal.pageSize.getWidth();
+            const H = doc.internal.pageSize.getHeight();
+            let y = 48;
+            const name = this.entity?.name || this.entity?.gid || '—';
+            doc.setFontSize(16).setFont(undefined, 'bold');
+            doc.text(`Prediction report — ${name}`, 40, y); y += 22;
+            doc.setFontSize(10).setFont(undefined, 'normal').setTextColor(100);
+            doc.text(`Generated ${new Date().toISOString().slice(0, 19).replace('T', ' ')}`, 40, y); y += 14;
+            doc.text(`Monitored history: ${this.historicalDays} days (${this.historicalYears} y) · Forecast horizon: ${this.withForecast ? this.forecastMaxYears + ' y (climate-repeat)' : 'off'}`, 40, y); y += 18;
+            doc.setTextColor(0);
+
+            // Current cumulative table
+            const rows = this.modelStatus.map(m => [
+                m.label,
+                this.fmtNum(m.current) + (m.unit ? ' ' + m.unit : ''),
+                m.threshold != null ? this.fmtNum(m.threshold) : '—',
+                m.eta || '—'
+            ]);
+            if (doc.autoTable) {
+                doc.autoTable({
+                    head: [['Model', 'Current', 'Threshold', 'ETA']],
+                    body: rows, startY: y, theme: 'grid',
+                    styles: { fontSize: 10 },
+                    headStyles: { fillColor: [92, 61, 46] }
+                });
+                y = doc.lastAutoTable.finalY + 16;
+            }
+
+            // Trajectory chart image
+            const canvas = this.$refs.chartCanvas;
+            if (canvas) {
+                try {
+                    const img = canvas.toDataURL('image/png');
+                    const imgW = W - 80;
+                    const imgH = imgW * canvas.height / canvas.width;
+                    if (y + imgH > H - 60) { doc.addPage(); y = 48; }
+                    doc.setFontSize(11).setFont(undefined, 'bold');
+                    doc.text('Trajectory (fraction of threshold)', 40, y); y += 14;
+                    doc.addImage(img, 'PNG', 40, y, imgW, imgH);
+                    y += imgH + 10;
+                } catch (_) { /* chart export best-effort */ }
+            }
+
+            // Methodology note
+            if (y > H - 100) { doc.addPage(); y = 48; }
+            doc.setFontSize(9).setFont(undefined, 'italic').setTextColor(90);
+            const note = 'Method: historical replay integrates five deterioration models day-by-day through the ' +
+                'monitored T/RH/DeltaRH record. Forecast projects forward by looping the most recent year of ' +
+                'climate. Thresholds: chemical DeltaE*=5, mould index=3/6, fatigue D=1, salt-cum=1.';
+            const noteLines = doc.splitTextToSize(note, W - 80);
+            for (const ln of noteLines) { doc.text(ln, 40, y); y += 11; }
+
+            const safeName = (this.entity?.gid || 'artifact').replace(/[^a-z0-9_-]/gi, '_');
+            doc.save(`prediction-${safeName}.pdf`);
+        }
     },
     template: `
         <div class="prediction-panel" style="padding: 16px 20px; background: white; border-radius: 12px; border: 2px solid #e0e0e0; box-shadow: 0 2px 8px rgba(0,0,0,0.08); position: relative;">
@@ -286,6 +350,7 @@ export default {
                     </select>
                 </div>
                 <button @click="refresh" class="btn btn-xs" :disabled="busy" style="align-self: flex-end;">↻ Refresh</button>
+                <button @click="exportReport" class="btn btn-xs" :disabled="busy || !cum" style="align-self: flex-end;" title="Export this prediction (tables + chart) as PDF">📄 Export PDF</button>
             </div>
 
             <!-- Chart -->

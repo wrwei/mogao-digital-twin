@@ -66,6 +66,19 @@ module.exports = {
         }
     },
 
+    async deleteSensor(req, res) {
+        try {
+            if (!req.user || req.user.role !== 'admin') {
+                return res.status(403).json({ error: 'Only admin can delete sensors' });
+            }
+            const result = await TelemetryService.deleteSensor(req.params.gid);
+            if (!result) return res.status(404).json({ error: 'Sensor not found' });
+            res.json({ message: 'Sensor and all samples deleted', ...result });
+        } catch (err) {
+            res.status(500).json({ error: err.message });
+        }
+    },
+
     async updateSensor(req, res) {
         try {
             if (!req.user || req.user.role !== 'admin') {

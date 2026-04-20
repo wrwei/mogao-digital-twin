@@ -11,6 +11,7 @@ import { useI18n } from '../i18n.js';
 
 export default {
     name: 'MaintenanceQueue',
+    emits: ['drill-in'],
     setup() {
         const { t } = useI18n();
         return { t };
@@ -94,6 +95,161 @@ export default {
             if (futures.length === 0) return null;
             futures.sort((a, b) => a.days - b.days);
             return futures[0];
+        },
+
+        openArtifact3D(row) {
+            if (!row || !row.gid || !row.type) return;
+            this.$emit('drill-in', {
+                gid: row.gid,
+                type: row.type,
+                caveGid: row.caveGid || null
+            });
+        },
+
+        exportRowReport(row) {
+            const jsPDF = window.jspdf && window.jspdf.jsPDF;
+            if (!jsPDF) {
+                alert('PDF library not loaded — reload the page and try again.');
+                return;
+            }
+            const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+            const W = doc.internal.pageSize.getWidth();
+            let y = 48;
+            doc.setFontSize(16).setFont(undefined, 'bold');
+            doc.text(`Maintenance report — ${row.name || row.gid}`, 40, y); y += 22;
+            doc.setFontSize(10).setFont(undefined, 'normal').setTextColor(100);
+            doc.text(`Generated ${new Date().toISOString().slice(0, 19).replace('T', ' ')}`, 40, y); y += 18;
+            doc.setTextColor(0);
+
+            doc.setFontSize(11).setFont(undefined, 'bold');
+            doc.text('Summary', 40, y); y += 16;
+            doc.setFontSize(10).setFont(undefined, 'normal');
+            const summary = [
+                ['Type', row.type],
+                ['GID', row.gid],
+                ['Parent cave', row.caveGid || '—'],
+                ['Priority tier', row.priorityTier],
+                ['Composite score', row.score.toFixed(3)],
+                ['Conservation status', row.conservationStatus || '—'],
+                ['Sensors linked', String(row.sensors || 0)],
+                ['Active anomalies', String(row.anomalies || 0)],
+                ['Historical days observed', String(Math.round(row.historicalDays || 0))],
+                ['Days since last inspection', row.daysSinceInspection != null ? Math.round(row.daysSinceInspection) : '—']
+            ];
+            if (doc.autoTable) {
+                doc.autoTable({
+                    head: [['Field', 'Value']],
+                    body: summary,
+                    startY: y,
+                    theme: 'grid',
+                    styles: { fontSize: 9 },
+                    headStyles: { fillColor: [92, 61, 46] }
+                });
+                y = doc.lastAutoTable.finalY + 16;
+            } else {
+                for (const [k, v] of summary) { doc.text(`${k}: ${v}`, 40, y); y += 12; }
+                y += 6;
+            }
+
+            // Current cumulative state
+            if (row.cumulative) {
+                doc.setFontSize(11).setFont(undefined, 'bold');
+                doc.text('Current cumulative state', 40, y); y += 14;
+                const c = row.cumulative;
+                const cumRows = [
+                    ['Chemical \u0394E*',      c.chemicalDeltaE.toFixed(2),        '/ 5.0'],
+                    ['Mould index (VTT)',      c.mouldIndexFinal.toFixed(2),       '/ 6 (threshold 3)'],
+                    ['Fatigue damage (Miner)', c.fatigueDamage.toFixed(3),         '/ 1.0'],
+                    ['Salt cumulative',        c.saltCumulative.toFixed(3),        '/ 1.0'],
+                    ['Equivalent reference-years', c.equivYears.toFixed(2),         '']
+                ];
+                if (doc.autoTable) {
+                    doc.autoTable({
+                        head: [['Model', 'Value', 'Threshold']],
+                        body: cumRows, startY: y, theme: 'grid',
+                        styles: { fontSize: 9 },
+                        headStyles: { fillColor: [92, 61, 46] }
+                    });
+                    y = doc.lastAutoTable.finalY + 16;
+                } else {
+                    for (const r of cumRows) { doc.text(r.join('  '), 40, y); y += 12; }
+                    y += 6;
+                }
+            }
+
+            // Recommendations
+            if (row.recommendations && row.recommendations.length > 0) {
+                doc.setFontSize(11).setFont(undefined, 'bold');
+                doc.text('Recommendations', 40, y); y += 14;
+                doc.setFontSize(9).setFont(undefined, 'normal');
+                for (const rec of row.recommendations) {
+                    const lines = doc.splitTextToSize(`[${rec.priority.toUpperCase()}] ${rec.message}`, W - 80);
+                    for (const ln of lines) {
+                        if (y > doc.internal.pageSize.getHeight() - 60) { doc.addPage(); y = 48; }
+                        doc.text(ln, 40, y); y += 12;
+                    }
+                    y += 2;
+                }
+            }
+
+            // Anomalies
+            if (row.anomalyDetail && row.anomalyDetail.length > 0) {
+                if (y > doc.internal.pageSize.getHeight() - 120) { doc.addPage(); y = 48; }
+                y += 8;
+                doc.setFontSize(11).setFont(undefined, 'bold');
+                doc.text('Active sensor anomalies', 40, y); y += 14;
+                if (doc.autoTable) {
+                    doc.autoTable({
+                        head: [['Rule', 'Severity', 'Sensor', 'Message']],
+                        body: row.anomalyDetail.map(a => [a.rule, a.severity, a.sensorName || '—', a.message || '']),
+                        startY: y, theme: 'grid',
+                        styles: { fontSize: 8, cellWidth: 'wrap' },
+                        headStyles: { fillColor: [185, 28, 28] }
+                    });
+                }
+            }
+
+            doc.save(`maintenance-${row.gid}.pdf`);
+        },
+
+        exportQueueReport() {
+            const jsPDF = window.jspdf && window.jspdf.jsPDF;
+            if (!jsPDF) {
+                alert('PDF library not loaded — reload the page and try again.');
+                return;
+            }
+            const doc = new jsPDF({ unit: 'pt', format: 'a4', orientation: 'landscape' });
+            let y = 40;
+            doc.setFontSize(16).setFont(undefined, 'bold');
+            doc.text('Maintenance queue — full fleet report', 40, y); y += 20;
+            doc.setFontSize(10).setFont(undefined, 'normal').setTextColor(100);
+            doc.text(`Generated ${new Date().toISOString().slice(0, 19).replace('T', ' ')} · ${this.rows.length} artifacts scored`, 40, y);
+            y += 16;
+            doc.setTextColor(0);
+
+            const body = this.filtered.map(r => [
+                r.priorityTier,
+                r.score.toFixed(2),
+                r.name || r.gid,
+                r.type,
+                (r.indices.damage * 100).toFixed(0) + '%',
+                this.nearestEta(r) ? this.fmtEtaDays(this.nearestEta(r).days + (r.historicalDays || 0), r.historicalDays || 0) : '—',
+                String(r.anomalies || 0),
+                r.conservationStatus || '—',
+                (r.recommendations && r.recommendations[0]) ? r.recommendations[0].message : ''
+            ]);
+            if (doc.autoTable) {
+                doc.autoTable({
+                    head: [['Tier', 'Score', 'Artifact', 'Type', 'Damage', 'Nearest ETA', 'Anom.', 'Status', 'Top action']],
+                    body,
+                    startY: y,
+                    theme: 'striped',
+                    styles: { fontSize: 8, overflow: 'linebreak' },
+                    headStyles: { fillColor: [92, 61, 46] },
+                    columnStyles: { 8: { cellWidth: 260 } }
+                });
+            }
+            doc.save(`maintenance-queue-${new Date().toISOString().slice(0, 10)}.pdf`);
         }
     },
     template: `
@@ -103,6 +259,7 @@ export default {
             <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
                 <h2 style="margin: 0; font-size: 22px; font-weight: 700;">🔧 Maintenance Queue</h2>
                 <span style="flex: 1;"></span>
+                <button class="btn btn-sm" @click="exportQueueReport" :disabled="loading || rows.length === 0" title="Export the full queue (respecting current filter) as PDF">📄 Export PDF</button>
                 <button class="btn btn-sm" @click="load" :disabled="loading">↻ Refresh</button>
             </div>
 
@@ -213,6 +370,22 @@ export default {
                             <!-- Expanded detail row -->
                             <tr v-if="expandedGid === r.gid">
                                 <td colspan="9" style="padding: 16px 20px; background: #fafafa;">
+                                    <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                                        <button
+                                            v-if="r.caveGid"
+                                            class="btn btn-sm btn-primary"
+                                            @click.stop="openArtifact3D(r)"
+                                            title="Open the 3-D view for this artifact with the Prediction panel pre-selected"
+                                        >▶ Open 3D + Prediction</button>
+                                        <button
+                                            class="btn btn-sm"
+                                            @click.stop="exportRowReport(r)"
+                                            title="Export this artifact's maintenance summary as PDF"
+                                        >📄 Export PDF</button>
+                                        <span v-if="!r.caveGid" style="font-size: 11px; color: var(--text-secondary); align-self: center;">
+                                            (Drill-in unavailable — no parent cave on record.)
+                                        </span>
+                                    </div>
                                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
 
                                         <!-- Indices + recommendations -->

@@ -178,7 +178,7 @@ const LoginPage = {
 // Shared UI Components
 // ============================================
 const AppSidebar = {
-    props: ['currentView', 'backendOnline', 'isAdmin'],
+    props: ['currentView', 'backendOnline', 'isAdmin', 'anomalyCount'],
     emits: ['change-view'],
     setup() {
         const { t } = useI18n();
@@ -205,11 +205,13 @@ const AppSidebar = {
                 </div>
                 <div v-if="isAdmin" class="sidebar-nav-item" :class="{ active: currentView === 'sensors' }" @click="$emit('change-view', 'sensors')">
                     <span class="sidebar-nav-icon">📡</span>
-                    <span>{{ t('nav.sensors') || 'Sensors' }}</span>
+                    <span style="flex: 1;">{{ t('nav.sensors') || 'Sensors' }}</span>
+                    <span v-if="anomalyCount > 0" class="sidebar-badge" :class="{ critical: anomalyCount >= 5 }" :title="anomalyCount + ' active anomalies'">{{ anomalyCount }}</span>
                 </div>
                 <div v-if="isAdmin" class="sidebar-nav-item" :class="{ active: currentView === 'maintenance' }" @click="$emit('change-view', 'maintenance')">
                     <span class="sidebar-nav-icon">🔧</span>
-                    <span>Maintenance</span>
+                    <span style="flex: 1;">Maintenance</span>
+                    <span v-if="anomalyCount > 0" class="sidebar-badge" :class="{ critical: anomalyCount >= 5 }" :title="anomalyCount + ' active anomalies'">{{ anomalyCount }}</span>
                 </div>
                 <div class="sidebar-nav-item" :class="{ active: currentView === 'settings' }" @click="$emit('change-view', 'settings')" style="margin-top: auto;">
                     <span class="sidebar-nav-icon">&#9881;</span>
@@ -459,6 +461,10 @@ const CaveView = {
         ModalDialog,
         DrawerPanel,
     },
+    props: {
+        pendingDrillIn: { type: Object, default: null }
+    },
+    emits: ['show-message', 'item-selected', 'drill-in-consumed'],
     setup() {
         const composable = useCaves();
         const { t } = useI18n();
@@ -557,11 +563,13 @@ const CaveView = {
                 :caves="caves"
                 :loading="loading"
                 :selected-gid="selectedGid"
+                :pending-drill-in="pendingDrillIn"
                 @select="handleSelect"
                 @edit="handleEdit"
                 @delete="handleDelete"
                 @create="handleCreate"
                 @view-detail="handleViewDetail"
+                @drill-in-consumed="$emit('drill-in-consumed')"
             ></cave-list>        </div>
     `
 };
@@ -1218,6 +1226,12 @@ const app = createApp({
             // Theme
             currentTheme: localStorage.getItem('mgemini-theme') || 'mogao',
 
+            // Anomaly count (sidebar badge) — admin only
+            anomalyCount: 0,
+            _anomalyTimer: null,
+
+            // Drill-in from MaintenanceQueue: { gid, type } pending selection
+            pendingArtifactDrillIn: null,
         };
     },
 
@@ -1307,6 +1321,39 @@ const app = createApp({
                 console.warn('Backend connection check failed:', error.message);
             }
         },
+
+        async fetchAnomalyCount() {
+            if (!this.isAdmin) return;
+            try {
+                const res = await window.api.maintenance.anomalies();
+                const list = Array.isArray(res.data) ? res.data
+                    : Array.isArray(res.data?.anomalies) ? res.data.anomalies
+                    : [];
+                this.anomalyCount = list.length;
+            } catch (err) {
+                // Silent — don't spam on auth hiccups
+                this.anomalyCount = 0;
+            }
+        },
+
+        /**
+         * Invoked by MaintenanceQueue when a row is clicked. Navigates to the
+         * caves view and queues the drill-in so CaveList can auto-open the
+         * matching cave + artifact with the Prediction panel active.
+         */
+        handleArtifactDrillIn({ gid, type, caveGid }) {
+            if (!gid || !type) return;
+            if (!caveGid) {
+                this.showMessage('Cannot open 3D view: this artifact is not linked to a parent cave.', 'warning');
+                return;
+            }
+            this.pendingArtifactDrillIn = { gid, type, caveGid };
+            this.currentView = 'caves';
+        },
+
+        clearPendingDrillIn() {
+            this.pendingArtifactDrillIn = null;
+        },
     },
 
     mounted() {
@@ -1332,7 +1379,17 @@ const app = createApp({
             setInterval(() => {
                 this.checkBackendConnection();
             }, 30000);
+
+            // Anomaly badge poll (admin only) — initial + every 60s
+            if (this.isAdmin) {
+                this.fetchAnomalyCount();
+                this._anomalyTimer = setInterval(() => this.fetchAnomalyCount(), 60000);
+            }
         }
+    },
+
+    beforeUnmount() {
+        if (this._anomalyTimer) clearInterval(this._anomalyTimer);
     },
 
     template: `
@@ -1346,6 +1403,7 @@ const app = createApp({
                 :current-view="currentView"
                 :backend-online="backendOnline"
                 :is-admin="isAdmin"
+                :anomaly-count="anomalyCount"
                 @change-view="changeView"
             ></app-sidebar>
 
@@ -1381,6 +1439,8 @@ const app = createApp({
                         ></dashboard-view>
                         <cave-view
                             v-if="currentView === 'caves'"
+                            :pending-drill-in="pendingArtifactDrillIn"
+                            @drill-in-consumed="clearPendingDrillIn"
                             @show-message="showMessage"
                             @item-selected="() => {}"
                         ></cave-view>
@@ -1421,6 +1481,7 @@ const app = createApp({
                         ></sensor-dashboard>
                         <maintenance-queue
                             v-if="currentView === 'maintenance' && isAdmin"
+                            @drill-in="handleArtifactDrillIn"
                         ></maintenance-queue>
                     </div>
                 </div>

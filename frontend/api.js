@@ -226,6 +226,7 @@ const api = {
         register: (data) => apiClient.post('/sensors', data),
         update: (gid, patch) => apiClient.patch(`/sensors/${gid}`, patch),
         deactivate: (gid) => apiClient.delete(`/sensors/${gid}`),
+        remove:     (gid) => apiClient.delete(`/sensors/${gid}/purge`),
         linkArtifact: (gid, artifactGid) =>
             apiClient.post(`/sensors/${gid}/link-artifact`, { artifactGid }),
         unlinkArtifact: (gid, artifactGid) =>

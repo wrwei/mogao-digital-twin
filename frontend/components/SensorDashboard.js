@@ -146,6 +146,21 @@ export default {
             }
         },
 
+        async remove(sensor) {
+            const name = sensor.name || sensor.gid;
+            const samples = (sensor.status && sensor.status.samplesTotal) || 0;
+            const warning = this.t('sensorDashboard.deleteConfirm', { name, samples })
+                || `Permanently delete sensor "${name}" and all ${samples} telemetry samples? This cannot be undone.`;
+            if (!confirm(warning)) return;
+            try {
+                await window.api.sensors.remove(sensor.gid);
+                if (this.selectedGid === sensor.gid) this.selectedGid = null;
+                await this.loadSensors();
+            } catch (err) {
+                this.error = err.response?.data?.error || err.message;
+            }
+        },
+
         // ── Bulk import ─────────────────────────────────────────────────
         onBulkFilesChange(e) {
             const files = Array.from(e.target.files || []);
@@ -295,9 +310,9 @@ export default {
                             <td style="padding: 8px 10px; text-align: right; color: var(--text-secondary); font-size: 11px;">
                                 {{ humanAge(s._ageMs) }}
                             </td>
-                            <td style="padding: 8px 10px;">
-                                <button v-if="s.status?.active" class="btn btn-xs" @click="deactivate(s.gid)" style="background: #fee2e2; color: #991b1b;">{{ t('sensorDashboard.deactivate') }}</button>
-                                <span v-else style="font-size: 11px; color: var(--text-secondary);">—</span>
+                            <td style="padding: 8px 10px; white-space: nowrap;">
+                                <button v-if="s.status?.active" class="btn btn-xs" @click="deactivate(s.gid)" style="background: #fee2e2; color: #991b1b; margin-right: 4px;">{{ t('sensorDashboard.deactivate') }}</button>
+                                <button class="btn btn-xs" @click="remove(s)" style="background: #7f1d1d; color: white;" :title="t('sensorDashboard.deleteTitle') || 'Permanently delete sensor and all its samples'">{{ t('sensorDashboard.delete') || 'Delete' }}</button>
                             </td>
                         </tr>
                     </tbody>

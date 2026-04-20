@@ -17,6 +17,54 @@ const TelemetryService = require('./TelemetryService');
 
 const R = 8.314;
 
+// ── In-memory TTL cache for replay results ──────────────────────────────────
+// Keyed by artifactGid + query params. Entries live for CACHE_TTL_MS before
+// being recomputed on the next request. Explicit invalidation via
+// invalidateArtifact() is also exposed so ingestion can flush affected rows.
+const CACHE_TTL_MS = 5 * 60 * 1000;  // 5 minutes
+const replayCache = new Map();        // key → { expires, value }
+
+function cacheKey(artifactGid, opts) {
+    return [
+        artifactGid,
+        opts.from || '',
+        opts.to || '',
+        opts.forecast ? '1' : '0',
+        opts.maxYears || 200
+    ].join('|');
+}
+
+function cacheGet(key) {
+    const entry = replayCache.get(key);
+    if (!entry) return null;
+    if (entry.expires < Date.now()) {
+        replayCache.delete(key);
+        return null;
+    }
+    return entry.value;
+}
+
+function cacheSet(key, value) {
+    replayCache.set(key, { expires: Date.now() + CACHE_TTL_MS, value });
+    // Opportunistic sweep to keep the map small
+    if (replayCache.size > 200) {
+        const now = Date.now();
+        for (const [k, v] of replayCache) {
+            if (v.expires < now) replayCache.delete(k);
+        }
+    }
+}
+
+/** Drop every cache entry whose artifactGid matches. Called on new
+ *  sample ingestion for any sensor linked (explicitly or by cave) to
+ *  the artifact. */
+function invalidateArtifact(artifactGid) {
+    const prefix = artifactGid + '|';
+    for (const k of replayCache.keys()) {
+        if (k.startsWith(prefix)) replayCache.delete(k);
+    }
+}
+
 // --- Thresholds (where each model raises a "defect imminent" flag) --------
 const THRESHOLDS = {
     chemicalDeltaE:  5.0,   // perceptible colour change
@@ -289,18 +337,23 @@ module.exports = {
     aggregateDailyBuckets,
     runReplay,
     forwardProject,
+    invalidateArtifact,
 
     /**
      * End-to-end: resolve sensors for the artifact, aggregate, replay, and
-     * (optionally) forward-project.
+     * (optionally) forward-project. Cached in-memory for CACHE_TTL_MS.
      */
     async replayHistory(artifactGid, { from, to, forecast = false, maxYears = 200 } = {}) {
+        const key = cacheKey(artifactGid, { from, to, forecast, maxYears });
+        const cached = cacheGet(key);
+        if (cached) return { ...cached, cached: true };
+
         const found = await ExhibitService._findByGid(artifactGid);
         if (!found) throw new Error(`Artifact ${artifactGid} not found`);
         const caveGid = await ExhibitService._findParentCaveGid(artifactGid);
         const sensors = await TelemetryService.sensorsForArtifact(artifactGid, caveGid);
         if (sensors.length === 0) {
-            return {
+            const empty = {
                 artifactGid,
                 caveGid,
                 sensors: [],
@@ -312,6 +365,8 @@ module.exports = {
                 forecast: null,
                 note: 'No sensors are linked to this artifact or its parent cave.'
             };
+            cacheSet(key, empty);
+            return empty;
         }
         const sensorIds = sensors.map(s => s._id);
         const buckets = await aggregateDailyBuckets(sensorIds, from, to);
@@ -322,7 +377,7 @@ module.exports = {
             forecastResult = forwardProject(replay, buckets, { maxYears });
         }
 
-        return {
+        const result = {
             artifactGid,
             caveGid,
             sensors: sensors.map(s => ({ gid: s.gid, name: s.name })),
@@ -333,5 +388,7 @@ module.exports = {
             thresholdsCrossed: replay.thresholdsCrossed,
             forecast: forecastResult
         };
+        cacheSet(key, result);
+        return result;
     }
 };

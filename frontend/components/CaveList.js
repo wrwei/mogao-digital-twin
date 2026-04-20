@@ -32,9 +32,10 @@ export default {
     props: {
         caves: { type: Array, default: () => [] },
         loading: { type: Boolean, default: false },
-        selectedGid: { type: String, default: null }
+        selectedGid: { type: String, default: null },
+        pendingDrillIn: { type: Object, default: null }
     },
-    emits: ['select', 'edit', 'delete', 'create', 'view-detail'],
+    emits: ['select', 'edit', 'delete', 'create', 'view-detail', 'drill-in-consumed'],
     data() {
         return {
             searchQuery: '',
@@ -71,6 +72,7 @@ export default {
     mounted() {
         this.handleResize = () => { this.windowWidth = window.innerWidth; this.windowHeight = window.innerHeight; };
         window.addEventListener('resize', this.handleResize);
+        if (this.pendingDrillIn) this._processDrillIn(this.pendingDrillIn);
     },
     beforeUnmount() {
         if (this.handleResize) window.removeEventListener('resize', this.handleResize);
@@ -187,9 +189,43 @@ export default {
         editTypeLabel() {
             const map = { statue: this.t('entities.statue'), mural: this.t('entities.mural'), painting: this.t('entities.painting'), inscription: this.t('entities.inscription') };
             return map[this.editType] || '';
+        },
+
+        /**
+         * Drill-in from MaintenanceQueue: locate the parent cave + artifact,
+         * navigate into 3D mode, and pre-select the Prediction panel.
+         */
+        async _processDrillIn({ gid, type, caveGid }) {
+            if (!gid || !caveGid) return;
+            // Wait for caves to load if necessary
+            let attempts = 0;
+            while ((!this.caves || this.caves.length === 0) && attempts < 40) {
+                await new Promise(r => setTimeout(r, 100));
+                attempts++;
+            }
+            const cave = (this.caves || []).find(c => c.gid === caveGid);
+            if (!cave) { this.$emit('drill-in-consumed'); return; }
+            this.openCave(cave);
+            // fetchAllAssets runs inside openCave; wait for it
+            attempts = 0;
+            while (this.assetsLoading && attempts < 60) {
+                await new Promise(r => setTimeout(r, 100));
+                attempts++;
+            }
+            const listMap = { statue: this.statues, mural: this.murals, painting: this.paintings, inscription: this.inscriptions };
+            const list = listMap[type] || [];
+            const exhibit = list.find(x => x.gid === gid);
+            if (exhibit) {
+                this.openExhibit3D(exhibit);
+                this.activePanel = 'prediction';
+            }
+            this.$emit('drill-in-consumed');
         }
     },
     watch: {
+        pendingDrillIn(newVal) {
+            if (newVal) this._processDrillIn(newVal);
+        },
         /** Clear cross-exhibit state whenever the user opens a different 3D
          *  exhibit or returns to the cave view. Prevents pigment-map,
          *  restored texture, or simulation results from the previous exhibit

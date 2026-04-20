@@ -31,6 +31,7 @@ adminRouter.get('/',                               TelemetryController.listSenso
 adminRouter.get('/:gid',                           TelemetryController.getSensor);
 adminRouter.patch('/:gid',                         TelemetryController.updateSensor);
 adminRouter.delete('/:gid',                        TelemetryController.deactivateSensor);
+adminRouter.delete('/:gid/purge',                  TelemetryController.deleteSensor);
 adminRouter.post('/:gid/link-artifact',            TelemetryController.linkArtifact);
 adminRouter.delete('/:gid/link-artifact/:artifactGid', TelemetryController.unlinkArtifact);
 adminRouter.post('/:gid/rotate-key',               TelemetryController.rotateKey);
