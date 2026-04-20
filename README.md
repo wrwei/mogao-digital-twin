@@ -255,6 +255,7 @@ If you regenerate from the metamodel, these files survive untouched (the generat
 - [System Architecture & Deterioration Models](ARCHITECTURE.md) — full technical reference
 - [Deterioration Simulation Guide](frontend/DETERIORATION_SIMULATION.md) — Strlic dose-response framework
 - [ML Models](ML-MODELS.md) — pigment identifier + restorer background
+- [Predictive Analytics Plan](PREDICTION-PLAN.md) — roadmap for historical replay, forecast ETA, anomaly detection, and maintenance triage built on top of the telemetry pipeline
 - [i18n Guide](frontend/I18N_README.md) — multilingual support
 
 ## Troubleshooting

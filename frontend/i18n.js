@@ -561,7 +561,7 @@ export const messages = {
             deactivate: 'Deactivate',
             deactivateConfirm: 'Deactivate this sensor? It will stop accepting new samples.',
             bulkTitle: '📦 Bulk CSV import',
-            bulkHint: 'Select multiple CSV files at once. Files are auto-matched to sensors when the filename contains the sensor\\'s gid or name; otherwise pick the target sensor manually.',
+            bulkHint: 'Select multiple CSV files at once. Files are auto-matched to sensors when the filename contains the sensor\'s gid or name; otherwise pick the target sensor manually.',
             bulkColFile: 'File',
             bulkColSize: 'Size',
             bulkColSensor: 'Target sensor',
