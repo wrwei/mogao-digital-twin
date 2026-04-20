@@ -1,5 +1,6 @@
 const ExhibitService = require('../services/ExhibitService');
 const TelemetryService = require('../services/TelemetryService');
+const ReplayService = require('../services/DeteriorationReplayService');
 
 /**
  * ExhibitController
@@ -136,6 +137,23 @@ const ExhibitController = {
         } catch (error) {
             console.error('Failed to set coordinates:', error);
             res.status(500).json({ message: 'Failed to set coordinates', error: error.message });
+        }
+    },
+
+    // GET /exhibits/:gid/deterioration/replay?from=...&to=...&forecast=true&maxYears=200
+    replayDeterioration: async (req, res) => {
+        try {
+            const { gid } = req.params;
+            const { from, to, forecast, maxYears } = req.query;
+            const result = await ReplayService.replayHistory(gid, {
+                from, to,
+                forecast: forecast === 'true' || forecast === '1',
+                maxYears: maxYears ? parseInt(maxYears) : 200
+            });
+            res.json(result);
+        } catch (error) {
+            console.error('Failed to replay deterioration:', error);
+            res.status(500).json({ message: 'Failed to replay deterioration', error: error.message });
         }
     },
 

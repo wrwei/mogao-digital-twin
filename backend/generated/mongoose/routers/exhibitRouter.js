@@ -31,6 +31,9 @@ router.get('/', ExhibitController.getAll);
 // Environment query (time-series T/RH/light for an exhibit)
 router.get('/:gid/environment', ExhibitController.getEnvironment);
 
+// Deterioration replay (historical damage integration + optional forecast)
+router.get('/:gid/deterioration/replay', ExhibitController.replayDeterioration);
+
 // Mutation endpoints
 router.put('/:gid/inspection', ExhibitController.setInspection);
 router.put('/:gid/conservation-status', ExhibitController.updateConservationStatus);

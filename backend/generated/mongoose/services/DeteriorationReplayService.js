@@ -1,0 +1,337 @@
+/**
+ * Deterioration Replay Service
+ *
+ * Runs the five deterioration models against the actual monitored sensor
+ * history for a given artifact, producing a day-by-day trajectory of
+ * cumulative damage plus an optional forward projection by looping the
+ * most recent year of climate data.
+ *
+ * Phase 1 + Phase 2 of the Predictive Analytics Plan (PREDICTION-PLAN.md).
+ */
+
+const D = require('./DeteriorationService');
+const { EnvironmentSample } = require('../models/EnvironmentSample');
+const { Sensor } = require('../models/Sensor');
+const ExhibitService = require('./ExhibitService');
+const TelemetryService = require('./TelemetryService');
+
+const R = 8.314;
+
+// --- Thresholds (where each model raises a "defect imminent" flag) --------
+const THRESHOLDS = {
+    chemicalDeltaE:  5.0,   // perceptible colour change
+    mouldIndex:      3.0,   // visible sparse growth
+    fatigueDamage:   1.0,   // first-crack onset
+    saltCumulative:  1.0    // cumulative damage ratio exceeds 1 substrate-strength × cycle equivalent
+};
+
+/** Produce one daily record of (date, T_mean, RH_mean, RH_min, RH_max, light_mean). */
+async function aggregateDailyBuckets(sensorIds, from, to) {
+    const match = { sensor: { $in: sensorIds } };
+    if (from) match.timestamp = { ...(match.timestamp || {}), $gte: new Date(from) };
+    if (to)   match.timestamp = { ...(match.timestamp || {}), $lte: new Date(to) };
+
+    const rows = await EnvironmentSample.aggregate([
+        { $match: match },
+        { $group: {
+            _id:        { $dateToString: { format: '%Y-%m-%d', date: '$timestamp' } },
+            date:       { $first: { $dateToString: { format: '%Y-%m-%d', date: '$timestamp' } } },
+            T_mean:     { $avg: '$temperature' },
+            RH_mean:    { $avg: '$humidity' },
+            RH_min:     { $min: '$humidity' },
+            RH_max:     { $max: '$humidity' },
+            light_mean: { $avg: '$lightKlux' },
+            count:      { $sum: 1 }
+        }},
+        { $sort: { _id: 1 } },
+        { $project: { _id: 0, date: 1, T_mean: 1, RH_mean: 1, RH_min: 1, RH_max: 1, light_mean: 1, count: 1 } }
+    ]);
+    return rows;
+}
+
+/**
+ * Replay the five models day-by-day through a daily-bucket array.
+ * Returns { trajectory, cumulative, thresholdsCrossed }.
+ *
+ * Stateful models (mould, fatigue, salt cumulative, chemical Σk·dt, lifetime
+ * Σdt/LM) update across days. Each day's `delta_*` is the increment; each
+ * day's `cum_*` is the accumulated value up to and including that day.
+ */
+function runReplay(dailyBuckets, opts = {}) {
+    const chemicalP = { ...(opts.chemicalParams || {}) };
+    const lifetimeP = { ...(opts.lifetimeParams || {}) };
+    const mouldP    = { ...(opts.mouldParams    || {}) };
+    const saltP     = { ...(opts.saltCrystParams|| {}) };
+    const fatigueP  = { ...(opts.fatigueParams  || {}) };
+
+    const beta_diff   = fatigueP.beta_diff  ?? 5e-5;
+    const E_mod       = fatigueP.E          ?? 2000;
+    const sigma_fail  = fatigueP.sigma_fail ?? 10.0;
+    const basquin_b   = fatigueP.basquin_b  ?? 6;
+    const cyclesPerYear = fatigueP.cyclesPerYear ?? 365;
+    const cyclesPerDay  = cyclesPerYear / 365;
+
+    // Chemical delta-E* scale: the published fading kinetics track fractional
+    // colour remaining. A change from 1.0 → 0.0 corresponds to a ΔE* of ~100
+    // under the CIE scale used in the paper. We use ΔE* = (1 - exp(-Σk·dt)) · 100.
+    const DELTA_E_SCALE = 100;
+
+    let cumKTimesDt = 0;      // chemical: Σ k_i · dt
+    let equivYears  = 0;      // lifetime: Σ dt/LM
+    let mouldIndex  = 0;      // VTT state variable (0-6)
+    let saltEvents  = 0;      // salt crystallisation event count
+    let saltCum     = 0;      // salt cumulative damage (events × damage per event)
+    let fatigueD    = 0;      // Miner's rule
+    let prevRHAbove = null;   // for salt event detection (edge crossings of DRH)
+
+    let firstCrossing = {
+        chemicalDeltaE: null,
+        mouldIndex:     null,
+        fatigueDamage:  null,
+        saltCumulative: null
+    };
+
+    const trajectory = [];
+
+    for (let i = 0; i < dailyBuckets.length; i++) {
+        const b = dailyBuckets[i];
+        const T  = b.T_mean ?? 20;
+        const RH = b.RH_mean ?? 50;
+        const I  = b.light_mean ?? 0;
+        const dRH = (b.RH_max != null && b.RH_min != null) ? (b.RH_max - b.RH_min) : 0;
+
+        // --- Chemical: one-day rate constant × 1 day ----------------------
+        const k = D.calculateRateConstant(T, RH, I, chemicalP);
+        cumKTimesDt += k * 1;  // dt = 1 day
+        const cumChemicalDeltaE = (1 - Math.exp(-cumKTimesDt)) * DELTA_E_SCALE;
+
+        // --- Lifetime: reference-equivalent years --------------------------
+        const LM = D.lifetimeMultiplier(T, RH, lifetimeP).multiplier;
+        const dEquivYears = (1 / 365.25) / Math.max(LM, 1e-6);
+        equivYears += dEquivYears;
+
+        // --- Mould (VTT stepwise) ------------------------------------------
+        const rhCritical = D.mouldCriticalRH(T);
+        const isAbove = RH >= rhCritical;
+        const growthCoeff = mouldP.growthCoeff ?? 0.13;
+        const declineRate = mouldP.declineRate ?? -0.128;
+        let mouldRate = 0;
+        if (isAbove && T > 0) {
+            const rhExcess = (RH - rhCritical) / 100;
+            const tempScale = T / 20;
+            mouldRate = rhExcess * tempScale * growthCoeff;
+        } else {
+            mouldRate = declineRate;
+        }
+        mouldIndex = Math.max(0, Math.min(6, mouldIndex + mouldRate * 1));
+
+        // --- Salt ----------------------------------------------------------
+        const DRH = D.saltDeliquescenceRH(T, saltP);
+        const isCrystallising = RH < DRH;
+        // Count an event on a wet→dry edge (dissolution→crystallisation cycle)
+        if (prevRHAbove === true && !isCrystallising === false) saltEvents += 1;
+        if (prevRHAbove !== null && prevRHAbove === false && isCrystallising === true) saltEvents += 1;
+        prevRHAbove = !isCrystallising;
+        // Per-event damage proxy: supersaturation at the moment of event
+        if (isCrystallising && RH > 0) {
+            const S = (DRH / 100) / (RH / 100);
+            const pressureMPa = ((R * (T + 273.15)) / (saltP.Vm ?? 5.33e-5)) * Math.log(S) / 1e6;
+            const tensile = saltP.tensileStrength ?? 3.0;
+            // Normalise: pressure/tensile per day, scaled by small daily factor
+            saltCum += Math.max(0, (pressureMPa - tensile)) / tensile * 0.0001;
+        }
+
+        // --- Fatigue (Basquin + Miner) -------------------------------------
+        if (dRH > 0.1) {
+            const strain = beta_diff * dRH;
+            const stress = E_mod * strain;
+            const Nf = Math.min(1e12, Math.pow(sigma_fail / Math.max(stress, 1e-6), basquin_b));
+            fatigueD += cyclesPerDay / Nf;
+        }
+
+        // --- Track first-threshold crossings -------------------------------
+        if (firstCrossing.chemicalDeltaE === null && cumChemicalDeltaE >= THRESHOLDS.chemicalDeltaE)
+            firstCrossing.chemicalDeltaE = b.date;
+        if (firstCrossing.mouldIndex === null && mouldIndex >= THRESHOLDS.mouldIndex)
+            firstCrossing.mouldIndex = b.date;
+        if (firstCrossing.fatigueDamage === null && fatigueD >= THRESHOLDS.fatigueDamage)
+            firstCrossing.fatigueDamage = b.date;
+        if (firstCrossing.saltCumulative === null && saltCum >= THRESHOLDS.saltCumulative)
+            firstCrossing.saltCumulative = b.date;
+
+        trajectory.push({
+            date: b.date,
+            T_mean: T,
+            RH_mean: RH,
+            dailyRHAmp: dRH,
+            // per-day increments (useful for "worst moment" annotations)
+            delta: {
+                chemicalDeltaE: (1 - Math.exp(-k)) * DELTA_E_SCALE,  // as if that one day alone
+                equivYears: dEquivYears,
+                mouldIncrement: mouldRate,
+                saltEvent: (prevRHAbove === true) ? 1 : 0,
+                fatigueDamage: dRH > 0.1
+                    ? cyclesPerDay / Math.min(1e12, Math.pow(sigma_fail / Math.max(E_mod * beta_diff * dRH, 1e-6), basquin_b))
+                    : 0
+            },
+            // cumulative state at end of this day
+            cum: {
+                chemicalDeltaE: cumChemicalDeltaE,
+                equivYears,
+                mouldIndex,
+                saltEvents,
+                saltCumulative: saltCum,
+                fatigueDamage: fatigueD
+            }
+        });
+    }
+
+    return {
+        trajectory,
+        cumulative: {
+            chemicalDeltaE: (1 - Math.exp(-cumKTimesDt)) * DELTA_E_SCALE,
+            equivYears,
+            mouldIndexFinal: mouldIndex,
+            saltEvents,
+            saltCumulative: saltCum,
+            fatigueDamage: fatigueD
+        },
+        thresholds: THRESHOLDS,
+        thresholdsCrossed: firstCrossing,
+        exposureDays: dailyBuckets.length
+    };
+}
+
+/**
+ * Forward-project by repeating the most recent `repeatWindowDays` of the
+ * observed climate until all four thresholds are crossed or `maxYears`
+ * elapse.
+ */
+function forwardProject(replayResult, dailyBuckets, { maxYears = 200, repeatWindowDays = 365 } = {}) {
+    if (dailyBuckets.length === 0) {
+        return {
+            projectionDays: 0,
+            projection: [],
+            etaDays: { chemicalDeltaE: null, mouldIndex: null, fatigueDamage: null, saltCumulative: null }
+        };
+    }
+
+    // Take the last `repeatWindowDays` days (or all if we have fewer)
+    const window = dailyBuckets.slice(-repeatWindowDays);
+    const maxDays = Math.round(maxYears * 365.25);
+
+    // Re-use the running state from the historical replay by continuing
+    // the accumulation forward. Simpler: re-run from day 0 through history
+    // + replayed window to keep all state integrations consistent.
+    const extendedBuckets = [...dailyBuckets];
+
+    // Append repeated window until we reach max OR all thresholds crossed
+    const etaDays = { ...replayResult.thresholdsCrossed };
+    // Convert crossed dates into "days-from-start-of-history"
+    const startDate = dailyBuckets.length ? new Date(dailyBuckets[0].date) : new Date();
+    const dayIndexFromDate = d => Math.round((new Date(d) - startDate) / (1000 * 60 * 60 * 24));
+
+    const startingEta = {
+        chemicalDeltaE: etaDays.chemicalDeltaE ? dayIndexFromDate(etaDays.chemicalDeltaE) : null,
+        mouldIndex:     etaDays.mouldIndex     ? dayIndexFromDate(etaDays.mouldIndex)     : null,
+        fatigueDamage:  etaDays.fatigueDamage  ? dayIndexFromDate(etaDays.fatigueDamage)  : null,
+        saltCumulative: etaDays.saltCumulative ? dayIndexFromDate(etaDays.saltCumulative) : null
+    };
+
+    // Continue appending window cycles, tracking newly-crossed thresholds
+    let dayIdx = dailyBuckets.length;
+    const projection = [];
+    let cycles = 0;
+    const maxCycles = Math.ceil(maxDays / Math.max(window.length, 1));
+    while (dayIdx < maxDays && cycles < maxCycles) {
+        for (const src of window) {
+            extendedBuckets.push({
+                ...src,
+                date: new Date(startDate.getTime() + dayIdx * 86400000).toISOString().slice(0, 10)
+            });
+            dayIdx++;
+            if (dayIdx >= maxDays) break;
+        }
+        cycles++;
+    }
+
+    // Re-run the full replay with the extended sequence
+    const full = runReplay(extendedBuckets);
+
+    // Map threshold crossings to day index
+    const etaIndex = {};
+    for (const key of Object.keys(startingEta)) {
+        if (full.thresholdsCrossed[key]) {
+            etaIndex[key] = dayIndexFromDate(full.thresholdsCrossed[key]);
+        } else {
+            etaIndex[key] = null;
+        }
+    }
+
+    // Project slice: everything after the historical window
+    const projectionSlice = full.trajectory.slice(dailyBuckets.length).map(p => ({
+        date: p.date,
+        cum: p.cum
+    }));
+
+    return {
+        projectionDays: projectionSlice.length,
+        projection: projectionSlice,
+        etaDays: etaIndex,
+        historicalDays: dailyBuckets.length,
+        thresholds: THRESHOLDS
+    };
+}
+
+module.exports = {
+
+    THRESHOLDS,
+    aggregateDailyBuckets,
+    runReplay,
+    forwardProject,
+
+    /**
+     * End-to-end: resolve sensors for the artifact, aggregate, replay, and
+     * (optionally) forward-project.
+     */
+    async replayHistory(artifactGid, { from, to, forecast = false, maxYears = 200 } = {}) {
+        const found = await ExhibitService._findByGid(artifactGid);
+        if (!found) throw new Error(`Artifact ${artifactGid} not found`);
+        const caveGid = await ExhibitService._findParentCaveGid(artifactGid);
+        const sensors = await TelemetryService.sensorsForArtifact(artifactGid, caveGid);
+        if (sensors.length === 0) {
+            return {
+                artifactGid,
+                caveGid,
+                sensors: [],
+                historicalDays: 0,
+                trajectory: [],
+                cumulative: null,
+                thresholds: THRESHOLDS,
+                thresholdsCrossed: null,
+                forecast: null,
+                note: 'No sensors are linked to this artifact or its parent cave.'
+            };
+        }
+        const sensorIds = sensors.map(s => s._id);
+        const buckets = await aggregateDailyBuckets(sensorIds, from, to);
+        const replay = runReplay(buckets);
+
+        let forecastResult = null;
+        if (forecast && buckets.length >= 7) {
+            forecastResult = forwardProject(replay, buckets, { maxYears });
+        }
+
+        return {
+            artifactGid,
+            caveGid,
+            sensors: sensors.map(s => ({ gid: s.gid, name: s.name })),
+            historicalDays: replay.exposureDays,
+            trajectory: replay.trajectory,
+            cumulative: replay.cumulative,
+            thresholds: replay.thresholds,
+            thresholdsCrossed: replay.thresholdsCrossed,
+            forecast: forecastResult
+        };
+    }
+};

@@ -7,6 +7,7 @@ import ModelViewer from './ModelViewer.js';
 import SimulationPanel from './SimulationPanel.js';
 import PigmentAnalysisPanel from './PigmentAnalysisPanel.js';
 import LiveDataPanel from './LiveDataPanel.js';
+import PredictionPanel from './PredictionPanel.js';
 import StatueForm from './StatueForm.js';
 import MuralForm from './MuralForm.js';
 import PaintingForm from './PaintingForm.js';
@@ -25,7 +26,7 @@ export default {
         return { t, isGuest, isAdmin };
     },
     components: {
-        CaveCard, ModelViewer, SimulationPanel, PigmentAnalysisPanel, LiveDataPanel,
+        CaveCard, ModelViewer, SimulationPanel, PigmentAnalysisPanel, LiveDataPanel, PredictionPanel,
         StatueForm, MuralForm, PaintingForm, InscriptionForm
     },
     props: {
@@ -459,6 +460,7 @@ export default {
                     <button class="tool-btn" :class="{ active: activePanel === 'pigment' }" :disabled="panelBusy || textureProcessing" @click="activePanel = 'pigment'">{{ t('pigmentAnalysis.title') }}</button>
                     <button class="tool-btn" :class="{ active: activePanel === 'simulation' }" :disabled="panelBusy || textureProcessing || !pigmentMap" @click="handleSimulationClick">{{ t('simulation.title') }}</button>
                     <button class="tool-btn" :class="{ active: activePanel === 'live' }" :disabled="panelBusy || textureProcessing" @click="activePanel = 'live'">{{ t('liveData.title') }}</button>
+                    <button class="tool-btn" :class="{ active: activePanel === 'prediction' }" :disabled="panelBusy || textureProcessing" @click="activePanel = 'prediction'">Prediction</button>
                     <span v-if="simDisabledMsg" class="tool-btn-hint">{{ simDisabledMsg }}</span>
                 </div>
                 <div style="flex: 1; display: flex; flex-direction: row; padding: 16px; overflow: hidden;">
@@ -480,6 +482,7 @@ export default {
                         <simulation-panel v-show="activePanel === 'simulation'" :entity="selectedExhibit" :pixel-data="texturePixelData" :external-pigment-map="pigmentMap" :external-restored-texture="restoredTexture" :external-pigment-display-mode="pigmentDisplayMode" :texture-processing="textureProcessing" @simulation-changed="handleSimulationChanged" @reset-texture="handleResetTexture" @busy-changed="panelBusy = $event"></simulation-panel>
                         <pigment-analysis-panel v-show="activePanel === 'pigment'" :pixel-data="texturePixelData" @pigment-analyzed="handlePigmentAnalyzed" @texture-restored="handleTextureRestored" @display-mode-changed="handlePigmentDisplayModeChanged" @busy-changed="panelBusy = $event"></pigment-analysis-panel>
                         <live-data-panel v-if="activePanel === 'live'" :entity="selectedExhibit" :is-admin="isAdmin" @busy-changed="panelBusy = $event"></live-data-panel>
+                        <prediction-panel v-if="activePanel === 'prediction'" :entity="selectedExhibit" @busy-changed="panelBusy = $event"></prediction-panel>
                     </div>
                 </div>
             </template>

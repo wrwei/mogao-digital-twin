@@ -210,6 +210,13 @@ const api = {
          */
         getEnvironment: (gid, params = {}) =>
             apiClient.get(`/exhibits/${gid}/environment`, { params }),
+        /**
+         * Historical deterioration replay with optional forward projection.
+         * @param gid    Artifact gid
+         * @param params { from?, to?, forecast?: boolean, maxYears?: number }
+         */
+        replayDeterioration: (gid, params = {}) =>
+            apiClient.get(`/exhibits/${gid}/deterioration/replay`, { params, timeout: 60000 }),
     },
 
     // Sensor management (admin)
