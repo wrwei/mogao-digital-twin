@@ -47,6 +47,7 @@ import DefectDetailView from './components/DefectDetailView.js';
 
 import SettingsView from './components/SettingsView.js';
 import SensorDashboard from './components/SensorDashboard.js';
+import MaintenanceQueue from './components/MaintenanceQueue.js';
 
 // ============================================
 // Generated Composable Imports
@@ -205,6 +206,10 @@ const AppSidebar = {
                 <div v-if="isAdmin" class="sidebar-nav-item" :class="{ active: currentView === 'sensors' }" @click="$emit('change-view', 'sensors')">
                     <span class="sidebar-nav-icon">📡</span>
                     <span>{{ t('nav.sensors') || 'Sensors' }}</span>
+                </div>
+                <div v-if="isAdmin" class="sidebar-nav-item" :class="{ active: currentView === 'maintenance' }" @click="$emit('change-view', 'maintenance')">
+                    <span class="sidebar-nav-icon">🔧</span>
+                    <span>Maintenance</span>
                 </div>
                 <div class="sidebar-nav-item" :class="{ active: currentView === 'settings' }" @click="$emit('change-view', 'settings')" style="margin-top: auto;">
                     <span class="sidebar-nav-icon">&#9881;</span>
@@ -1161,6 +1166,7 @@ const app = createApp({
         DefectView,
         SettingsView,
         SensorDashboard,
+        MaintenanceQueue,
     },
     setup() {
         const { locale, t, setLocale } = useI18n();
@@ -1413,6 +1419,9 @@ const app = createApp({
                         <sensor-dashboard
                             v-if="currentView === 'sensors' && isAdmin"
                         ></sensor-dashboard>
+                        <maintenance-queue
+                            v-if="currentView === 'maintenance' && isAdmin"
+                        ></maintenance-queue>
                     </div>
                 </div>
 

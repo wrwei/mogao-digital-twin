@@ -231,6 +231,7 @@ const api = {
         unlinkArtifact: (gid, artifactGid) =>
             apiClient.delete(`/sensors/${gid}/link-artifact/${artifactGid}`),
         rotateKey: (gid) => apiClient.post(`/sensors/${gid}/rotate-key`),
+        anomalies: (gid) => apiClient.get(`/sensors/${gid}/anomalies`),
         uploadCSV: (gid, file) => {
             const fd = new FormData();
             fd.append('file', file);
@@ -240,6 +241,13 @@ const api = {
         },
         batch: (gid, samples) =>
             apiClient.post(`/sensors/${gid}/samples/batch`, { samples }),
+    },
+
+    // Maintenance queue (prediction + anomalies composite)
+    maintenance: {
+        queue:       ()    => apiClient.get('/maintenance/queue', { timeout: 120000 }),
+        artifact:    (gid) => apiClient.get(`/maintenance/artifact/${gid}`, { timeout: 60000 }),
+        anomalies:   ()    => apiClient.get('/maintenance/anomalies'),
     },
 
     // Health check

@@ -109,6 +109,7 @@ const humidityRouter = require('./routers/humidityRouter');
 const lightIntensityRouter = require('./routers/lightIntensityRouter');
 const deteriorationRouter = require('./routers/deteriorationRouter');
 const exhibitRouter = require('./routers/exhibitRouter');
+const maintenanceRouter = require('./routers/maintenanceRouter');
 // sensorAdminRouter is defined above (before authMiddleware) alongside telemetryIngestRouter
 
 // Mount routes (no /api prefix to match existing frontend)
@@ -128,6 +129,7 @@ app.use('/lightIntensities', lightIntensityRouter);
 app.use('/deterioration', deteriorationRouter);
 app.use('/exhibits', exhibitRouter);
 app.use('/sensors', sensorAdminRouter);
+app.use('/maintenance', maintenanceRouter);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
