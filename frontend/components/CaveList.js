@@ -65,8 +65,7 @@ export default {
             simDisabledMsg: null,
             // Shared pigment analysis state
             pigmentMap: null,
-            restoredTexture: null,
-            pigmentDisplayMode: 'current'
+            pigmentDisplayMode: 'current'   // 'current' | 'pigment-map'
         };
     },
     mounted() {
@@ -150,16 +149,11 @@ export default {
             if (this.$refs.modelViewer) this.$refs.modelViewer.resetTexture();
         },
         handlePigmentAnalyzed(result) { this.pigmentMap = result.pigmentMap; },
-        handleTextureRestored(result) {
-            this.restoredTexture = result;
-            this.pigmentDisplayMode = 'restored';
-            this._pushDisplayMode('restored');
-        },
         handlePigmentDisplayModeChanged(mode) {
             this.pigmentDisplayMode = mode;
             this._pushDisplayMode(mode);
         },
-        /** Directly update ModelViewer with display mode when Simulation panel hasn't emitted */
+        /** Forward display mode (current / pigment-map) into ModelViewer via simulationData. */
         _pushDisplayMode(mode) {
             this.simulationData = {
                 ...(this.simulationData || {}),
@@ -171,7 +165,6 @@ export default {
                     totalDays: this.simulationData?.deterioration?.totalDays || 0,
                     pigmentMap: this.pigmentMap,
                     perPigmentParams: this.simulationData?.deterioration?.perPigmentParams || null,
-                    restoredTexture: this.restoredTexture,
                     pigmentDisplayMode: mode
                 }
             };
@@ -227,15 +220,13 @@ export default {
             if (newVal) this._processDrillIn(newVal);
         },
         /** Clear cross-exhibit state whenever the user opens a different 3D
-         *  exhibit or returns to the cave view. Prevents pigment-map,
-         *  restored texture, or simulation results from the previous exhibit
-         *  bleeding into the new one. */
+         *  exhibit or returns to the cave view. Prevents pigment-map or
+         *  simulation results from the previous exhibit bleeding into the new one. */
         selectedExhibit(newVal, oldVal) {
             if (newVal !== oldVal) {
                 this.pigmentMap = null;
-                this.restoredTexture = null;
-                this.simulationData = null;
                 this.pigmentDisplayMode = 'current';
+                this.simulationData = null;
                 this.texturePixelData = null;
                 this.activePanel = 'pigment';
                 this.panelBusy = false;
@@ -243,16 +234,10 @@ export default {
                 this.simDisabledMsg = null;
             }
         },
-        /** Restore the user's chosen pigment display mode when returning to
-         *  the Pigment Analysis panel. Otherwise the simulation effect lingers
-         *  on the 3D texture even though the Pigment panel is showing
-         *  "Pigment Map" or "Restored" as the active button. */
+        /** Re-push display mode when returning to the Pigment panel so any
+         *  Simulation effect from the prior tab is replaced. */
         activePanel(newVal) {
             if (newVal === 'pigment' && this.pigmentMap) {
-                // Re-push whatever display mode the pigment panel was last on.
-                // If only 'current' was active this is a no-op visually; if the
-                // user had selected Pigment Map or Restored, the overlay is
-                // reinstated now that Simulation is no longer rendering.
                 this._pushDisplayMode(this.pigmentDisplayMode || 'current');
             }
         }
@@ -515,8 +500,8 @@ export default {
                         <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 3px; height: 32px; background: white; border-radius: 2px; opacity: 0.6;"></div>
                     </div>
                     <div :style="{ width: simulationPanelWidth + 'px', flexShrink: 0, display: 'flex', flexDirection: 'column', height: '100%', overflowY: 'auto', scrollBehavior: 'smooth', paddingLeft: '8px' }">
-                        <simulation-panel v-show="activePanel === 'simulation'" :entity="selectedExhibit" :pixel-data="texturePixelData" :external-pigment-map="pigmentMap" :external-restored-texture="restoredTexture" :external-pigment-display-mode="pigmentDisplayMode" :texture-processing="textureProcessing" @simulation-changed="handleSimulationChanged" @reset-texture="handleResetTexture" @busy-changed="panelBusy = $event"></simulation-panel>
-                        <pigment-analysis-panel v-show="activePanel === 'pigment'" :pixel-data="texturePixelData" @pigment-analyzed="handlePigmentAnalyzed" @texture-restored="handleTextureRestored" @display-mode-changed="handlePigmentDisplayModeChanged" @busy-changed="panelBusy = $event"></pigment-analysis-panel>
+                        <simulation-panel v-show="activePanel === 'simulation'" :entity="selectedExhibit" :pixel-data="texturePixelData" :external-pigment-map="pigmentMap" :external-pigment-display-mode="pigmentDisplayMode" :texture-processing="textureProcessing" @simulation-changed="handleSimulationChanged" @reset-texture="handleResetTexture" @busy-changed="panelBusy = $event"></simulation-panel>
+                        <pigment-analysis-panel v-show="activePanel === 'pigment'" :pixel-data="texturePixelData" @pigment-analyzed="handlePigmentAnalyzed" @display-mode-changed="handlePigmentDisplayModeChanged" @busy-changed="panelBusy = $event"></pigment-analysis-panel>
                         <live-data-panel v-if="activePanel === 'live'" :entity="selectedExhibit" :is-admin="isAdmin" @busy-changed="panelBusy = $event"></live-data-panel>
                         <prediction-panel v-if="activePanel === 'prediction'" :entity="selectedExhibit" @busy-changed="panelBusy = $event"></prediction-panel>
                     </div>

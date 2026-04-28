@@ -59,10 +59,6 @@ export default {
             type: Object,
             default: null
         },
-        externalRestoredTexture: {
-            type: Object,
-            default: null
-        },
         externalPigmentDisplayMode: {
             type: String,
             default: null
@@ -127,10 +123,9 @@ export default {
             // Cached assessment results from backend API
             _assessmentResults: null,
             _assessDebounceTimer: null,
-            // ML pigment analysis
+            // Pigment-class segmentation (from PigmentAnalysisPanel)
             pigmentMap: null,
             perPigmentParams: null,
-            restoredTexture: null,
             pigmentDisplayMode: 'current'
         };
     },
@@ -251,16 +246,9 @@ export default {
             if (!val) this.perPigmentParams = null;
             this.emitSimulation();
         },
-        externalRestoredTexture(val) {
-            // Keep the restored pixels available for per-pigment lookup but do NOT
-            // override the display mode — when the Simulation panel is active we
-            // always want the simulation effect rendered, not the restored overlay.
-            // Also clear on null so exhibit-switch resets propagate.
-            this.restoredTexture = val || null;
-        },
         // externalPigmentDisplayMode is intentionally not synced — the Simulation
         // panel always emits displayMode='current' so its effect wins over the
-        // PigmentAnalysisPanel's overlay/restored modes.
+        // PigmentAnalysisPanel's overlay mode.
         activeTab() {
             // Stop any running simulation and reset texture when switching models
             if (this.isPlaying) {
@@ -424,12 +412,11 @@ export default {
                     saltCryst: this.enabledModels.saltCryst ? results.saltCryst : null,
                     fatigue: this.enabledModels.fatigue ? results.fatigue : null,
                     RH_amplitude: this.simRHAmplitude,
-                    // ML pigment data
+                    // Pigment-class segmentation (drives per-pigment Arrhenius)
                     pigmentMap: this.pigmentMap,
                     perPigmentParams: this.perPigmentParams,
-                    restoredTexture: this.restoredTexture,
                     // Always 'current' so the simulation effect is rendered —
-                    // the PigmentAnalysisPanel controls overlays independently.
+                    // the PigmentAnalysisPanel controls the pigment-map overlay independently.
                     pigmentDisplayMode: 'current'
                 },
                 timestamp: Date.now(),
@@ -460,12 +447,6 @@ export default {
 
         handlePigmentAnalyzed(result) {
             this.pigmentMap = result.pigmentMap;
-            this.emitSimulation();
-        },
-
-        handleTextureRestored(result) {
-            this.restoredTexture = result;
-            this.pigmentDisplayMode = 'restored';
             this.emitSimulation();
         },
 
@@ -754,7 +735,6 @@ export default {
         // Pick up any pigment data already available from the Pigment Analysis panel.
         // We do NOT sync externalPigmentDisplayMode — simulation renders its own effect.
         if (this.externalPigmentMap) this.pigmentMap = this.externalPigmentMap;
-        if (this.externalRestoredTexture) this.restoredTexture = this.externalRestoredTexture;
         this.loadDefaults();
         this.$nextTick(() => { this.initChart(); this.emitSimulation(); });
     },

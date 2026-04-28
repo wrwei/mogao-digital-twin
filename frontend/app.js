@@ -40,11 +40,6 @@ import InscriptionForm from './components/InscriptionForm.js';
 import InscriptionList from './components/InscriptionList.js';
 import InscriptionDetailView from './components/InscriptionDetailView.js';
 
-import DefectCard from './components/DefectCard.js';
-import DefectForm from './components/DefectForm.js';
-import DefectList from './components/DefectList.js';
-import DefectDetailView from './components/DefectDetailView.js';
-
 import SettingsView from './components/SettingsView.js';
 import SensorDashboard from './components/SensorDashboard.js';
 import MaintenanceQueue from './components/MaintenanceQueue.js';
@@ -57,7 +52,6 @@ import { useStatues } from './composables/useStatues.js';
 import { useMurals } from './composables/useMurals.js';
 import { usePaintings } from './composables/usePaintings.js';
 import { useInscriptions } from './composables/useInscriptions.js';
-import { useDefects } from './composables/useDefects.js';
 
 // ============================================
 // Login Page Component
@@ -198,10 +192,6 @@ const AppSidebar = {
                 <div class="sidebar-nav-item" :class="{ active: currentView === 'caves' || currentView === 'statues' || currentView === 'murals' || currentView === 'paintings' || currentView === 'inscriptions' }" @click="$emit('change-view', 'caves')">
                     <span class="sidebar-nav-icon">🏛️</span>
                     <span>{{ t('entities.caves') }}</span>
-                </div>
-                <div class="sidebar-nav-item" :class="{ active: currentView === 'defects' }" @click="$emit('change-view', 'defects')">
-                    <span class="sidebar-nav-icon">⚠️</span>
-                    <span>{{ t('entities.defects') }}</span>
                 </div>
                 <div v-if="isAdmin" class="sidebar-nav-item" :class="{ active: currentView === 'sensors' }" @click="$emit('change-view', 'sensors')">
                     <span class="sidebar-nav-icon">📡</span>
@@ -1038,122 +1028,6 @@ const InscriptionView = {
     `
 };
 
-const DefectView = {
-    components: {
-        DefectList,
-        DefectForm,
-        DefectCard,
-        DefectDetailView,
-        ModalDialog,
-        DrawerPanel,
-    },
-    setup() {
-        const composable = useDefects();
-        const { t } = useI18n();
-        return {
-            ...composable,
-            t,
-        };
-    },
-    data() {
-        return {
-            showForm: false,
-            editMode: false,
-            editingItem: null,
-            showDetail: false,
-            detailItem: null,
-            selectedGid: null,
-            selectedItem: null,
-        };
-    },
-    methods: {
-        handleCreate() {
-            this.editMode = false;
-            this.editingItem = null;
-            this.showDetail = false;
-            this.showForm = true;
-        },
-        handleEdit(item) {
-            this.editMode = true;
-            this.editingItem = item;
-            this.showDetail = false;
-            this.showForm = true;
-        },
-        async handleDelete(item) {
-            if (confirm(this.t('actions.deleteConfirm', { entity: this.t('entities.defect') }))) {
-                try {
-                    await this.deleteDefect(item.gid);
-                    this.$emit('show-message', this.t('actions.deleteSuccess', { entity: this.t('entities.defect') }), 'success');
-                } catch (err) {
-                    this.$emit('show-message', this.t('actions.deleteError', { entity: this.t('entities.defect') }) + ': ' + err.message, 'error');
-                }
-            }
-        },
-        async handleFormSubmit() {
-            this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.defect') }), 'success');
-            this.showForm = false;
-            await this.fetchDefects();
-        },
-        handleFormCancel() {
-            this.showForm = false;
-            this.editingItem = null;
-        },
-        handleSelect(item) {
-            this.selectedGid = item.gid;
-            this.selectedItem = item;
-            this.selectDefect(item);
-            this.$emit('item-selected', item);
-        },
-        handleViewDetail(item) {
-            this.selectedGid = item.gid;
-            this.selectedItem = item;
-            this.detailItem = item;
-            this.showDetail = true;
-        },
-        handleCloseDetail() {
-            this.showDetail = false;
-            this.detailItem = null;
-        }
-    },
-    mounted() {
-        this.fetchDefects();
-    },
-    template: `
-        <div class="entity-view">
-            <drawer-panel :show="showForm" :title="editMode ? t('common.edit') + ' ' + t('entities.defect') : t('actions.createNew', { entity: t('entities.defect') })" @close="handleFormCancel">
-                <defect-form
-                    :defect="editingItem"
-                    :mode="editMode ? 'edit' : 'create'"
-                    @created="handleFormSubmit"
-                    @updated="handleFormSubmit"
-                    @cancel="handleFormCancel"
-                    @error="(msg) => $emit('show-message', msg, 'error')"
-                ></defect-form>            </drawer-panel>
-
-            <drawer-panel :show="showDetail" :title="t('common.detail') + ' - ' + (detailItem ? detailItem.name || detailItem.title || detailItem.gid : '')" @close="handleCloseDetail">
-                <template #header-actions>
-                    <button class="btn btn-sm btn-primary" @click="handleEdit(detailItem)" style="margin-right: 8px;">
-                        {{ t('common.edit') }}
-                    </button>
-                </template>
-                <defect-detail-view
-                    v-if="detailItem"
-                    :defect="detailItem"
-                ></defect-detail-view>            </drawer-panel>
-
-            <defect-list
-                :defects="defects"
-                :loading="loading"
-                :selected-gid="selectedGid"
-                @select="handleSelect"
-                @edit="handleEdit"
-                @delete="handleDelete"
-                @create="handleCreate"
-                @view-detail="handleViewDetail"
-            ></defect-list>        </div>
-    `
-};
-
 // ============================================
 // Main App Component
 // ============================================
@@ -1171,7 +1045,6 @@ const app = createApp({
         MuralView,
         PaintingView,
         InscriptionView,
-        DefectView,
         SettingsView,
         SensorDashboard,
         MaintenanceQueue,
@@ -1464,11 +1337,6 @@ const app = createApp({
                             @show-message="showMessage"
                             @item-selected="() => {}"
                         ></inscription-view>
-                        <defect-view
-                            v-if="currentView === 'defects'"
-                            @show-message="showMessage"
-                            @item-selected="() => {}"
-                        ></defect-view>
                         <settings-view
                             v-if="currentView === 'settings'"
                             :user="currentUser"

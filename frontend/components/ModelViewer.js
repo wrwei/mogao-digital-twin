@@ -131,9 +131,7 @@ export default {
                         return;
                     }
 
-                    if (displayMode === 'restored' && newData.deterioration.restoredTexture) {
-                        this._applyRestoredTexture(newData.deterioration.restoredTexture);
-                    } else if (displayMode === 'pigment-map' && newData.deterioration.pigmentMap) {
+                    if (displayMode === 'pigment-map' && newData.deterioration.pigmentMap) {
                         this._applyPigmentOverlay(newData.deterioration.pigmentMap);
                     } else if (activeModel === 'chemical') {
                         // Per-pigment chemical fading (Arrhenius)
@@ -510,26 +508,6 @@ export default {
                     [pixelCopy]
                 );
             }
-        },
-
-        /** Apply restored (ML-reconstructed) texture to the 3D model */
-        _applyRestoredTexture(result) {
-            if (!this.model || !result || !result.restoredPixels) return;
-            const { restoredPixels, width, height } = result;
-            const canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext('2d');
-            ctx.putImageData(new ImageData(new Uint8ClampedArray(restoredPixels), width, height), 0, 0);
-            this.model.traverse((child) => {
-                if (child.isMesh && child.material) {
-                    const tex = new THREE.CanvasTexture(canvas);
-                    if (child.material.map) { tex.flipY = child.material.map.flipY; tex.wrapS = child.material.map.wrapS; tex.wrapT = child.material.map.wrapT; }
-                    child.material.map = tex;
-                    child.material.needsUpdate = true;
-                }
-            });
-            this.showToast('✨ Restored colours applied', 'success', 3000);
         },
 
         /** Render a translucent pigment-class overlay on the 3D model */

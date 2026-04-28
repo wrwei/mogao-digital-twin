@@ -17,14 +17,17 @@ export default {
     data() {
         return {
             sensors: [],
+            artifacts: { caves: [], statues: [], murals: [], paintings: [], inscriptions: [] },
             loading: false,
             error: null,
             search: '',
             statusFilter: 'all',      // all | online | warning | offline | inactive
 
-            // Inline new-sensor form
-            showNewSensorForm: false,
-            newSensorForm: { name: '', model: '', serialNumber: '', cave: '' },
+            // Sensor form — used for both register and edit.
+            // editingSensorGid === null → create; otherwise edit that sensor.
+            showSensorForm: false,
+            editingSensorGid: null,
+            sensorForm: { name: '', model: '', serialNumber: '', location: '', active: true },
             newSensorApiKey: null,
 
             // Bulk import
@@ -71,7 +74,7 @@ export default {
         }
     },
     async mounted() {
-        await this.loadSensors();
+        await Promise.all([this.loadSensors(), this.loadArtifacts()]);
     },
     methods: {
         async loadSensors() {
@@ -113,21 +116,134 @@ export default {
             return map[h] || h;
         },
 
-        async registerNewSensor() {
-            if (!this.newSensorForm.name) return;
+        async loadArtifacts() {
+            try {
+                const [c, s, m, p, i] = await Promise.all([
+                    window.api.caves.getAll(),
+                    window.api.statues.getAll(),
+                    window.api.murals.getAll(),
+                    window.api.paintings.getAll(),
+                    window.api.inscriptions.getAll()
+                ]);
+                this.artifacts = {
+                    caves:        c.data || [],
+                    statues:      s.data || [],
+                    murals:       m.data || [],
+                    paintings:    p.data || [],
+                    inscriptions: i.data || []
+                };
+            } catch (err) {
+                console.warn('Artifact list load failed:', err.message);
+            }
+        },
+
+        /** Resolve "type:gid" back to a display name for a given sensor's location. */
+        locationLabel(sensor) {
+            const loc = sensor && sensor.location;
+            if (!loc) return '—';
+            if (loc.cave) {
+                const c = this.artifacts.caves.find(x => x.gid === loc.cave);
+                return c ? `🏛️ ${c.name || loc.cave}` : `🏛️ ${loc.cave}`;
+            }
+            if (Array.isArray(loc.explicitArtifacts) && loc.explicitArtifacts.length > 0) {
+                const gid = loc.explicitArtifacts[0];
+                const buckets = [
+                    ['statue', '🗿', this.artifacts.statues],
+                    ['mural', '🎨', this.artifacts.murals],
+                    ['painting', '🖼️', this.artifacts.paintings],
+                    ['inscription', '✍️', this.artifacts.inscriptions]
+                ];
+                for (const [, icon, list] of buckets) {
+                    const a = list.find(x => x.gid === gid);
+                    if (a) return `${icon} ${a.name || gid}`;
+                }
+                return gid;
+            }
+            return '—';
+        },
+
+        /** Encode the sensor's current location as "type:gid" for the form select. */
+        encodeLocation(sensor) {
+            const loc = sensor && sensor.location;
+            if (!loc) return '';
+            if (loc.cave) return `cave:${loc.cave}`;
+            if (Array.isArray(loc.explicitArtifacts) && loc.explicitArtifacts.length > 0) {
+                const gid = loc.explicitArtifacts[0];
+                for (const t of ['statue', 'mural', 'painting', 'inscription']) {
+                    if ((this.artifacts[t + 's'] || []).some(x => x.gid === gid)) {
+                        return `${t}:${gid}`;
+                    }
+                }
+                // Fall back to "artifact:gid" if type unknown (artifact list not loaded yet)
+                return `artifact:${gid}`;
+            }
+            return '';
+        },
+
+        /** Convert "type:gid" into the `location` payload the backend expects. */
+        buildLocationPayload(locString) {
+            if (!locString) return {};
+            const idx = locString.indexOf(':');
+            if (idx < 0) return {};
+            const type = locString.slice(0, idx);
+            const gid = locString.slice(idx + 1);
+            if (type === 'cave') return { cave: gid, explicitArtifacts: [] };
+            return { cave: null, explicitArtifacts: [gid] };
+        },
+
+        openCreateForm() {
+            this.editingSensorGid = null;
+            this.sensorForm = { name: '', model: '', serialNumber: '', location: '', active: true };
+            this.newSensorApiKey = null;
+            this.showSensorForm = true;
+        },
+
+        openEditForm(sensor) {
+            this.editingSensorGid = sensor.gid;
+            this.sensorForm = {
+                name: sensor.name || '',
+                model: sensor.model || '',
+                serialNumber: sensor.serialNumber || '',
+                location: this.encodeLocation(sensor),
+                active: sensor.status?.active !== false
+            };
+            this.newSensorApiKey = null;
+            this.showSensorForm = true;
+        },
+
+        closeSensorForm() {
+            this.showSensorForm = false;
+            this.editingSensorGid = null;
+            this.sensorForm = { name: '', model: '', serialNumber: '', location: '', active: true };
+        },
+
+        async saveSensor() {
+            if (!this.sensorForm.name) return;
             this.loading = true;
             this.error = null;
-            this.newSensorApiKey = null;
             try {
-                const payload = {
-                    name: this.newSensorForm.name,
-                    model: this.newSensorForm.model || undefined,
-                    serialNumber: this.newSensorForm.serialNumber || undefined,
-                    location: { cave: this.newSensorForm.cave || undefined }
-                };
-                const res = await window.api.sensors.register(payload);
-                this.newSensorApiKey = res.data.apiKey;
-                this.newSensorForm = { name: '', model: '', serialNumber: '', cave: '' };
+                const location = this.buildLocationPayload(this.sensorForm.location);
+                if (this.editingSensorGid) {
+                    const patch = {
+                        name: this.sensorForm.name,
+                        model: this.sensorForm.model || undefined,
+                        serialNumber: this.sensorForm.serialNumber || undefined,
+                        location,
+                        active: this.sensorForm.active
+                    };
+                    await window.api.sensors.update(this.editingSensorGid, patch);
+                    this.closeSensorForm();
+                } else {
+                    const payload = {
+                        name: this.sensorForm.name,
+                        model: this.sensorForm.model || undefined,
+                        serialNumber: this.sensorForm.serialNumber || undefined,
+                        location
+                    };
+                    const res = await window.api.sensors.register(payload);
+                    this.newSensorApiKey = res.data.apiKey;
+                    this.sensorForm = { name: '', model: '', serialNumber: '', location: '', active: true };
+                }
                 await this.loadSensors();
             } catch (err) {
                 this.error = err.response?.data?.error || err.message;
@@ -213,8 +329,8 @@ export default {
                 <h2 style="margin: 0; font-size: 22px; font-weight: 700;">📡 {{ t('sensorDashboard.title') }}</h2>
                 <span style="flex: 1;"></span>
                 <button class="btn btn-sm" @click="loadSensors" :disabled="loading">{{ t('sensorDashboard.refresh') }}</button>
-                <button class="btn btn-sm btn-primary" @click="showNewSensorForm = !showNewSensorForm">
-                    {{ showNewSensorForm ? t('sensorDashboard.cancel') : t('sensorDashboard.registerSensor') }}
+                <button class="btn btn-sm btn-primary" @click="showSensorForm ? closeSensorForm() : openCreateForm()">
+                    {{ showSensorForm ? t('sensorDashboard.cancel') : t('sensorDashboard.registerSensor') }}
                 </button>
             </div>
 
@@ -223,16 +339,52 @@ export default {
                 {{ error }}
             </div>
 
-            <!-- Register sensor form -->
-            <div v-if="showNewSensorForm" class="sim-card" style="margin-bottom: 16px;">
-                <div class="sim-card-title">Register new sensor</div>
-                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 8px;">
-                    <input v-model="newSensorForm.name" placeholder="Name *" class="form-input" />
-                    <input v-model="newSensorForm.model" placeholder="Model (e.g. HOBO MX2301A)" class="form-input" />
-                    <input v-model="newSensorForm.serialNumber" placeholder="Serial #" class="form-input" />
-                    <input v-model="newSensorForm.cave" placeholder="Cave gid" class="form-input" />
+            <!-- Register / edit sensor form -->
+            <div v-if="showSensorForm" class="sim-card" style="margin-bottom: 16px;">
+                <div class="sim-card-title">{{ editingSensorGid ? 'Edit sensor' : 'Register new sensor' }}</div>
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 8px;">
+                    <input v-model="sensorForm.name" placeholder="Name *" class="form-input" />
+                    <input v-model="sensorForm.model" placeholder="Model (e.g. HOBO MX2301A)" class="form-input" />
+                    <input v-model="sensorForm.serialNumber" placeholder="Serial #" class="form-input" />
+                    <select v-model="sensorForm.location" class="form-input">
+                        <option value="">— No artifact link —</option>
+                        <optgroup v-if="artifacts.caves.length" label="Caves (whole-cave scope)">
+                            <option v-for="c in artifacts.caves" :key="c.gid" :value="'cave:' + c.gid">
+                                🏛️ {{ c.name || c.gid }}
+                            </option>
+                        </optgroup>
+                        <optgroup v-if="artifacts.statues.length" label="Statues (per-artifact)">
+                            <option v-for="a in artifacts.statues" :key="a.gid" :value="'statue:' + a.gid">
+                                🗿 {{ a.name || a.gid }}
+                            </option>
+                        </optgroup>
+                        <optgroup v-if="artifacts.murals.length" label="Murals (per-artifact)">
+                            <option v-for="a in artifacts.murals" :key="a.gid" :value="'mural:' + a.gid">
+                                🎨 {{ a.name || a.gid }}
+                            </option>
+                        </optgroup>
+                        <optgroup v-if="artifacts.paintings.length" label="Paintings (per-artifact)">
+                            <option v-for="a in artifacts.paintings" :key="a.gid" :value="'painting:' + a.gid">
+                                🖼️ {{ a.name || a.gid }}
+                            </option>
+                        </optgroup>
+                        <optgroup v-if="artifacts.inscriptions.length" label="Inscriptions (per-artifact)">
+                            <option v-for="a in artifacts.inscriptions" :key="a.gid" :value="'inscription:' + a.gid">
+                                ✍️ {{ a.name || a.gid }}
+                            </option>
+                        </optgroup>
+                    </select>
                 </div>
-                <button class="btn btn-sm btn-primary" @click="registerNewSensor" :disabled="loading || !newSensorForm.name">Register</button>
+                <label v-if="editingSensorGid" style="display: flex; align-items: center; gap: 6px; font-size: 12px; margin-bottom: 8px; cursor: pointer;">
+                    <input type="checkbox" v-model="sensorForm.active" />
+                    Active (receiving new samples)
+                </label>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn btn-sm btn-primary" @click="saveSensor" :disabled="loading || !sensorForm.name">
+                        {{ editingSensorGid ? 'Save changes' : 'Register' }}
+                    </button>
+                    <button class="btn btn-sm" @click="closeSensorForm" :disabled="loading">Cancel</button>
+                </div>
                 <div v-if="newSensorApiKey" style="margin-top: 10px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 6px; padding: 10px;">
                     <div style="font-weight: 600; color: #065f46; margin-bottom: 4px; font-size: 13px;">✓ Sensor registered — save this API key (shown once):</div>
                     <code style="display: block; background: white; padding: 6px 8px; border-radius: 4px; word-break: break-all; user-select: all; font-size: 12px;">{{ newSensorApiKey }}</code>
@@ -305,12 +457,13 @@ export default {
                                 <div style="font-size: 10px; color: var(--text-secondary); font-family: monospace;">{{ s.gid }}</div>
                             </td>
                             <td style="padding: 8px 10px; color: var(--text-secondary);">{{ s.model || '—' }}</td>
-                            <td style="padding: 8px 10px; color: var(--text-secondary);">{{ s.location?.cave || '—' }}</td>
+                            <td style="padding: 8px 10px; color: var(--text-secondary);">{{ locationLabel(s) }}</td>
                             <td style="padding: 8px 10px; text-align: right;">{{ (s.status?.samplesTotal || 0).toLocaleString() }}</td>
                             <td style="padding: 8px 10px; text-align: right; color: var(--text-secondary); font-size: 11px;">
                                 {{ humanAge(s._ageMs) }}
                             </td>
                             <td style="padding: 8px 10px; white-space: nowrap;">
+                                <button class="btn btn-xs" @click="openEditForm(s)" style="margin-right: 4px;" title="Edit sensor metadata and artifact link">Edit</button>
                                 <button v-if="s.status?.active" class="btn btn-xs" @click="deactivate(s.gid)" style="background: #fee2e2; color: #991b1b; margin-right: 4px;">{{ t('sensorDashboard.deactivate') }}</button>
                                 <button class="btn btn-xs" @click="remove(s)" style="background: #7f1d1d; color: white;" :title="t('sensorDashboard.deleteTitle') || 'Permanently delete sensor and all its samples'">{{ t('sensorDashboard.delete') || 'Delete' }}</button>
                             </td>
