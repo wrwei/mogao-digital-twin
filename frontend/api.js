@@ -133,6 +133,12 @@ const api = {
          */
         getEnvironment: (gid, params = {}) =>
             apiClient.get(`/exhibits/${gid}/environment`, { params }),
+
+        // Per-exhibit defect log (observed damage records)
+        listDefects:   (gid)                    => apiClient.get(`/exhibits/${gid}/defects`),
+        addDefect:     (gid, data)              => apiClient.post(`/exhibits/${gid}/defects`, data),
+        updateDefect:  (gid, defectGid, data)   => apiClient.put(`/exhibits/${gid}/defects/${defectGid}`, data),
+        removeDefect:  (gid, defectGid)         => apiClient.delete(`/exhibits/${gid}/defects/${defectGid}`),
         /**
          * Historical deterioration replay with optional forward projection.
          * @param gid    Artifact gid

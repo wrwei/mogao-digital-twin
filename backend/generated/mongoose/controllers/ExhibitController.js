@@ -140,6 +140,59 @@ const ExhibitController = {
         }
     },
 
+    // ── Defects: per-exhibit observation log ────────────────────────────
+
+    // GET /exhibits/:gid/defects
+    listDefects: async (req, res) => {
+        try {
+            const defects = await ExhibitService.listDefects(req.params.gid);
+            if (defects === null) return res.status(404).json({ message: 'Exhibit not found' });
+            res.json(defects);
+        } catch (error) {
+            console.error('Failed to list defects:', error);
+            res.status(500).json({ message: 'Failed to list defects', error: error.message });
+        }
+    },
+
+    // POST /exhibits/:gid/defects
+    addDefect: async (req, res) => {
+        try {
+            const created = await ExhibitService.addDefect(req.params.gid, req.body || {});
+            if (!created) return res.status(404).json({ message: 'Exhibit not found' });
+            res.status(201).json(created);
+        } catch (error) {
+            console.error('Failed to add defect:', error);
+            res.status(500).json({ message: 'Failed to add defect', error: error.message });
+        }
+    },
+
+    // PUT /exhibits/:gid/defects/:defectGid
+    updateDefect: async (req, res) => {
+        try {
+            const updated = await ExhibitService.updateDefect(
+                req.params.gid, req.params.defectGid, req.body || {}
+            );
+            if (updated === null) return res.status(404).json({ message: 'Exhibit or defect not found' });
+            res.json(updated);
+        } catch (error) {
+            console.error('Failed to update defect:', error);
+            res.status(500).json({ message: 'Failed to update defect', error: error.message });
+        }
+    },
+
+    // DELETE /exhibits/:gid/defects/:defectGid
+    removeDefect: async (req, res) => {
+        try {
+            const result = await ExhibitService.removeDefect(req.params.gid, req.params.defectGid);
+            if (result === null) return res.status(404).json({ message: 'Exhibit not found' });
+            if (result === false) return res.status(404).json({ message: 'Defect not found' });
+            res.json({ message: 'Defect removed' });
+        } catch (error) {
+            console.error('Failed to remove defect:', error);
+            res.status(500).json({ message: 'Failed to remove defect', error: error.message });
+        }
+    },
+
     // GET /exhibits/:gid/deterioration/replay?from=...&to=...&forecast=true&maxYears=200
     replayDeterioration: async (req, res) => {
         try {

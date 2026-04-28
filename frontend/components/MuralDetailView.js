@@ -4,9 +4,11 @@
  * Full detail view for 壁画 with 3D viewer support
  */
 import { useI18n } from '../i18n.js';
+import DefectsPanel from './DefectsPanel.js';
 
 export default {
     name: 'MuralDetailView',
+    components: { DefectsPanel },
     setup() {
         const { t } = useI18n();
         return { t };
@@ -131,34 +133,9 @@ export default {
                 </div>
             </div>
 
-            <!-- Defects Section -->
-            <div v-if="mural.defects && mural.defects.length > 0" class="info-section defects-section">
-                <h3 class="section-header">
-                    {{ t('entities.defects') }}
-                    <span class="count-badge">{{ mural.defects.length }}</span>
-                </h3>
-                <div class="defects-list">
-                    <div v-for="defect in mural.defects" :key="defect.gid" class="defect-card">
-                        <div class="defect-card-header">
-                            <strong class="defect-name">{{ defect.name || defect.gid }}</strong>
-                            <span v-if="defect.severity" class="badge" :class="'badge-' + (defect.severity || 'unknown').toLowerCase()">
-                                {{ defect.severity }}
-                            </span>
-                        </div>
-                        <p v-if="defect.description" class="defect-description">{{ defect.description }}</p>
-                        <div class="defect-meta">
-                            <span v-if="defect.defectType" class="meta-item">
-                                <strong>{{ t('detail.type') }}:</strong> {{ defect.defectType }}
-                            </span>
-                            <span v-if="defect.affectedArea" class="meta-item">
-                                <strong>{{ t('detail.affectedArea') }}:</strong> {{ defect.affectedArea }} m²
-                            </span>
-                            <span v-if="defect.requiresImmediateAction" class="meta-item meta-urgent">
-                                ⚠️ {{ t('detail.urgent') }}
-                            </span>
-                        </div>
-                    </div>
-                </div>
+            <!-- Defects: per-exhibit observation log -->
+            <div class="info-section defects-section">
+                <defects-panel :exhibit-gid="mural.gid" :initial-defects="mural.defects || []"></defects-panel>
             </div>
         </div>
     `
