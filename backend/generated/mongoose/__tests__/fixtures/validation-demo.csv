@@ -1,0 +1,10 @@
+dataset,citation,t_days,T_celsius,RH_pct,light_klux,deltaE_observed
+DEMO_AcceleratedAgeing,placeholder-replace-with-real-data,30,40,50,0,0.5
+DEMO_AcceleratedAgeing,placeholder-replace-with-real-data,90,40,50,0,1.6
+DEMO_AcceleratedAgeing,placeholder-replace-with-real-data,180,40,50,0,3.2
+DEMO_HighTemperature,placeholder-replace-with-real-data,30,80,50,0,4.5
+DEMO_HighTemperature,placeholder-replace-with-real-data,90,80,50,0,12.8
+DEMO_HighTemperature,placeholder-replace-with-real-data,180,80,50,0,23.6
+DEMO_MogaoBaseline,placeholder-replace-with-real-data,3650,13,35,2,1.2
+DEMO_MogaoBaseline,placeholder-replace-with-real-data,18250,13,35,2,5.8
+DEMO_MogaoBaseline,placeholder-replace-with-real-data,73050,13,35,2,48.0
