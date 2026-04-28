@@ -153,8 +153,9 @@ async function scoreArtifact(artifact, artifactType) {
         daysSinceInspection = (Date.now() - Number(artifact.lastInspectionDate)) / 86400000;
     }
 
-    // 4. Conservation status severity
-    const statusSev = STATUS_SEVERITY[artifact.conservationStatus] || 0.5;
+    // 4. Conservation status severity. Use ?? not || so 'excellent' (severity 0)
+    // is preserved instead of falling back to the unknown-status default 0.5.
+    const statusSev = STATUS_SEVERITY[artifact.conservationStatus] ?? 0.5;
 
     // --- Composite score ---
     const dIdx = damageIndex(replayResult?.cumulative, replayResult?.thresholds);
