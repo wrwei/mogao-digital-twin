@@ -6,24 +6,26 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>digital.twin</groupId>
-    <artifactId>mogao</artifactId>
+    <artifactId>mogao-codegen</artifactId>
     <version>1.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 
-    <name>Mogao Digital Twin</name>
-    <description>Digital twin project for Mogao</description>
+    <name>Mogao Digital Twin — Code Generator</name>
+    <description>
+        Build-time Epsilon/EGL code generator for the Mogao Digital Twin.
+        Loads the Ecore metamodel and emits the Mongoose backend and Vue 3
+        frontend from the EGL templates. The runtime backend is Node.js +
+        Express + Mongoose, located at backend/generated/mongoose/, and is
+        not built by Maven.
+    </description>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
         <junit.version>5.10.1</junit.version>
-        <!-- Epsilon and EMF versions -->
         <epsilon.version>2.8.0</epsilon.version>
         <emf.version>2.23.0</emf.version>
-        <!-- Micronaut version -->
-        <micronaut.version>4.2.3</micronaut.version>
-        <micronaut.test.resources.version>2.2.0</micronaut.test.resources.version>
     </properties>
 
     <dependencies>
@@ -35,7 +37,7 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- EMF Core Dependencies -->
+        <!-- EMF — Ecore metamodel runtime -->
         <dependency>
             <groupId>org.eclipse.emf</groupId>
             <artifactId>org.eclipse.emf.ecore</artifactId>
@@ -47,50 +49,39 @@
             <version>2.16.0</version>
         </dependency>
 
-        <!-- Epsilon Language Engines -->
-        <!-- EOL - Epsilon Object Language (foundation) -->
+        <!-- Epsilon language engines -->
         <dependency>
             <groupId>org.eclipse.epsilon</groupId>
             <artifactId>org.eclipse.epsilon.eol.engine</artifactId>
             <version>${epsilon.version}</version>
         </dependency>
-
-        <!-- EGL - Epsilon Generation Language (code generation) -->
         <dependency>
             <groupId>org.eclipse.epsilon</groupId>
             <artifactId>org.eclipse.epsilon.egl.engine</artifactId>
             <version>${epsilon.version}</version>
         </dependency>
-
-        <!-- ETL - Epsilon Transformation Language (model-to-model) -->
         <dependency>
             <groupId>org.eclipse.epsilon</groupId>
             <artifactId>org.eclipse.epsilon.etl.engine</artifactId>
             <version>${epsilon.version}</version>
         </dependency>
-
-        <!-- EVL - Epsilon Validation Language (model validation) -->
         <dependency>
             <groupId>org.eclipse.epsilon</groupId>
             <artifactId>org.eclipse.epsilon.evl.engine</artifactId>
             <version>${epsilon.version}</version>
         </dependency>
-
-        <!-- Epsilon Model Connectivity for EMF -->
         <dependency>
             <groupId>org.eclipse.epsilon</groupId>
             <artifactId>org.eclipse.epsilon.emc.emf</artifactId>
             <version>${epsilon.version}</version>
         </dependency>
-
-        <!-- Flexmi - flexible modeling infrastructure -->
         <dependency>
             <groupId>org.eclipse.epsilon</groupId>
             <artifactId>org.eclipse.epsilon.flexmi</artifactId>
             <version>${epsilon.version}</version>
         </dependency>
 
-        <!-- SLF4J for logging -->
+        <!-- Logging -->
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
@@ -100,42 +91,6 @@
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>
             <version>1.4.11</version>
-        </dependency>
-
-        <!-- Micronaut Dependencies -->
-        <!-- Micronaut HTTP Core -->
-        <dependency>
-            <groupId>io.micronaut</groupId>
-            <artifactId>micronaut-http</artifactId>
-            <version>${micronaut.version}</version>
-        </dependency>
-
-        <!-- Micronaut Runtime -->
-        <dependency>
-            <groupId>io.micronaut</groupId>
-            <artifactId>micronaut-runtime</artifactId>
-            <version>${micronaut.version}</version>
-        </dependency>
-
-        <!-- Micronaut HTTP Server (Netty) -->
-        <dependency>
-            <groupId>io.micronaut</groupId>
-            <artifactId>micronaut-http-server-netty</artifactId>
-            <version>${micronaut.version}</version>
-        </dependency>
-
-        <!-- Micronaut Jackson for JSON -->
-        <dependency>
-            <groupId>io.micronaut</groupId>
-            <artifactId>micronaut-jackson-databind</artifactId>
-            <version>${micronaut.version}</version>
-        </dependency>
-
-        <!-- Jakarta Inject API (for @Inject, @Singleton) -->
-        <dependency>
-            <groupId>jakarta.inject</groupId>
-            <artifactId>jakarta.inject-api</artifactId>
-            <version>2.0.1</version>
         </dependency>
     </dependencies>
 
@@ -148,19 +103,6 @@
                 <configuration>
                     <source>17</source>
                     <target>17</target>
-                    <annotationProcessorPaths>
-                        <path>
-                            <groupId>io.micronaut</groupId>
-                            <artifactId>micronaut-inject-java</artifactId>
-                            <version>${micronaut.version}</version>
-                        </path>
-                    </annotationProcessorPaths>
-                    <compilerArgs>
-                        <arg>-Amicronaut.processing.incremental=true</arg>
-                        <arg>-Amicronaut.processing.annotations=digital.twin.mogao.*</arg>
-                        <arg>-Amicronaut.processing.group=digital.twin</arg>
-                        <arg>-Amicronaut.processing.module=mogao</arg>
-                    </compilerArgs>
                 </configuration>
             </plugin>
             <plugin>
@@ -168,13 +110,11 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.2.2</version>
             </plugin>
+            <!-- exec:java@codegen runs the Epsilon-driven generator. -->
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>exec-maven-plugin</artifactId>
                 <version>3.1.0</version>
-                <configuration>
-                    <mainClass>digital.twin.mogao.Application</mainClass>
-                </configuration>
                 <executions>
                     <execution>
                         <id>codegen</id>
@@ -186,23 +126,6 @@
                         </configuration>
                     </execution>
                 </executions>
-            </plugin>
-            <plugin>
-                <groupId>io.micronaut.maven</groupId>
-                <artifactId>micronaut-maven-plugin</artifactId>
-                <version>4.2.1</version>
-                <configuration>
-                    <mainClass>digital.twin.mogao.Application</mainClass>
-                    <testResourcesEnabled>false</testResourcesEnabled>
-                    <watchDirectories>
-                        <watchDirectory>
-                            <directory>${project.basedir}/src/main/java</directory>
-                        </watchDirectory>
-                        <watchDirectory>
-                            <directory>${project.basedir}/src/main/resources</directory>
-                        </watchDirectory>
-                    </watchDirectories>
-                </configuration>
             </plugin>
         </plugins>
     </build>

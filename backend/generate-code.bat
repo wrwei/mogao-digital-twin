@@ -1,99 +1,36 @@
 @echo off
+REM ============================================
+REM Mogao Digital Twin - Code Generator (Phase 1 stub)
+REM ============================================
+REM
+REM The Java/Micronaut runtime backend has been retired. The runtime
+REM backend is now Node.js + Express + Mongoose at backend\generated\
+REM mongoose\ and is not built by Maven.
+REM
+REM The Mongoose regeneration pipeline is being redesigned (Phase 2)
+REM to preserve hand-extended business logic via fenced extension
+REM regions; auto-generation is therefore disabled until that lands.
+REM
+REM Running the codegen entry point today prints a no-op informational
+REM message — see backend\src\main\java\digital\twin\mogao\codegen\
+REM CodeGenerator.java.
+REM
+REM For ad-hoc EGL invocations against the metamodel, see
+REM backend\src\main\resources\transformation\RUN_TRANSFORMATIONS.md.
+
 echo ============================================
 echo Mogao Digital Twin - Code Generator
 echo ============================================
 echo.
 
-echo Cleaning previous generated code...
-if exist "src\main\java\digital\twin\mogao\dto" (
-    rmdir /s /q "src\main\java\digital\twin\mogao\dto"
-    echo   Removed dto directory
-)
-if exist "src\main\java\digital\twin\mogao\service" (
-    rmdir /s /q "src\main\java\digital\twin\mogao\service"
-    echo   Removed service directory
-)
-if exist "src\main\java\digital\twin\mogao\controller" (
-    rmdir /s /q "src\main\java\digital\twin\mogao\controller"
-    echo   Removed controller directory
-)
-REM Backup manual components before cleanup
-if exist "..\frontend\components\ModelViewer.js" (
-    copy /y "..\frontend\components\ModelViewer.js" "..\frontend\ModelViewer.js.backup" >nul
-    echo   Backed up ModelViewer.js
-)
-if exist "..\frontend\components\SimulationPanel.js" (
-    copy /y "..\frontend\components\SimulationPanel.js" "..\frontend\SimulationPanel.js.backup" >nul
-    echo   Backed up SimulationPanel.js
-)
-if exist "..\frontend\components\SettingsView.js" (
-    copy /y "..\frontend\components\SettingsView.js" "..\frontend\SettingsView.js.backup" >nul
-    echo   Backed up SettingsView.js
-)
-if exist "..\frontend\components" (
-    rmdir /s /q "..\frontend\components"
-    echo   Removed frontend components directory
-)
-REM Restore manual components after cleanup
-mkdir "..\frontend\components" 2>nul
-if exist "..\frontend\ModelViewer.js.backup" (
-    copy /y "..\frontend\ModelViewer.js.backup" "..\frontend\components\ModelViewer.js" >nul
-    del "..\frontend\ModelViewer.js.backup"
-    echo   Restored ModelViewer.js
-)
-if exist "..\frontend\SimulationPanel.js.backup" (
-    copy /y "..\frontend\SimulationPanel.js.backup" "..\frontend\components\SimulationPanel.js" >nul
-    del "..\frontend\SimulationPanel.js.backup"
-    echo   Restored SimulationPanel.js
-)
-if exist "..\frontend\SettingsView.js.backup" (
-    copy /y "..\frontend\SettingsView.js.backup" "..\frontend\components\SettingsView.js" >nul
-    del "..\frontend\SettingsView.js.backup"
-    echo   Restored SettingsView.js
-)
-if exist "..\frontend\composables" (
-    rmdir /s /q "..\frontend\composables"
-    echo   Removed frontend composables directory
-)
-if exist "..\frontend\app.js" (
-    copy /y "..\frontend\app.js" "..\frontend\app.js.backup" >nul
-    echo   Backed up app.js to app.js.backup
-)
-
-echo.
-echo Compiling project (initial)...
-call mvn compile -q
-
-if %ERRORLEVEL% NEQ 0 (
-    echo Build failed!
-    pause
-    exit /b 1
-)
-
-echo.
-echo Running code generator...
 call mvn exec:java@codegen
-
 if %ERRORLEVEL% NEQ 0 (
-    echo Code generation failed!
+    echo Code generator entry point failed.
     pause
     exit /b 1
 )
 
 echo.
-echo ============================================
-echo Code generation complete!
+echo Done.
 echo.
-echo Generated Backend Code:
-echo   - DTOs:        src\main\java\digital\twin\mogao\dto
-echo   - Services:    src\main\java\digital\twin\mogao\service
-echo   - Controllers: src\main\java\digital\twin\mogao\controller
-echo.
-echo Generated Frontend Code:
-echo   - Components:  ..\frontend\components
-echo   - Composables: ..\frontend\composables
-echo   - App.js:      ..\frontend\app.js
-echo.
-echo Note: Previous app.js backed up to app.js.backup
-echo ============================================
 pause
