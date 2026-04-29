@@ -32,7 +32,7 @@ const [%=controllerName%] = {
 
     getAll: async (req, res) => {
         try {
-            const instances = await [%=serviceName%].getAll();
+            const instances = await [%=serviceName%].getAll(req.query);
             res.json(instances);
         } catch (error) {
             console.error('Failed to get [%=className%] list:', error);
@@ -44,7 +44,7 @@ const [%=controllerName%] = {
         try {
             const instance = await [%=serviceName%].getById(req.params.id);
             if (!instance) {
-                return res.status(404).send();
+                return res.status(404).json({ message: 'Not found' });
             }
             res.json(instance);
         } catch (error) {
@@ -57,7 +57,7 @@ const [%=controllerName%] = {
         try {
             const instance = await [%=serviceName%].getByGid(req.params.gid);
             if (!instance) {
-                return res.status(404).send();
+                return res.status(404).json({ message: 'Not found' });
             }
             res.json(instance);
         } catch (error) {
@@ -70,7 +70,7 @@ const [%=controllerName%] = {
         try {
             const instance = await [%=serviceName%].update(req.params.id, req.body);
             if (!instance) {
-                return res.status(404).send();
+                return res.status(404).json({ message: 'Not found' });
             }
             res.json(instance);
         } catch (error) {
@@ -83,7 +83,33 @@ const [%=controllerName%] = {
         try {
             const instance = await [%=serviceName%].delete(req.params.id);
             if (!instance) {
-                return res.status(404).send();
+                return res.status(404).json({ message: 'Not found' });
+            }
+            res.json(instance);
+        } catch (error) {
+            console.error('Failed to delete [%=className%]:', error);
+            res.status(500).json({ message: 'Failed to delete [%=className%]', error: error.message });
+        }
+    },
+
+    updateByGid: async (req, res) => {
+        try {
+            const instance = await [%=serviceName%].updateByGid(req.params.gid, req.body);
+            if (!instance) {
+                return res.status(404).json({ message: 'Not found' });
+            }
+            res.json(instance);
+        } catch (error) {
+            console.error('Failed to update [%=className%]:', error);
+            res.status(500).json({ message: 'Failed to update [%=className%]', error: error.message });
+        }
+    },
+
+    deleteByGid: async (req, res) => {
+        try {
+            const instance = await [%=serviceName%].deleteByGid(req.params.gid);
+            if (!instance) {
+                return res.status(404).json({ message: 'Not found' });
             }
             res.json(instance);
         } catch (error) {
