@@ -47,9 +47,12 @@ import java.util.Map;
  *     generated CRUD layer and consume it.
  *
  * generateEOLOperations() remains as scaffolding but is not invoked
- * from main(). The frontend EGL templates at transformation/frontend/
- * are also not yet wired to this Java entry point — see
- * transformation/RUN_TRANSFORMATIONS.md for ad-hoc invocation.
+ * from main(). The Vue 3 frontend at frontend/ is hand-written
+ * end-to-end and is deliberately not in scope for this generator —
+ * the substantive UI (3D viewer, deterioration simulation,
+ * prediction panel, maintenance queue, sensor dashboard, application
+ * shell) is purpose-built for the heritage-deterioration use case
+ * and is not a deterministic function of the metamodel.
  */
 public class CodeGenerator {
 

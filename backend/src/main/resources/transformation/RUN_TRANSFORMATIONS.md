@@ -1,161 +1,102 @@
 # How to Run EGL Transformations
 
-This guide explains how to generate Java code from the Mogao Digital Twin metamodel using EGL transformations.
+This guide explains how to regenerate the Mongoose data layer from the
+Mogao Digital Twin Ecore metamodel using EGL transformations.
 
 ## Prerequisites
 
-1. Build the project to download dependencies:
-   ```bash
-   cd backend
-   mvn clean install
-   ```
-
-2. Ensure the metamodel exists at:
-   ```
-   src/main/resources/metamodel/mogao_dt.ecore
-   ```
+- JDK 17+ on `PATH`
+- Maven 3.9+ on `PATH`
+- Metamodel present at `src/main/resources/metamodel/mogao_dt.ecore` (it
+  is — no setup required)
 
 ## Running the Code Generator
 
-### Method 1: Using the Convenience Scripts (Easiest)
+### Method 1 — convenience scripts
 
-**Windows:**
+Windows:
 ```bash
 cd backend
 generate-code.bat
 ```
 
-**Linux/Mac:**
+macOS/Linux:
 ```bash
 cd backend
 ./generate-code.sh
 ```
 
-### Method 2: Using Maven Directly
+### Method 2 — Maven directly
 
 ```bash
 cd backend
-mvn clean compile
-mvn exec:java
+mvn -q compile
+mvn -q exec:java@codegen
 ```
 
-### Method 3: From Your IDE
+### Method 3 — from an IDE
 
-1. Open `digital.twin.mogao.codegen.CodeGenerator`
-2. Right-click → "Run as Java Application"
+Run `digital.twin.mogao.codegen.CodeGenerator` as a Java application.
 
-This will:
-- Generate DTO classes for all concrete classes in the metamodel
-- Generate Service classes for main entities (Cave, Defect, Exhibit types)
-- Output files to `generated/dto/` and `generated/service/`
+## What the generator does
 
-### Method 2: Using EpsilonModelManager Directly
+`CodeGenerator.main()` invokes `generateMongooseBackend()`, which walks
+the metamodel and for each EClass emits a Mongoose model
+(`backend/generated/mongoose/models/X.js`) plus, for each concrete
+entity in the `entityClasses` array, a service / controller / Express
+router. It also rewrites `models/index.js` (the schema catalogue).
 
-```java
-EpsilonModelManager manager = new EpsilonModelManager();
+After a clean run, `git status backend/generated/mongoose/` should
+report no changes — the data layer is provably idempotent.
 
-// Load the metamodel and get an EClass
-EClass caveClass = ...; // get from metamodel
+## What the generator does NOT do
 
-// Prepare parameters
-Map<String, Object> params = new HashMap<>();
-params.put("eClass", caveClass);
-params.put("packageName", "digital.twin.mogao.dto");
+- Does not emit `app.js`, `server.js`, `package.json`, or the
+  `services/`, `controllers/`, `routers/` `index.js` files. These are
+  hand-written infrastructure (auth, telemetry, sensor admin,
+  maintenance, deterioration, file uploads, MongoDB connect).
+- Does not touch any of the hand-written domain services
+  (`AnomalyDetectionService`, `DeteriorationReplayService`,
+  `MaintenanceService`, `TelemetryService`, `ValidationHarness`,
+  `ExhibitService`, `UserService`, `DeteriorationService`) or their
+  matching controllers/routers.
+- Does not touch the Vue 3 frontend in `frontend/` — the frontend
+  is hand-written end-to-end. Frontend EGL templates were retired:
+  the substantive UI (3D viewer, simulation, prediction, maintenance
+  queue, sensor dashboard, application shell) is not a deterministic
+  function of the metamodel.
 
-// Execute EGL template
-String dtoCode = manager.executeEglTemplate("transformation/GenerateDTO.egl", params);
+## Adding a new entity
 
-// Write to file or use the generated code
-```
+1. Add a concrete `EClass` to `mogao_dt.ecore`.
+2. Add the class name to the `entityClasses` array in `CodeGenerator.java`.
+3. Run `mvn exec:java@codegen`. New `models/X.js`, `services/XService.js`,
+   `controllers/XController.js`, and `routers/xRouter.js` are emitted.
+4. Hand-edit `app.js` to require the new router and `app.use()` it on a
+   route prefix, and `services/index.js`/`controllers/index.js`/
+   `routers/index.js` if you want the new entity in the catalogue.
+5. Add Vue 3 components (`Card`, `Form`, `List`, `DetailView`) and a
+   composable by hand, modelled on an existing entity's files.
 
-### Method 3: Custom Generation Script
+## Customising the templates
 
-Create your own EOL/EGL script that orchestrates the generation:
+| Template | Output | Edit when… |
+|---|---|---|
+| `mongodb/GenerateMongooseModel.egl` | per-EClass schema | Mongoose schema convention changes (e.g. add a virtual, an index, a hook) |
+| `mongodb/GenerateMongooseService.egl` | per-entity service | CRUD method shape changes (e.g. add `findMany(filter)`) |
+| `mongodb/GenerateMongooseController.egl` | per-entity controller | HTTP error shape or response convention changes |
+| `mongodb/GenerateMongooseRouter.egl` | per-entity router | URL layout changes |
 
-```java
-EpsilonModelManager manager = new EpsilonModelManager();
-String result = manager.executeEolScript("transformation/CustomGenerator.eol");
-```
-
-## Generated Output
-
-Generated files will be placed in:
-
-```
-backend/
-  generated/
-    dto/
-      CaveDTO.java
-      DefectDTO.java
-      CoordinatesDTO.java
-      StatueDTO.java
-      MuralDTO.java
-      ... etc
-    service/
-      CaveService.java
-      DefectService.java
-      ... etc
-```
-
-## Customizing Templates
-
-Edit the EGL templates to customize code generation:
-
-- **DTO Template**: `src/main/resources/transformation/GenerateDTO.egl`
-- **Service Template**: `src/main/resources/transformation/GenerateService.egl`
-
-## Template Parameters
-
-### GenerateDTO.egl
-- `eClass` (EClass): The metamodel class to generate DTO for
-- `packageName` (String): Target package name
-
-### GenerateService.egl
-- `eClass` (EClass): The metamodel class to generate Service for
-- `packageName` (String): Target package name
-
-## Example: Generate Single DTO
-
-```java
-import digital.twin.mogao.util.EpsilonModelManager;
-import org.eclipse.emf.ecore.EClass;
-import org.eclipse.emf.ecore.EPackage;
-// ... other imports
-
-public class GenerateSingleDTO {
-    public static void main(String[] args) throws Exception {
-        EpsilonModelManager manager = new EpsilonModelManager();
-
-        // Load metamodel (simplified)
-        EPackage pkg = loadMetamodel();
-        EClass defectClass = (EClass) pkg.getEClassifier("Defect");
-
-        // Generate DTO
-        Map<String, Object> params = Map.of(
-            "eClass", defectClass,
-            "packageName", "digital.twin.mogao.dto"
-        );
-
-        String dtoCode = manager.executeEglTemplate(
-            "transformation/GenerateDTO.egl",
-            params
-        );
-
-        System.out.println(dtoCode);
-    }
-}
-```
+After editing a template, re-run the generator and inspect
+`git status backend/generated/mongoose/` to see the resulting diff.
 
 ## Troubleshooting
 
-### "Template not found" error
-- Ensure templates are in `src/main/resources/transformation/`
-- Check the template path is correct (relative to resources directory)
-
-### "Metamodel not found" error
-- Verify `src/main/resources/metamodel/mogao_dt.ecore` exists
-- Check the file is valid Ecore format
-
-### Classpath issues
-- Run `mvn clean install` to ensure all dependencies are downloaded
-- Check that Epsilon and EMF dependencies are in the POM
+- *"Compilation failure: jakarta.inject"* — that import was removed
+  during Phase 1. If you see it, you have stale build artefacts. Run
+  `mvn clean compile`.
+- *"Template not found"* — templates live at
+  `src/main/resources/transformation/mongodb/`. The classpath resolves
+  template paths relative to `resources/`.
+- *"Metamodel not found"* — verify `src/main/resources/metamodel/mogao_dt.ecore`
+  exists and is valid Ecore XMI.
