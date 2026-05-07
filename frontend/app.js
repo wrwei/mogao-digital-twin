@@ -11,6 +11,7 @@ const { createApp } = Vue;
 // ============================================
 import { useI18n } from './i18n.js';
 import { vFocusTrap } from './utils/a11y.js';
+import { parseHash, setHash, subscribeRoute } from './utils/router.js';
 import ConfirmDialog from './components/ConfirmDialog.js';
 
 // ============================================
@@ -1174,7 +1175,8 @@ const app = createApp({
             isAuthenticated: !!localStorage.getItem('mgemini-token'),
             currentUser: JSON.parse(localStorage.getItem('mgemini-user') || 'null'),
 
-            // Application state
+            // Application state. mounted() reconciles this with the URL hash
+            // and runs the route-arrival side effects (admin guard, fetches).
             currentView: 'dashboard',
             loading: false,
             error: null,
@@ -1239,11 +1241,12 @@ const app = createApp({
                 axios.defaults.headers.common['X-Guest-Access'] = 'true';
             }
             this.checkBackendConnection();
-            this.dashCaves.fetchCaves();
-            this.dashStatues.fetchStatues();
-            this.dashMurals.fetchMurals();
-            this.dashPaintings.fetchPaintings();
-            this.dashInscriptions.fetchInscriptions();
+
+            // Land on the URL view (a deep-link still works after a session
+            // expiry → re-auth round trip). _applyRoute fetches dashboard
+            // counts when view='dashboard' and admin-guards otherwise.
+            this._applyRoute(parseHash().view);
+            setHash(this.currentView);
         },
 
         handleLogout() {
@@ -1255,6 +1258,26 @@ const app = createApp({
         },
 
         changeView(view) {
+            // Push the hash; the subscribeRoute handler installed in mounted()
+            // will set currentView and run any view-specific work. This keeps
+            // a single source of truth (the URL) for the active view.
+            if (!setHash(view)) {
+                // No URL change (already on this view) — apply side effects
+                // directly so refreshes on /dashboard still refetch counts.
+                this._applyRoute(view);
+            }
+        },
+
+        // Side effects of arriving at a view, regardless of how we got here
+        // (sidebar click, back button, deep-link, programmatic transition).
+        _applyRoute(view) {
+            // Bounce admin-only views back to the dashboard when the user
+            // isn't admin — otherwise the content pane renders blank because
+            // every <admin-view v-if="... && isAdmin"> branch is false.
+            if ((view === 'sensors' || view === 'maintenance') && !this.isAdmin) {
+                setHash('dashboard');
+                return;
+            }
             this.currentView = view;
             if (view === 'dashboard') {
                 this.dashCaves.fetchCaves();
@@ -1354,7 +1377,7 @@ const app = createApp({
                 return;
             }
             this.pendingArtifactDrillIn = { gid, type, caveGid };
-            this.currentView = 'caves';
+            this.changeView('caves');
         },
 
         clearPendingDrillIn() {
@@ -1364,7 +1387,9 @@ const app = createApp({
 
     mounted() {
         this.applyTheme(this.currentTheme);
-        // Restore auth header from stored token or guest mode
+
+        // Restore auth header BEFORE the initial route applies, so dashboard
+        // fetches issued by _applyRoute carry Authorization.
         const token = localStorage.getItem('mgemini-token');
         if (token) {
             axios.defaults.headers.common['Authorization'] = 'Bearer ' + token;
@@ -1372,14 +1397,17 @@ const app = createApp({
             axios.defaults.headers.common['X-Guest-Access'] = 'true';
         }
 
+        // Hash router: subscribe always (so back/forward works across the
+        // login boundary). When already authenticated, apply the URL route
+        // now — _applyRoute runs the admin guard and any view-specific
+        // fetches. handleLoginSuccess does the same after a fresh sign-in.
+        this._unsubscribeRoute = subscribeRoute(({ view }) => this._applyRoute(view));
+
         if (this.isAuthenticated) {
-            // Check backend connection and fetch dashboard counts
+            this._applyRoute(parseHash().view);
+            setHash(this.currentView);
+
             this.checkBackendConnection();
-            this.dashCaves.fetchCaves();
-            this.dashStatues.fetchStatues();
-            this.dashMurals.fetchMurals();
-            this.dashPaintings.fetchPaintings();
-            this.dashInscriptions.fetchInscriptions();
 
             // Set up periodic backend health check (handle is kept so the
             // poll can be torn down on auth-loss).
@@ -1406,6 +1434,10 @@ const app = createApp({
         this._stopBackgroundPolls();
         if (this._onVisibility) {
             document.removeEventListener('visibilitychange', this._onVisibility);
+        }
+        if (this._unsubscribeRoute) {
+            this._unsubscribeRoute();
+            this._unsubscribeRoute = null;
         }
     },
 
