@@ -40,6 +40,14 @@ export const messages = {
             selected: '已选择'
         },
 
+        // Empty-state messages (shared by all list views)
+        empty: {
+            noEntityTitle: '暂无记录',
+            noEntityHint:  '点击下方按钮，添加第一个{entity}',
+            noResultsTitle: '未找到匹配项',
+            noResultsHint:  '尝试调整搜索关键词或清除筛选',
+        },
+
         // Entity Names
         entities: {
             cave: '洞窟',
@@ -653,6 +661,14 @@ export const messages = {
             info: 'Information',
             detail: 'Details',
             selected: 'Selected'
+        },
+
+        // Empty-state messages (shared by all list views)
+        empty: {
+            noEntityTitle: 'Nothing here yet',
+            noEntityHint:  'Add your first {entity} using the button below',
+            noResultsTitle: 'No matches',
+            noResultsHint:  'Try a different search term or clear the filter',
         },
 
         // Entity Names

@@ -13,6 +13,7 @@ import MuralForm from './MuralForm.js';
 import PaintingForm from './PaintingForm.js';
 import InscriptionForm from './InscriptionForm.js';
 import Skeleton from './Skeleton.js';
+import EmptyState from './EmptyState.js';
 import { useI18n } from '../i18n.js';
 import { vFocusTrap } from '../utils/a11y.js';
 
@@ -31,7 +32,7 @@ export default {
     directives: { focusTrap: vFocusTrap },
     components: {
         CaveCard, ModelViewer, SimulationPanel, PigmentAnalysisPanel, LiveDataPanel, PredictionPanel,
-        StatueForm, MuralForm, PaintingForm, InscriptionForm, Skeleton
+        StatueForm, MuralForm, PaintingForm, InscriptionForm, Skeleton, EmptyState
     },
     props: {
         caves: { type: Array, default: () => [] },
@@ -269,6 +270,7 @@ export default {
             }
             return r;
         },
+        isEmpty() { return this.caves.length === 0; },
         totalAssets() { return this.statues.length + this.murals.length + this.paintings.length + this.inscriptions.length; },
         assetCategories() {
             return [
@@ -333,9 +335,16 @@ export default {
                 </div>
                 <div class="page-section-label">{{ t('entities.caves').toUpperCase() }}</div>
                 <skeleton v-if="loading" variant="grid-card" :count="6"></skeleton>
-                <div v-else-if="filteredCaves.length === 0" style="text-align: center; padding: 60px; color: var(--text-secondary);">
-                    <div style="font-size: 48px; margin-bottom: 12px; opacity: 0.3;">🏛️</div><p>{{ t('common.noData') }}</p>
-                </div>
+                <empty-state v-else-if="isEmpty"
+                    icon="🏛️"
+                    :title="t('empty.noEntityTitle')"
+                    :description="t('empty.noEntityHint', { entity: t('entities.cave') })"
+                    :action-label="!isGuest ? t('actions.createNew', { entity: t('entities.cave') }) : ''"
+                    @action="$emit('create')"></empty-state>
+                <empty-state v-else-if="filteredCaves.length === 0"
+                    icon="🔍"
+                    :title="t('empty.noResultsTitle')"
+                    :description="t('empty.noResultsHint')"></empty-state>
                 <div v-else class="project-cards-grid">
                     <div v-for="cave in filteredCaves" :key="cave.gid" class="project-card" @click="openCave(cave)" style="cursor: pointer;">
                         <div class="project-card-badges">

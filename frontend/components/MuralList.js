@@ -7,6 +7,7 @@ import MuralCard from './MuralCard.js';
 import ModelViewer from './ModelViewer.js';
 import SimulationPanel from './SimulationPanel.js';
 import Skeleton from './Skeleton.js';
+import EmptyState from './EmptyState.js';
 import { useI18n } from '../i18n.js';
 
 export default {
@@ -20,7 +21,8 @@ export default {
         MuralCard,
         ModelViewer,
         SimulationPanel,
-        Skeleton
+        Skeleton,
+        EmptyState
     },
     props: {
         murals: {
@@ -191,18 +193,17 @@ export default {
                 <div class="list-body" style="flex: 1; overflow-y: auto; padding: var(--spacing-sm);">
                     <skeleton v-if="loading" variant="row" :count="6"></skeleton>
 
-                    <div v-else-if="isEmpty" class="empty-state">
-                        <div class="empty-state-icon">📭</div>
-                        <div class="empty-state-text">{{ t('common.noData') }}</div>
-                        <button v-if="!isGuest" class="btn btn-primary" @click="$emit('create')">
-                            {{ t('actions.createNew', { entity: t('entities.mural') }) }}
-                        </button>
-                    </div>
+                    <empty-state v-else-if="isEmpty"
+                        icon="📭"
+                        :title="t('empty.noEntityTitle')"
+                        :description="t('empty.noEntityHint', { entity: t('entities.mural') })"
+                        :action-label="!isGuest ? t('actions.createNew', { entity: t('entities.mural') }) : ''"
+                        @action="$emit('create')"></empty-state>
 
-                    <div v-else-if="filteredMurals.length === 0" class="empty-state">
-                        <div class="empty-state-icon">🔍</div>
-                        <div class="empty-state-text">{{ t('common.noData') }}</div>
-                    </div>
+                    <empty-state v-else-if="filteredMurals.length === 0"
+                        icon="🔍"
+                        :title="t('empty.noResultsTitle')"
+                        :description="t('empty.noResultsHint')"></empty-state>
 
                     <div v-else class="entity-cards" style="display: flex; flex-direction: column; gap: var(--spacing-sm);">
                         <mural-card
