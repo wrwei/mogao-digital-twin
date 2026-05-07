@@ -1220,7 +1220,10 @@ const app = createApp({
                 delete axios.defaults.headers.common['Authorization'];
                 axios.defaults.headers.common['X-Guest-Access'] = 'true';
             }
-            this.checkBackendConnection();
+            // Start health/anomaly polling for the new session — without
+            // this, a fresh sign-in (vs. arriving with a stored token) had
+            // no background polls until the user refreshed.
+            this._startBackgroundPolls();
 
             // Land on the URL view (a deep-link still works after a session
             // expiry → re-auth round trip). _applyRoute fetches dashboard
@@ -1230,6 +1233,7 @@ const app = createApp({
         },
 
         handleLogout() {
+            this._stopBackgroundPolls();
             this.isAuthenticated = false;
             this.currentUser = null;
             localStorage.removeItem('mgemini-token');
@@ -1340,10 +1344,44 @@ const app = createApp({
             }
         },
 
-        /** Tear down the two background polling timers. Used on auth-loss. */
+        /**
+         * Start the background polls + visibility listener. Idempotent: safe
+         * to call from mounted() (token in localStorage) and from
+         * handleLoginSuccess (fresh sign-in). Without this, a user who
+         * landed on the login screen and then signed in had no health or
+         * anomaly polling until they refreshed.
+         */
+        _startBackgroundPolls() {
+            this.checkBackendConnection();
+
+            if (!this._healthTimer) {
+                this._healthTimer = setInterval(() => this.checkBackendConnection(), 30000);
+            }
+
+            if (this.isAdmin && !this._anomalyTimer) {
+                this.fetchAnomalyCount();
+                this._anomalyTimer = setInterval(() => this.fetchAnomalyCount(), 60000);
+            }
+
+            if (!this._onVisibility) {
+                this._onVisibility = () => {
+                    if (document.visibilityState !== 'visible') return;
+                    this.checkBackendConnection();
+                    if (this.isAdmin) this.fetchAnomalyCount();
+                };
+                document.addEventListener('visibilitychange', this._onVisibility);
+            }
+        },
+
+        /** Tear down all background polls + the visibility listener. Used on
+         *  auth-loss (401) and on explicit logout. */
         _stopBackgroundPolls() {
             if (this._anomalyTimer) { clearInterval(this._anomalyTimer); this._anomalyTimer = null; }
-            if (this._healthTimer)   { clearInterval(this._healthTimer);   this._healthTimer   = null; }
+            if (this._healthTimer)  { clearInterval(this._healthTimer);  this._healthTimer  = null; }
+            if (this._onVisibility) {
+                document.removeEventListener('visibilitychange', this._onVisibility);
+                this._onVisibility = null;
+            }
         },
 
         /**
@@ -1387,35 +1425,12 @@ const app = createApp({
         if (this.isAuthenticated) {
             this._applyRoute(parseHash().view);
             setHash(this.currentView);
-
-            this.checkBackendConnection();
-
-            // Set up periodic backend health check (handle is kept so the
-            // poll can be torn down on auth-loss).
-            this._healthTimer = setInterval(() => this.checkBackendConnection(), 30000);
-
-            // Anomaly badge poll (admin only) — initial + every 60s.
-            if (this.isAdmin) {
-                this.fetchAnomalyCount();
-                this._anomalyTimer = setInterval(() => this.fetchAnomalyCount(), 60000);
-            }
-
-            // When the tab becomes visible again, do an immediate refresh so
-            // the UI catches up before the next interval tick.
-            this._onVisibility = () => {
-                if (document.visibilityState !== 'visible') return;
-                this.checkBackendConnection();
-                if (this.isAdmin) this.fetchAnomalyCount();
-            };
-            document.addEventListener('visibilitychange', this._onVisibility);
+            this._startBackgroundPolls();
         }
     },
 
     beforeUnmount() {
         this._stopBackgroundPolls();
-        if (this._onVisibility) {
-            document.removeEventListener('visibilitychange', this._onVisibility);
-        }
         if (this._unsubscribeRoute) {
             this._unsubscribeRoute();
             this._unsubscribeRoute = null;
