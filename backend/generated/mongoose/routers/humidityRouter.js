@@ -14,6 +14,9 @@ const HumidityController = require('../controllers/HumidityController');
  * GET    /:id           - Get Humidity by ID
  * PUT    /:id           - Update Humidity by ID
  * DELETE /:id           - Delete Humidity by ID
+ *
+ * The /gid/:gid routes are registered BEFORE the /:id routes so that
+ * Express does not interpret the literal string "gid" as a Mongo ObjectId.
  */
 
 router.post('/', HumidityController.create);

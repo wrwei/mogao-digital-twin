@@ -12,16 +12,15 @@ const DTPackageService = {
      */
     create: async (data) => {
         // Always generate gid server-side to prevent client-supplied collisions
-        {
-            data.gid = 'dtpkg-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
-        }
+        data.gid = 'dTPackage-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
         delete data._id;
         const dTPackage = await DTPackage.create(data);
         return dTPackage;
     },
 
     /**
-     * Get all DTPackage documents
+     * Get all DTPackage documents.
+     * Optional query: { page, limit, sort } for pagination + ordering.
      */
     getAll: async (query = {}) => {
         const { page, limit, sort } = query;

@@ -1,6 +1,5 @@
 package digital.twin.mogao.util;
 
-import jakarta.inject.Singleton;
 import org.eclipse.epsilon.eol.EolModule;
 import org.eclipse.epsilon.egl.EglTemplateFactory;
 import org.eclipse.epsilon.emc.emf.EmfModel;
@@ -23,9 +22,11 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
  * Epsilon Model Manager for Mogao Digital Twin
- * Handles loading/saving EMF models and executing EOL/EGL scripts
+ * Handles loading/saving EMF models and executing EOL/EGL scripts.
+ *
+ * Used as a build-time singleton by CodeGenerator; no DI annotation
+ * needed now that the Micronaut runtime is gone.
  */
-@Singleton
 public class EpsilonModelManager {
 
     private static final Logger LOG = LoggerFactory.getLogger(EpsilonModelManager.class);

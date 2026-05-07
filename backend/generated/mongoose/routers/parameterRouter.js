@@ -14,6 +14,9 @@ const ParameterController = require('../controllers/ParameterController');
  * GET    /:id           - Get Parameter by ID
  * PUT    /:id           - Update Parameter by ID
  * DELETE /:id           - Delete Parameter by ID
+ *
+ * The /gid/:gid routes are registered BEFORE the /:id routes so that
+ * Express does not interpret the literal string "gid" as a Mongo ObjectId.
  */
 
 router.post('/', ParameterController.create);

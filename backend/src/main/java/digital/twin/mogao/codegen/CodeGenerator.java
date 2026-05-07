@@ -24,25 +24,32 @@ import java.util.Map;
  * History: this generator originally emitted a Java/Micronaut backend
  * (DTOs, services, controllers) plus EOL operation scripts. The runtime
  * backend has since been re-implemented in Node.js + Express + Mongoose
- * (see backend/generated/mongoose/). The Java-backend EGL templates and
- * their dispatch methods have been removed (Phase 1).
+ * (see backend/generated/mongoose/).
  *
- * Status of the remaining generators:
- *   - Mongoose backend: scaffolding kept in generateMongooseBackend(),
- *     not invoked from main(). The shipped Mongoose code in
- *     backend/generated/mongoose/ has been hand-extended with telemetry,
- *     anomaly detection, maintenance queue, replay caching, and per-
- *     exhibit defect log endpoints; running the current generator would
- *     clobber those. Phase 2 will redesign the Mongoose pipeline with
- *     fenced extension regions before re-enabling auto-generation.
- *   - EOL operations: kept in generateEOLOperations(), not invoked.
- *   - Frontend (Vue 3): EGL templates exist at transformation/frontend/
- *     but are not yet wired into this Java entry point — see
- *     transformation/RUN_TRANSFORMATIONS.md for ad-hoc invocation.
+ * What this generator emits today:
+ *   - One Mongoose model per EClass in the metamodel (concrete and
+ *     abstract), and a models/index.js that re-exports the schemas.
+ *   - Per-entity Service, Controller, and Router for the 13 concrete
+ *     EClasses listed in the entityClasses array below.
  *
- * For now, running `mvn exec:java@codegen` is a no-op. The metamodel and
- * EGL templates remain in place as the source of truth for the upcoming
- * Phase 2 regeneration work.
+ * What this generator deliberately does NOT emit (treated as
+ * hand-written infrastructure outside the metamodel's remit):
+ *   - app.js, server.js, package.json — auth, telemetry, sensor admin,
+ *     maintenance, deterioration, file-upload, MongoDB connect.
+ *   - services/index.js, controllers/index.js, routers/index.js —
+ *     the live versions are correct and the generator does not
+ *     overwrite them; new entities must be added to those indexes
+ *     by hand.
+ *   - Hand-written services for entities not in the metamodel
+ *     (User, Sensor, EnvironmentSample) and the cross-cutting domain
+ *     services (Anomaly, Maintenance, Telemetry, DeteriorationReplay,
+ *     Exhibit, Validation, Deterioration). These live alongside the
+ *     generated CRUD layer and consume it.
+ *
+ * generateEOLOperations() remains as scaffolding but is not invoked
+ * from main(). The frontend EGL templates at transformation/frontend/
+ * are also not yet wired to this Java entry point — see
+ * transformation/RUN_TRANSFORMATIONS.md for ad-hoc invocation.
  */
 public class CodeGenerator {
 
@@ -59,31 +66,38 @@ public class CodeGenerator {
     private static final String EOL_SCRIPTS_OUTPUT_DIR = "src/main/resources/eol-scripts/";
 
     public static void main(String[] args) {
-        System.out.println("=== Mogao Digital Twin Code Generator ===");
-        System.out.println();
-        System.out.println("Phase 1: the Java/Micronaut backend has been retired.");
-        System.out.println("Phase 2: Mongoose backend regeneration is being redesigned");
-        System.out.println("        to preserve hand-extended business logic via fenced");
-        System.out.println("        extension regions; auto-generation is disabled until");
-        System.out.println("        that landing.");
-        System.out.println();
-        System.out.println("To regenerate manually, see backend/src/main/resources/");
-        System.out.println("transformation/RUN_TRANSFORMATIONS.md.");
-        System.out.println();
-        System.out.println("=== No code generated. ===");
+        try {
+            System.out.println("=== Mogao Digital Twin Code Generator ===");
+            System.out.println();
+
+            CodeGenerator generator = new CodeGenerator();
+
+            System.out.println("Generating Mongoose backend (data layer)...");
+            generator.generateMongooseBackend();
+
+            System.out.println();
+            System.out.println("=== Code generation complete. ===");
+            System.out.println();
+            System.out.println("Note: app.js, server.js, package.json, and the");
+            System.out.println("services/controllers/routers index.js files are NOT");
+            System.out.println("regenerated — they are hand-written infrastructure");
+            System.out.println("outside the metamodel's remit (see Javadoc).");
+        } catch (Exception e) {
+            System.err.println("Code generation failed: " + e.getMessage());
+            e.printStackTrace();
+            System.exit(1);
+        }
     }
 
-    // ── Deferred (Phase 2) ──────────────────────────────────────────────
-    //
-    // The methods below are intentionally kept as scaffolding for the
-    // upcoming Mongoose-and-frontend regeneration pipeline. They are not
-    // called from main(); enabling them today would overwrite the
-    // hand-extended runtime backend at backend/generated/mongoose/.
-
     /**
-     * Generate the Mongoose backend stack (models, services, controllers,
-     * routers, app.js, server.js, package.json) for every concrete class
-     * in the metamodel. Currently disabled — see class-level Javadoc.
+     * Generate the Mongoose data layer for every EClass in the metamodel:
+     *   - one models/X.js per EClass (concrete + abstract) plus models/index.js
+     *   - one services/XService.js, controllers/XController.js, and
+     *     routers/xRouter.js per concrete EClass listed in entityClasses
+     *
+     * Does NOT emit app.js, server.js, package.json, or the
+     * services/controllers/routers index.js files — those are hand-written
+     * infrastructure. See class-level Javadoc.
      */
     public void generateMongooseBackend() throws Exception {
         EpsilonModelManager manager = new EpsilonModelManager();

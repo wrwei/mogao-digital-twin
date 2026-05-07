@@ -14,6 +14,9 @@ const DTPackageController = require('../controllers/DTPackageController');
  * GET    /:id           - Get DTPackage by ID
  * PUT    /:id           - Update DTPackage by ID
  * DELETE /:id           - Delete DTPackage by ID
+ *
+ * The /gid/:gid routes are registered BEFORE the /:id routes so that
+ * Express does not interpret the literal string "gid" as a Mongo ObjectId.
  */
 
 router.post('/', DTPackageController.create);

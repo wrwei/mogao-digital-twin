@@ -12,16 +12,15 @@ const ParameterService = {
      */
     create: async (data) => {
         // Always generate gid server-side to prevent client-supplied collisions
-        {
-            data.gid = 'param-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
-        }
+        data.gid = 'parameter-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
         delete data._id;
         const parameter = await Parameter.create(data);
         return parameter;
     },
 
     /**
-     * Get all Parameter documents
+     * Get all Parameter documents.
+     * Optional query: { page, limit, sort } for pagination + ordering.
      */
     getAll: async (query = {}) => {
         const { page, limit, sort } = query;

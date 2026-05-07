@@ -12,16 +12,15 @@ const LightIntensityService = {
      */
     create: async (data) => {
         // Always generate gid server-side to prevent client-supplied collisions
-        {
-            data.gid = 'light-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
-        }
+        data.gid = 'lightIntensity-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
         delete data._id;
         const lightIntensity = await LightIntensity.create(data);
         return lightIntensity;
     },
 
     /**
-     * Get all LightIntensity documents
+     * Get all LightIntensity documents.
+     * Optional query: { page, limit, sort } for pagination + ordering.
      */
     getAll: async (query = {}) => {
         const { page, limit, sort } = query;

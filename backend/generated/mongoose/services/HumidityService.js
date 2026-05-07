@@ -12,16 +12,15 @@ const HumidityService = {
      */
     create: async (data) => {
         // Always generate gid server-side to prevent client-supplied collisions
-        {
-            data.gid = 'humidity-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
-        }
+        data.gid = 'humidity-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
         delete data._id;
         const humidity = await Humidity.create(data);
         return humidity;
     },
 
     /**
-     * Get all Humidity documents
+     * Get all Humidity documents.
+     * Optional query: { page, limit, sort } for pagination + ordering.
      */
     getAll: async (query = {}) => {
         const { page, limit, sort } = query;

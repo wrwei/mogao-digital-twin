@@ -12,16 +12,15 @@ const PaintingService = {
      */
     create: async (data) => {
         // Always generate gid server-side to prevent client-supplied collisions
-        {
-            data.gid = 'painting-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
-        }
+        data.gid = 'painting-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
         delete data._id;
         const painting = await Painting.create(data);
         return painting;
     },
 
     /**
-     * Get all Painting documents
+     * Get all Painting documents.
+     * Optional query: { page, limit, sort } for pagination + ordering.
      */
     getAll: async (query = {}) => {
         const { page, limit, sort } = query;

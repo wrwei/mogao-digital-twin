@@ -14,6 +14,9 @@ const DefectController = require('../controllers/DefectController');
  * GET    /:id           - Get Defect by ID
  * PUT    /:id           - Update Defect by ID
  * DELETE /:id           - Delete Defect by ID
+ *
+ * The /gid/:gid routes are registered BEFORE the /:id routes so that
+ * Express does not interpret the literal string "gid" as a Mongo ObjectId.
  */
 
 router.post('/', DefectController.create);

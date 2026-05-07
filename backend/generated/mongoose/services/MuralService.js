@@ -12,16 +12,15 @@ const MuralService = {
      */
     create: async (data) => {
         // Always generate gid server-side to prevent client-supplied collisions
-        {
-            data.gid = 'mural-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
-        }
+        data.gid = 'mural-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
         delete data._id;
         const mural = await Mural.create(data);
         return mural;
     },
 
     /**
-     * Get all Mural documents
+     * Get all Mural documents.
+     * Optional query: { page, limit, sort } for pagination + ordering.
      */
     getAll: async (query = {}) => {
         const { page, limit, sort } = query;

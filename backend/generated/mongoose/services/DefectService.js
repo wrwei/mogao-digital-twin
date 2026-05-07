@@ -12,16 +12,15 @@ const DefectService = {
      */
     create: async (data) => {
         // Always generate gid server-side to prevent client-supplied collisions
-        {
-            data.gid = 'defect-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
-        }
+        data.gid = 'defect-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
         delete data._id;
         const defect = await Defect.create(data);
         return defect;
     },
 
     /**
-     * Get all Defect documents
+     * Get all Defect documents.
+     * Optional query: { page, limit, sort } for pagination + ordering.
      */
     getAll: async (query = {}) => {
         const { page, limit, sort } = query;

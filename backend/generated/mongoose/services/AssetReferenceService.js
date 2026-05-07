@@ -12,16 +12,15 @@ const AssetReferenceService = {
      */
     create: async (data) => {
         // Always generate gid server-side to prevent client-supplied collisions
-        {
-            data.gid = 'asset-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
-        }
+        data.gid = 'assetReference-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
         delete data._id;
         const assetReference = await AssetReference.create(data);
         return assetReference;
     },
 
     /**
-     * Get all AssetReference documents
+     * Get all AssetReference documents.
+     * Optional query: { page, limit, sort } for pagination + ordering.
      */
     getAll: async (query = {}) => {
         const { page, limit, sort } = query;

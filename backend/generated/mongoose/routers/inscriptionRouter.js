@@ -14,6 +14,9 @@ const InscriptionController = require('../controllers/InscriptionController');
  * GET    /:id           - Get Inscription by ID
  * PUT    /:id           - Update Inscription by ID
  * DELETE /:id           - Delete Inscription by ID
+ *
+ * The /gid/:gid routes are registered BEFORE the /:id routes so that
+ * Express does not interpret the literal string "gid" as a Mongo ObjectId.
  */
 
 router.post('/', InscriptionController.create);
