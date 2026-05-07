@@ -58,6 +58,10 @@ import { useInscriptions } from './composables/useInscriptions.js';
 // ============================================
 const LoginPage = {
     emits: ['login-success'],
+    setup() {
+        const { t } = useI18n();
+        return { t };
+    },
     data() {
         return {
             username: '',
@@ -83,7 +87,7 @@ const LoginPage = {
                 if (err.response && err.response.data) {
                     this.error = err.response.data.message;
                 } else {
-                    this.error = 'Connection failed. Is the backend running?';
+                    this.error = this.t('loginPage.connectionFailed');
                 }
             } finally {
                 this.loading = false;
@@ -99,27 +103,24 @@ const LoginPage = {
         <div class="login-page">
             <div class="login-hero">
                 <div class="login-hero-content">
-                    <h1>M-Gemini<span>Digital Twin Platform</span></h1>
-                    <p class="login-hero-subtitle">
-                        Preserving the Mogao Grottoes through digital twin technology.
-                        Monitor, simulate, and protect UNESCO World Heritage.
-                    </p>
+                    <h1>M-Gemini<span>{{ t('loginPage.heroTitle') }}</span></h1>
+                    <p class="login-hero-subtitle">{{ t('loginPage.heroSubtitle') }}</p>
                     <div class="login-hero-features">
                         <div class="login-hero-feature">
                             <div class="login-hero-feature-icon">🏛️</div>
-                            <span>3D digital replicas of cave temples and artefacts</span>
+                            <span>{{ t('loginPage.feature3D') }}</span>
                         </div>
                         <div class="login-hero-feature">
                             <div class="login-hero-feature-icon">📊</div>
-                            <span>Real-time environmental monitoring and analysis</span>
+                            <span>{{ t('loginPage.featureMonitoring') }}</span>
                         </div>
                         <div class="login-hero-feature">
                             <div class="login-hero-feature-icon">🔬</div>
-                            <span>Deterioration simulation and conservation planning</span>
+                            <span>{{ t('loginPage.featureSimulation') }}</span>
                         </div>
                         <div class="login-hero-feature">
                             <div class="login-hero-feature-icon">🤝</div>
-                            <span>Collaborative research across institutions</span>
+                            <span>{{ t('loginPage.featureCollaboration') }}</span>
                         </div>
                     </div>
                 </div>
@@ -129,38 +130,38 @@ const LoginPage = {
                 <div class="login-form-container">
                     <div class="login-form-header">
                         <div class="login-form-logo">🏛️</div>
-                        <h2>M-Gemini</h2>
-                        <p>Mogao Digital Twin Platform</p>
+                        <h2>{{ t('loginPage.formTitle') }}</h2>
+                        <p>{{ t('loginPage.formSubtitle') }}</p>
                     </div>
 
                     <div v-if="error" class="login-error">{{ error }}</div>
 
                     <form @submit.prevent="handleSubmit">
                         <div class="login-field">
-                            <label>Username</label>
-                            <input v-model="username" type="text" placeholder="Enter your username" required />
+                            <label>{{ t('loginPage.usernameLabel') }}</label>
+                            <input v-model="username" type="text" :placeholder="t('loginPage.usernamePlaceholder')" required />
                         </div>
 
                         <div class="login-field">
-                            <label>Password</label>
-                            <input v-model="password" type="password" placeholder="Enter your password" required />
+                            <label>{{ t('loginPage.passwordLabel') }}</label>
+                            <input v-model="password" type="password" :placeholder="t('loginPage.passwordPlaceholder')" required />
                         </div>
 
                         <button type="submit" class="login-submit-btn" :disabled="loading">
-                            {{ loading ? 'Please wait...' : 'Sign In' }}
+                            {{ loading ? t('loginPage.signingIn') : t('loginPage.signIn') }}
                         </button>
                     </form>
 
                     <div class="login-divider">
-                        <span>or</span>
+                        <span>{{ t('loginPage.or') }}</span>
                     </div>
 
                     <button class="login-guest-btn" @click="enterAsGuest">
-                        Visit as a Guest
+                        {{ t('loginPage.visitAsGuest') }}
                     </button>
 
                     <div class="login-form-footer">
-                        Mogao Digital Twin &copy; 2026
+                        {{ t('loginPage.footer') }}
                     </div>
                 </div>
             </div>
@@ -200,7 +201,7 @@ const AppSidebar = {
                 </div>
                 <div v-if="isAdmin" class="sidebar-nav-item" :class="{ active: currentView === 'maintenance' }" @click="$emit('change-view', 'maintenance')">
                     <span class="sidebar-nav-icon">🔧</span>
-                    <span style="flex: 1;">Maintenance</span>
+                    <span style="flex: 1;">{{ t('navExtras.maintenance') }}</span>
                     <span v-if="anomalyCount > 0" class="sidebar-badge" :class="{ critical: anomalyCount >= 5 }" :title="anomalyCount + ' active anomalies'">{{ anomalyCount }}</span>
                 </div>
                 <div class="sidebar-nav-item" :class="{ active: currentView === 'settings' }" @click="$emit('change-view', 'settings')" style="margin-top: auto;">

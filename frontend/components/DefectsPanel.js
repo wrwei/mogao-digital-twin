@@ -137,7 +137,7 @@ export default {
 
         async submitForm() {
             if (!this.form.defectType) {
-                this.error = this.t('defects.errorTypeRequired') || 'Defect type is required';
+                this.error = this.t('defects.errorTypeRequired');
                 return;
             }
             this.loading = true;
@@ -164,9 +164,7 @@ export default {
 
         async confirmDelete(defect) {
             const label = defect.name || defect.gid;
-            const msg = (this.t('defects.deleteConfirm', { name: label })
-                       || `Delete the defect "${label}"? This cannot be undone.`);
-            if (!confirm(msg)) return;
+            if (!confirm(this.t('defects.deleteConfirm', { name: label }))) return;
             this.loading = true;
             this.error = null;
             try {
@@ -202,13 +200,13 @@ export default {
         <div class="defects-panel">
             <div class="defects-panel-header">
                 <h3 style="margin: 0; font-size: 16px; font-weight: 600;">
-                    {{ t('entities.defects') || 'Defects' }}
+                    {{ t('entities.defects') }}
                     <span class="count-badge" style="margin-left: 6px; font-size: 12px; color: var(--text-secondary);">{{ defects.length }}</span>
                 </h3>
                 <button v-if="!readOnly && formMode === null"
                         class="btn btn-sm btn-primary"
                         @click="openCreateForm" :disabled="loading">
-                    + {{ t('defects.logNew') || 'Log new defect' }}
+                    + {{ t('defects.logNew') }}
                 </button>
             </div>
 
@@ -220,62 +218,60 @@ export default {
             <!-- Inline form (create or edit) -->
             <div v-if="formMode !== null" class="defects-form" style="background: #fafafa; border: 1px solid #e5e5e5; border-radius: 8px; padding: 12px; margin: 10px 0;">
                 <div style="font-weight: 600; margin-bottom: 8px; font-size: 13px;">
-                    {{ formMode === 'new' ? (t('defects.formCreateTitle') || 'Log new defect')
-                                          : (t('defects.formEditTitle')   || 'Edit defect') }}
+                    {{ formMode === 'new' ? t('defects.formCreateTitle') : t('defects.formEditTitle') }}
                 </div>
                 <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 8px;">
                     <label style="display: flex; flex-direction: column; font-size: 12px; gap: 3px;">
-                        <span>{{ t('defects.fieldName') || 'Name (optional)' }}</span>
+                        <span>{{ t('defects.fieldName') }}</span>
                         <input v-model="form.name" type="text" class="form-input" />
                     </label>
                     <label style="display: flex; flex-direction: column; font-size: 12px; gap: 3px;">
-                        <span>{{ t('defects.fieldType') || 'Defect type' }} *</span>
+                        <span>{{ t('defects.fieldType') }} *</span>
                         <select v-model="form.defectType" class="form-input">
                             <option value="" disabled>—</option>
                             <option v-for="dt in DEFECT_TYPES" :key="dt" :value="dt">{{ dt }}</option>
                         </select>
                     </label>
                     <label style="display: flex; flex-direction: column; font-size: 12px; gap: 3px;">
-                        <span>{{ t('defects.fieldSeverity') || 'Severity' }}</span>
+                        <span>{{ t('defects.fieldSeverity') }}</span>
                         <select v-model="form.severity" class="form-input">
                             <option v-for="s in SEVERITIES" :key="s" :value="s">{{ s }}</option>
                         </select>
                     </label>
                     <label style="display: flex; flex-direction: column; font-size: 12px; gap: 3px;">
-                        <span>{{ t('defects.fieldDetectionDate') || 'Detection date' }}</span>
+                        <span>{{ t('defects.fieldDetectionDate') }}</span>
                         <input v-model="form.detectionDate" type="date" class="form-input" />
                     </label>
                     <label style="display: flex; flex-direction: column; font-size: 12px; gap: 3px;">
-                        <span>{{ t('defects.fieldAffectedArea') || 'Affected area (m²)' }}</span>
+                        <span>{{ t('defects.fieldAffectedArea') }}</span>
                         <input v-model.number="form.affectedArea" type="number" step="0.01" min="0" class="form-input" />
                     </label>
                     <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; align-self: end;">
                         <input v-model="form.requiresImmediateAction" type="checkbox" />
-                        {{ t('defects.fieldUrgent') || 'Requires immediate action' }}
+                        {{ t('defects.fieldUrgent') }}
                     </label>
                 </div>
                 <label style="display: flex; flex-direction: column; font-size: 12px; gap: 3px; margin-bottom: 8px;">
-                    <span>{{ t('defects.fieldDescription') || 'Description' }}</span>
+                    <span>{{ t('defects.fieldDescription') }}</span>
                     <textarea v-model="form.description" rows="2" class="form-input" style="resize: vertical;"></textarea>
                 </label>
                 <label style="display: flex; flex-direction: column; font-size: 12px; gap: 3px; margin-bottom: 10px;">
-                    <span>{{ t('defects.fieldTreatment') || 'Treatment history' }}</span>
+                    <span>{{ t('defects.fieldTreatment') }}</span>
                     <textarea v-model="form.treatmentHistory" rows="2" class="form-input" style="resize: vertical;"></textarea>
                 </label>
                 <div style="display: flex; gap: 8px;">
                     <button class="btn btn-sm btn-primary" @click="submitForm" :disabled="loading || !form.defectType">
-                        {{ loading ? '…' : (formMode === 'new' ? (t('common.create') || 'Create')
-                                                                : (t('common.save')   || 'Save')) }}
+                        {{ loading ? '…' : (formMode === 'new' ? t('common.create') : t('common.save')) }}
                     </button>
                     <button class="btn btn-sm" @click="closeForm" :disabled="loading">
-                        {{ t('common.cancel') || 'Cancel' }}
+                        {{ t('common.cancel') }}
                     </button>
                 </div>
             </div>
 
             <!-- Empty state -->
             <div v-if="defects.length === 0 && formMode === null" style="padding: 14px; text-align: center; color: var(--text-secondary); font-style: italic; font-size: 13px;">
-                {{ t('defects.empty') || 'No defects recorded yet.' }}
+                {{ t('defects.empty') }}
             </div>
 
             <!-- List -->
@@ -289,21 +285,21 @@ export default {
                         <span v-if="d.requiresImmediateAction" class="meta-urgent" style="margin-left: 6px;">⚠️</span>
                     </div>
                     <div class="defect-meta" style="font-size: 11px; color: var(--text-secondary); margin: 4px 0;">
-                        <span v-if="d.defectType"><strong>{{ t('detail.type') || 'Type' }}:</strong> {{ d.defectType }}</span>
-                        <span v-if="d.detectionDate" style="margin-left: 8px;"><strong>{{ t('defects.fieldDetectionDate') || 'Detected' }}:</strong> {{ formatDate(d.detectionDate) }}</span>
-                        <span v-if="d.affectedArea != null" style="margin-left: 8px;"><strong>{{ t('detail.affectedArea') || 'Area' }}:</strong> {{ d.affectedArea }} m²</span>
+                        <span v-if="d.defectType"><strong>{{ t('fields.defectType') }}:</strong> {{ d.defectType }}</span>
+                        <span v-if="d.detectionDate" style="margin-left: 8px;"><strong>{{ t('defects.fieldDetectionDate') }}:</strong> {{ formatDate(d.detectionDate) }}</span>
+                        <span v-if="d.affectedArea != null" style="margin-left: 8px;"><strong>{{ t('defects.fieldAffectedArea') }}:</strong> {{ d.affectedArea }} m²</span>
                     </div>
                     <p v-if="d.description" class="defect-description" style="font-size: 12px; margin: 4px 0;">{{ d.description }}</p>
                     <p v-if="d.treatmentHistory" style="font-size: 11px; color: var(--text-secondary); margin: 2px 0;">
-                        <em>{{ t('defects.fieldTreatment') || 'Treatment' }}:</em> {{ d.treatmentHistory }}
+                        <em>{{ t('defects.fieldTreatment') }}:</em> {{ d.treatmentHistory }}
                     </p>
                     <div v-if="!readOnly" style="display: flex; gap: 6px; margin-top: 6px;">
                         <button class="btn btn-xs" @click="openEditForm(d)" :disabled="loading">
-                            {{ t('common.edit') || 'Edit' }}
+                            {{ t('common.edit') }}
                         </button>
                         <button class="btn btn-xs" @click="confirmDelete(d)" :disabled="loading"
                                 style="background: #fee2e2; color: #991b1b;">
-                            {{ t('common.delete') || 'Delete' }}
+                            {{ t('common.delete') }}
                         </button>
                     </div>
                 </div>

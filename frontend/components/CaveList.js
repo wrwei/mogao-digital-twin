@@ -489,7 +489,7 @@ export default {
                     <button class="tool-btn" :class="{ active: activePanel === 'pigment' }" :disabled="panelBusy || textureProcessing" @click="activePanel = 'pigment'">{{ t('pigmentAnalysis.title') }}</button>
                     <button class="tool-btn" :class="{ active: activePanel === 'simulation', 'tool-btn-locked': !pigmentMap }" :disabled="panelBusy || textureProcessing" @click="handleSimulationClick" :title="!pigmentMap ? (t('simulation.pigmentRequiredHint') || 'Run Pigment Analysis first.') : ''">{{ t('simulation.title') }}</button>
                     <button class="tool-btn" :class="{ active: activePanel === 'live' }" :disabled="panelBusy || textureProcessing" @click="activePanel = 'live'">{{ t('liveData.title') }}</button>
-                    <button class="tool-btn" :class="{ active: activePanel === 'prediction' }" :disabled="panelBusy || textureProcessing" @click="activePanel = 'prediction'">Prediction</button>
+                    <button class="tool-btn" :class="{ active: activePanel === 'prediction' }" :disabled="panelBusy || textureProcessing" @click="activePanel = 'prediction'">{{ t('prediction.title') }}</button>
                     <span v-if="simDisabledMsg" class="tool-btn-hint">{{ simDisabledMsg }}</span>
                 </div>
                 <div style="flex: 1; display: flex; flex-direction: row; padding: 16px; overflow: hidden;">

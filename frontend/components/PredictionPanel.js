@@ -294,24 +294,24 @@ export default {
             <!-- Loading overlay -->
             <div v-if="busy" style="position: absolute; inset: 0; background: rgba(255,255,255,0.7); border-radius: 12px; z-index: 20; display: flex; align-items: center; justify-content: center; gap: 10px;">
                 <div class="pigment-spinner"></div>
-                <span style="font-size: 13px; font-weight: 500; color: #555;">Running replay…</span>
+                <span style="font-size: 13px; font-weight: 500; color: #555;">{{ t('prediction.runningReplay') }}</span>
             </div>
 
             <!-- Header -->
             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
                 <span style="font-size: 18px;">🔮</span>
-                <span style="font-weight: 600; font-size: 14px;">Prediction</span>
+                <span style="font-weight: 600; font-size: 14px;">{{ t('prediction.title') }}</span>
                 <span v-if="historicalDays > 0" style="margin-left: auto; font-size: 11px; color: var(--text-secondary);">
-                    {{ historicalDays }} days ({{ historicalYears }} y) of monitored history
+                    {{ t('prediction.historyDuration', { days: historicalDays, years: historicalYears }) }}
                 </span>
             </div>
 
             <!-- No sensors / no data -->
             <div v-if="!loading && !hasSensors" style="background: var(--severity-medium-soft); border-left: 3px solid var(--severity-medium-bg); padding: 10px 12px; border-radius: 6px; font-size: 12px; color: var(--severity-medium-soft-fg);">
-                No sensors linked to this artifact. Link one in the Live Data panel to enable prediction.
+                {{ t('prediction.noSensors') }}
             </div>
             <div v-else-if="!loading && historicalDays === 0" style="background: var(--severity-medium-soft); border-left: 3px solid var(--severity-medium-bg); padding: 10px 12px; border-radius: 6px; font-size: 12px; color: var(--severity-medium-soft-fg);">
-                No sensor samples ingested yet for this artifact.
+                {{ t('prediction.noSamples') }}
             </div>
 
             <!-- Error -->
@@ -330,7 +330,7 @@ export default {
                         <span style="font-size: 11px; color: var(--text-secondary); font-weight: 400;">{{ m.unit }}</span>
                     </div>
                     <div v-if="m.threshold != null" class="status-card-meta">
-                        of {{ fmtNum(m.threshold) }} threshold
+                        {{ t('prediction.ofThreshold', { threshold: fmtNum(m.threshold) }) }}
                     </div>
                     <div v-if="m.eta" style="margin-top: 4px;">
                         <status-badge v-if="m.eta === 'crossed'" level="critical" variant="solid" label="already crossed" icon="⚠"></status-badge>
@@ -343,18 +343,18 @@ export default {
             <div v-if="cum" style="display: flex; gap: 10px; align-items: flex-end; margin-bottom: 10px; font-size: 12px;">
                 <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
                     <input type="checkbox" v-model="withForecast" :disabled="busy" />
-                    Forecast forward (climate-repeat)
+                    {{ t('prediction.forecastForward') }}
                 </label>
                 <div v-if="withForecast">
-                    <label style="display: block; font-size: 10px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Horizon</label>
+                    <label style="display: block; font-size: 10px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">{{ t('prediction.horizon') }}</label>
                     <select v-model.number="forecastMaxYears" :disabled="busy" class="preset-select" style="padding: 4px 8px; font-size: 12px;" @change="refresh">
-                        <option :value="10">10 years</option>
-                        <option :value="50">50 years</option>
-                        <option :value="200">200 years</option>
+                        <option :value="10">{{ t('prediction.years10') }}</option>
+                        <option :value="50">{{ t('prediction.years50') }}</option>
+                        <option :value="200">{{ t('prediction.years200') }}</option>
                     </select>
                 </div>
-                <button @click="refresh" class="btn btn-xs" :disabled="busy" style="align-self: flex-end;">↻ Refresh</button>
-                <button @click="exportReport" class="btn btn-xs" :disabled="busy || !cum" style="align-self: flex-end;" title="Export this prediction (tables + chart) as PDF">📄 Export PDF</button>
+                <button @click="refresh" class="btn btn-xs" :disabled="busy" style="align-self: flex-end;">{{ t('prediction.refresh') }}</button>
+                <button @click="exportReport" class="btn btn-xs" :disabled="busy || !cum" style="align-self: flex-end;" title="Export this prediction (tables + chart) as PDF">{{ t('prediction.exportPdf') }}</button>
             </div>
 
             <!-- Chart -->

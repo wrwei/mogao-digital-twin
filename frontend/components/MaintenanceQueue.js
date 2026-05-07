@@ -257,16 +257,16 @@ export default {
 
             <!-- Header -->
             <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
-                <h2 style="margin: 0; font-size: 22px; font-weight: 700;">🔧 Maintenance Queue</h2>
+                <h2 style="margin: 0; font-size: 22px; font-weight: 700;">{{ t('maintenance.title') }}</h2>
                 <span style="flex: 1;"></span>
-                <button class="btn btn-sm" @click="exportQueueReport" :disabled="loading || rows.length === 0" title="Export the full queue (respecting current filter) as PDF">📄 Export PDF</button>
-                <button class="btn btn-sm" @click="load" :disabled="loading">↻ Refresh</button>
+                <button class="btn btn-sm" @click="exportQueueReport" :disabled="loading || rows.length === 0" title="Export the full queue (respecting current filter) as PDF">{{ t('maintenance.exportPdf') }}</button>
+                <button class="btn btn-sm" @click="load" :disabled="loading">{{ t('maintenance.refresh') }}</button>
             </div>
 
             <!-- Loading / error -->
             <div v-if="loading" style="padding: 40px; text-align: center; color: var(--text-secondary);">
                 <div class="pigment-spinner" style="margin: 0 auto 12px;"></div>
-                Scoring all artifacts… (runs a full deterioration replay for each)
+                {{ t('maintenance.loading') }}
             </div>
             <div v-if="error" style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 12px; margin-bottom: 16px; color: #dc2626; font-size: 13px;">
                 {{ error }}
@@ -274,22 +274,22 @@ export default {
 
             <!-- Stats row -->
             <div v-if="!loading && rows.length > 0" style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 16px;">
-                <status-card level="neutral" title="Total" :value="stats.total"></status-card>
-                <status-card level="critical" title="Critical" :value="stats.counts.critical || 0"
+                <status-card level="neutral" :title="t('maintenance.statTotal')" :value="stats.total"></status-card>
+                <status-card level="critical" :title="t('maintenance.statCritical')" :value="stats.counts.critical || 0"
                              clickable :active="tierFilter==='critical'" @click="tierFilter='critical'"></status-card>
-                <status-card level="high" title="High" :value="stats.counts.high || 0"
+                <status-card level="high" :title="t('maintenance.statHigh')" :value="stats.counts.high || 0"
                              clickable :active="tierFilter==='high'" @click="tierFilter='high'"></status-card>
-                <status-card level="medium" title="Medium" :value="stats.counts.medium || 0"
+                <status-card level="medium" :title="t('maintenance.statMedium')" :value="stats.counts.medium || 0"
                              clickable :active="tierFilter==='medium'" @click="tierFilter='medium'"></status-card>
-                <status-card level="low" title="Low" :value="stats.counts.low || 0"
+                <status-card level="low" :title="t('maintenance.statLow')" :value="stats.counts.low || 0"
                              clickable :active="tierFilter==='low'" @click="tierFilter='low'"></status-card>
-                <status-card level="neutral" title="Active anomalies" :value="stats.anomalies"></status-card>
+                <status-card level="neutral" :title="t('maintenance.statAnomalies')" :value="stats.anomalies"></status-card>
             </div>
 
             <!-- Search + filter -->
             <div v-if="!loading && rows.length > 0" style="display: flex; gap: 8px; margin-bottom: 10px;">
-                <input v-model="search" placeholder="Search by name, gid or type…" class="form-input" style="flex: 1;" />
-                <button v-if="tierFilter !== 'all'" class="btn btn-sm" @click="tierFilter='all'">Clear filter</button>
+                <input v-model="search" :placeholder="t('maintenance.search')" class="form-input" style="flex: 1;" />
+                <button v-if="tierFilter !== 'all'" class="btn btn-sm" @click="tierFilter='all'">{{ t('maintenance.clearFilter') }}</button>
             </div>
 
             <!-- Queue table -->
@@ -297,21 +297,21 @@ export default {
                 <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
                     <thead>
                         <tr style="background: #f5f5f5; border-bottom: 2px solid #e5e5e5;">
-                            <th style="text-align: left; padding: 10px;">Priority</th>
-                            <th style="text-align: right; padding: 10px;">Score</th>
-                            <th style="text-align: left; padding: 10px;">Artifact</th>
-                            <th style="text-align: left; padding: 10px;">Type</th>
-                            <th style="text-align: right; padding: 10px;">Damage</th>
-                            <th style="text-align: right; padding: 10px;">Nearest ETA</th>
-                            <th style="text-align: right; padding: 10px;">Anomalies</th>
-                            <th style="text-align: right; padding: 10px;">Hist.</th>
-                            <th style="text-align: left; padding: 10px;">Top action</th>
+                            <th style="text-align: left; padding: 10px;">{{ t('maintenance.colPriority') }}</th>
+                            <th style="text-align: right; padding: 10px;">{{ t('maintenance.colScore') }}</th>
+                            <th style="text-align: left; padding: 10px;">{{ t('maintenance.colArtifact') }}</th>
+                            <th style="text-align: left; padding: 10px;">{{ t('maintenance.colType') }}</th>
+                            <th style="text-align: right; padding: 10px;">{{ t('maintenance.colDamage') }}</th>
+                            <th style="text-align: right; padding: 10px;">{{ t('maintenance.colNearestEta') }}</th>
+                            <th style="text-align: right; padding: 10px;">{{ t('maintenance.colAnomalies') }}</th>
+                            <th style="text-align: right; padding: 10px;">{{ t('maintenance.colHistory') }}</th>
+                            <th style="text-align: left; padding: 10px;">{{ t('maintenance.colTopAction') }}</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr v-if="filtered.length === 0">
                             <td colspan="9" style="padding: 20px; text-align: center; color: var(--text-secondary); font-style: italic;">
-                                No artifacts match the filter.
+                                {{ t('maintenance.noMatch') }}
                             </td>
                         </tr>
                         <template v-for="r in filtered" :key="r.gid">
@@ -357,28 +357,28 @@ export default {
                                             class="btn btn-sm btn-primary"
                                             @click.stop="openArtifact3D(r)"
                                             title="Open the 3-D view for this artifact with the Prediction panel pre-selected"
-                                        >▶ Open 3D + Prediction</button>
+                                        >{{ t('maintenance.openArtifact3D') }}</button>
                                         <button
                                             class="btn btn-sm"
                                             @click.stop="exportRowReport(r)"
                                             title="Export this artifact's maintenance summary as PDF"
-                                        >📄 Export PDF</button>
+                                        >{{ t('maintenance.exportPdf') }}</button>
                                         <span v-if="!r.caveGid" style="font-size: 11px; color: var(--text-secondary); align-self: center;">
-                                            (Drill-in unavailable — no parent cave on record.)
+                                            {{ t('maintenance.drillUnavailable') }}
                                         </span>
                                     </div>
                                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
 
                                         <!-- Indices + recommendations -->
                                         <div>
-                                            <div style="font-weight: 600; margin-bottom: 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary);">Score breakdown</div>
+                                            <div style="font-weight: 600; margin-bottom: 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary);">{{ t('maintenance.scoreBreakdown') }}</div>
                                             <div style="display: grid; grid-template-columns: auto 1fr auto; gap: 4px 10px; font-size: 12px; margin-bottom: 12px;">
-                                                <span style="color: var(--text-secondary);">Current damage</span>
+                                                <span style="color: var(--text-secondary);">{{ t('maintenance.currentDamage') }}</span>
                                                 <div style="background: #e5e5e5; border-radius: 4px; height: 8px; align-self: center; position: relative;">
                                                     <div :style="{ width: pct(r.indices.damage), background: tierColorVar(r.priorityTier), height: '100%', borderRadius: '4px' }"></div>
                                                 </div>
                                                 <span>{{ pct(r.indices.damage) }}</span>
-                                                <span style="color: var(--text-secondary);">ETA urgency</span>
+                                                <span style="color: var(--text-secondary);">{{ t('maintenance.etaUrgency') }}</span>
                                                 <div style="background: #e5e5e5; border-radius: 4px; height: 8px; align-self: center; position: relative;">
                                                     <div :style="{ width: pct(r.indices.eta), background: 'var(--severity-medium-bg)', height: '100%', borderRadius: '4px' }"></div>
                                                 </div>
@@ -388,19 +388,19 @@ export default {
                                                     <div :style="{ width: pct(r.indices.anomaly), background: 'var(--severity-high-bg)', height: '100%', borderRadius: '4px' }"></div>
                                                 </div>
                                                 <span>{{ r.anomalies }}</span>
-                                                <span style="color: var(--text-secondary);">Inspection age</span>
+                                                <span style="color: var(--text-secondary);">{{ t('maintenance.inspectionAge') }}</span>
                                                 <div style="background: #e5e5e5; border-radius: 4px; height: 8px; align-self: center; position: relative;">
                                                     <div :style="{ width: pct(r.indices.inspection), background: 'var(--severity-info-bg)', height: '100%', borderRadius: '4px' }"></div>
                                                 </div>
                                                 <span>{{ r.daysSinceInspection != null ? Math.round(r.daysSinceInspection) + ' d' : '—' }}</span>
-                                                <span style="color: var(--text-secondary);">Conservation status</span>
+                                                <span style="color: var(--text-secondary);">{{ t('maintenance.conservationStatusLabel') }}</span>
                                                 <div style="background: #e5e5e5; border-radius: 4px; height: 8px; align-self: center; position: relative;">
                                                     <div :style="{ width: pct(r.indices.status), background: '#8b5a3c', height: '100%', borderRadius: '4px' }"></div>
                                                 </div>
                                                 <span>{{ r.conservationStatus || '—' }}</span>
                                             </div>
 
-                                            <div style="font-weight: 600; margin: 10px 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary);">Recommendations</div>
+                                            <div style="font-weight: 600; margin: 10px 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary);">{{ t('maintenance.recommendations') }}</div>
                                             <ul style="margin: 0; padding-left: 18px; font-size: 12px; line-height: 1.6;">
                                                 <li v-for="(rec, i) in r.recommendations" :key="i">
                                                     <status-badge :level="rec.priority" :label="rec.priority"></status-badge>
@@ -411,22 +411,22 @@ export default {
 
                                         <!-- Cumulative + anomalies -->
                                         <div>
-                                            <div style="font-weight: 600; margin-bottom: 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary);">Current cumulative state</div>
+                                            <div style="font-weight: 600; margin-bottom: 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary);">{{ t('maintenance.currentCumulativeState') }}</div>
                                             <div v-if="r.cumulative" style="display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; font-size: 12px; margin-bottom: 12px;">
-                                                <span style="color: var(--text-secondary);">⚗️ Chemical ΔE*</span>
+                                                <span style="color: var(--text-secondary);">{{ t('maintenance.chemicalDeltaE') }}</span>
                                                 <strong>{{ r.cumulative.chemicalDeltaE.toFixed(2) }}</strong>
-                                                <span style="color: var(--text-secondary);">🦠 Mould index</span>
-                                                <strong>{{ r.cumulative.mouldIndexFinal.toFixed(2) }} / 6</strong>
-                                                <span style="color: var(--text-secondary);">🧱 Fatigue D</span>
+                                                <span style="color: var(--text-secondary);">{{ t('maintenance.mouldIndex') }}</span>
+                                                <strong>{{ r.cumulative.mouldIndexFinal.toFixed(2) }} {{ t('maintenance.mouldThreshold') }}</strong>
+                                                <span style="color: var(--text-secondary);">{{ t('maintenance.fatigueDamage') }}</span>
                                                 <strong>{{ r.cumulative.fatigueDamage.toFixed(3) }}</strong>
-                                                <span style="color: var(--text-secondary);">🧂 Salt cumulative</span>
+                                                <span style="color: var(--text-secondary);">{{ t('maintenance.saltCumulative') }}</span>
                                                 <strong>{{ r.cumulative.saltCumulative.toFixed(3) }}</strong>
-                                                <span style="color: var(--text-secondary);">⏳ Equiv. reference-years</span>
+                                                <span style="color: var(--text-secondary);">{{ t('maintenance.equivYears') }}</span>
                                                 <strong>{{ r.cumulative.equivYears.toFixed(2) }}</strong>
                                             </div>
-                                            <div v-else style="font-size: 12px; color: var(--text-secondary); font-style: italic;">No cumulative data available yet.</div>
+                                            <div v-else style="font-size: 12px; color: var(--text-secondary); font-style: italic;">{{ t('maintenance.noCumulative') }}</div>
 
-                                            <div v-if="r.anomalyDetail && r.anomalyDetail.length > 0" style="font-weight: 600; margin: 10px 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary);">Active anomalies</div>
+                                            <div v-if="r.anomalyDetail && r.anomalyDetail.length > 0" style="font-weight: 600; margin: 10px 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary);">{{ t('maintenance.activeAnomalies') }}</div>
                                             <ul v-if="r.anomalyDetail && r.anomalyDetail.length > 0" style="margin: 0; padding-left: 18px; font-size: 11px; line-height: 1.5;">
                                                 <li v-for="(a, i) in r.anomalyDetail" :key="i">
                                                     <status-badge :level="a.severity" :label="a.rule"></status-badge>
@@ -444,8 +444,7 @@ export default {
 
             <!-- Methodology note -->
             <div v-if="!loading" style="background: #fef3c7; border-left: 3px solid #f59e0b; border-radius: 6px; padding: 10px 14px; font-size: 11px; color: #5c4a1a; margin-top: 14px;">
-                <strong>ℹ Scoring:</strong> composite = 1.0·damage + 1.0·(1/ETA_years) + 0.5·anomalyCount + 0.3·inspectionAge + 0.8·statusSeverity.
-                Score ≥ 2.5 = critical, ≥ 1.5 = high, ≥ 0.8 = medium, else low. Expand any row for the per-index breakdown, full cumulative state, active anomalies, and all recommendations.
+                {{ t('maintenance.methodology') }}
             </div>
         </div>
     `

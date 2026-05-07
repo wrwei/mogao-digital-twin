@@ -345,34 +345,34 @@ export default {
 
             <!-- Register / edit sensor form -->
             <div v-if="showSensorForm" class="sim-card" style="margin-bottom: 16px;">
-                <div class="sim-card-title">{{ editingSensorGid ? 'Edit sensor' : 'Register new sensor' }}</div>
+                <div class="sim-card-title">{{ editingSensorGid ? t('sensorDashboardForm.editTitle') : t('sensorDashboardForm.createTitle') }}</div>
                 <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 8px;">
-                    <input v-model="sensorForm.name" placeholder="Name *" class="form-input" />
-                    <input v-model="sensorForm.model" placeholder="Model (e.g. HOBO MX2301A)" class="form-input" />
-                    <input v-model="sensorForm.serialNumber" placeholder="Serial #" class="form-input" />
+                    <input v-model="sensorForm.name" :placeholder="t('sensorDashboardForm.placeholderName')" class="form-input" />
+                    <input v-model="sensorForm.model" :placeholder="t('sensorDashboardForm.placeholderModel')" class="form-input" />
+                    <input v-model="sensorForm.serialNumber" :placeholder="t('sensorDashboardForm.placeholderSerial')" class="form-input" />
                     <select v-model="sensorForm.location" class="form-input">
-                        <option value="">— No artifact link —</option>
-                        <optgroup v-if="artifacts.caves.length" label="Caves (whole-cave scope)">
+                        <option value="">{{ t('sensorDashboardForm.noArtifactLink') }}</option>
+                        <optgroup v-if="artifacts.caves.length" :label="t('sensorDashboardForm.groupCaves')">
                             <option v-for="c in artifacts.caves" :key="c.gid" :value="'cave:' + c.gid">
                                 🏛️ {{ c.name || c.gid }}
                             </option>
                         </optgroup>
-                        <optgroup v-if="artifacts.statues.length" label="Statues (per-artifact)">
+                        <optgroup v-if="artifacts.statues.length" :label="t('sensorDashboardForm.groupStatues')">
                             <option v-for="a in artifacts.statues" :key="a.gid" :value="'statue:' + a.gid">
                                 🗿 {{ a.name || a.gid }}
                             </option>
                         </optgroup>
-                        <optgroup v-if="artifacts.murals.length" label="Murals (per-artifact)">
+                        <optgroup v-if="artifacts.murals.length" :label="t('sensorDashboardForm.groupMurals')">
                             <option v-for="a in artifacts.murals" :key="a.gid" :value="'mural:' + a.gid">
                                 🎨 {{ a.name || a.gid }}
                             </option>
                         </optgroup>
-                        <optgroup v-if="artifacts.paintings.length" label="Paintings (per-artifact)">
+                        <optgroup v-if="artifacts.paintings.length" :label="t('sensorDashboardForm.groupPaintings')">
                             <option v-for="a in artifacts.paintings" :key="a.gid" :value="'painting:' + a.gid">
                                 🖼️ {{ a.name || a.gid }}
                             </option>
                         </optgroup>
-                        <optgroup v-if="artifacts.inscriptions.length" label="Inscriptions (per-artifact)">
+                        <optgroup v-if="artifacts.inscriptions.length" :label="t('sensorDashboardForm.groupInscriptions')">
                             <option v-for="a in artifacts.inscriptions" :key="a.gid" :value="'inscription:' + a.gid">
                                 ✍️ {{ a.name || a.gid }}
                             </option>
@@ -381,16 +381,16 @@ export default {
                 </div>
                 <label v-if="editingSensorGid" style="display: flex; align-items: center; gap: 6px; font-size: 12px; margin-bottom: 8px; cursor: pointer;">
                     <input type="checkbox" v-model="sensorForm.active" />
-                    Active (receiving new samples)
+                    {{ t('sensorDashboardForm.activeCheckbox') }}
                 </label>
                 <div style="display: flex; gap: 8px;">
                     <button class="btn btn-sm btn-primary" @click="saveSensor" :disabled="loading || !sensorForm.name">
-                        {{ editingSensorGid ? 'Save changes' : 'Register' }}
+                        {{ editingSensorGid ? t('sensorDashboardForm.saveChanges') : t('sensorDashboardForm.register') }}
                     </button>
-                    <button class="btn btn-sm" @click="closeSensorForm" :disabled="loading">Cancel</button>
+                    <button class="btn btn-sm" @click="closeSensorForm" :disabled="loading">{{ t('sensorDashboardForm.cancel') }}</button>
                 </div>
                 <div v-if="newSensorApiKey" style="margin-top: 10px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 6px; padding: 10px;">
-                    <div style="font-weight: 600; color: #065f46; margin-bottom: 4px; font-size: 13px;">✓ Sensor registered — save this API key (shown once):</div>
+                    <div style="font-weight: 600; color: #065f46; margin-bottom: 4px; font-size: 13px;">{{ t('sensorDashboardForm.apiKeyShown') }}</div>
                     <code style="display: block; background: white; padding: 6px 8px; border-radius: 4px; word-break: break-all; user-select: all; font-size: 12px;">{{ newSensorApiKey }}</code>
                 </div>
             </div>
@@ -450,7 +450,7 @@ export default {
                                 {{ humanAge(s._ageMs) }}
                             </td>
                             <td style="padding: 8px 10px; white-space: nowrap;">
-                                <button class="btn btn-xs" @click="openEditForm(s)" style="margin-right: 4px;" title="Edit sensor metadata and artifact link">Edit</button>
+                                <button class="btn btn-xs" @click="openEditForm(s)" style="margin-right: 4px;" :title="t('sensorDashboardForm.editTitle2')">{{ t('sensorDashboardForm.edit') }}</button>
                                 <button v-if="s.status?.active" class="btn btn-xs" @click="deactivate(s.gid)" style="background: #fee2e2; color: #991b1b; margin-right: 4px;">{{ t('sensorDashboard.deactivate') }}</button>
                                 <button class="btn btn-xs" @click="remove(s)" style="background: #7f1d1d; color: white;" :title="t('sensorDashboard.deleteTitle') || 'Permanently delete sensor and all its samples'">{{ t('sensorDashboard.delete') || 'Delete' }}</button>
                             </td>

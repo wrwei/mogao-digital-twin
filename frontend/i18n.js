@@ -269,6 +269,7 @@ export const messages = {
         // Simulation
         simulation: {
             title: '环境模拟',
+            pigmentRequiredHint: '请先运行颜料识别 — 模拟读取每种颜料的分类映射。',
             start: '开始模拟',
             stop: '停止模拟',
             reset: '重置',
@@ -477,6 +478,148 @@ export const messages = {
             invalid: '{field}格式不正确',
             tooShort: '{field}太短',
             tooLong: '{field}太长'
+        },
+
+        // Login page
+        loginPage: {
+            heroTitle: '莫高数字孪生平台',
+            heroSubtitle: '通过数字孪生技术保护莫高窟。监测、模拟并守护这一世界文化遗产。',
+            feature3D: '洞窟与文物的 3D 数字副本',
+            featureMonitoring: '实时环境监测与分析',
+            featureSimulation: '劣化模拟与保护规划',
+            featureCollaboration: '跨机构协同研究',
+            formTitle: 'M-Gemini',
+            formSubtitle: '莫高数字孪生平台',
+            usernameLabel: '用户名',
+            usernamePlaceholder: '请输入用户名',
+            passwordLabel: '密码',
+            passwordPlaceholder: '请输入密码',
+            signIn: '登录',
+            signingIn: '请稍候……',
+            or: '或',
+            visitAsGuest: '访客访问',
+            footer: '莫高数字孪生 © 2026',
+            connectionFailed: '连接失败。后端是否已启动？'
+        },
+
+        // Sidebar/topbar additions
+        navExtras: {
+            maintenance: '维护'
+        },
+
+        // Maintenance queue (admin)
+        maintenance: {
+            title: '🔧 维护队列',
+            exportPdf: '📄 导出 PDF',
+            refresh: '↻ 刷新',
+            loading: '正在评分所有文物……（每件文物运行完整劣化重放）',
+            statTotal: '合计',
+            statCritical: '紧急',
+            statHigh: '高',
+            statMedium: '中',
+            statLow: '低',
+            statAnomalies: '当前异常',
+            search: '按名称、ID 或类型搜索……',
+            clearFilter: '清除筛选',
+            noMatch: '没有符合筛选条件的文物。',
+            colPriority: '优先级',
+            colScore: '得分',
+            colArtifact: '文物',
+            colType: '类型',
+            colDamage: '损伤',
+            colNearestEta: '最近 ETA',
+            colAnomalies: '异常',
+            colHistory: '记录',
+            colTopAction: '建议',
+            openArtifact3D: '▶ 打开 3D + 预测',
+            drillUnavailable: '（无法跳转 — 该文物未关联到洞窟）',
+            scoreBreakdown: '得分构成',
+            recommendations: '建议',
+            currentCumulativeState: '当前累积状态',
+            activeAnomalies: '当前异常',
+            currentDamage: '当前损伤',
+            etaUrgency: 'ETA 紧迫度',
+            inspectionAge: '巡检年龄',
+            conservationStatusLabel: '保护状态',
+            chemicalDeltaE: '⚗️ 化学 ΔE*',
+            mouldIndex: '🦠 霉菌指数',
+            fatigueDamage: '🧱 疲劳累积 D',
+            saltCumulative: '🧂 盐累积',
+            equivYears: '⏳ 等效参考年',
+            mouldThreshold: '/ 6（阈值 3）',
+            damageThreshold: '/ 1.0',
+            noCumulative: '尚无累积数据。',
+            methodology: 'ℹ 评分：得分 = 1.0·损伤 + 1.0·(1/ETA_y) + 0.5·异常计数 + 0.3·巡检年龄 + 0.8·状态严重度。≥ 2.5 紧急、≥ 1.5 高、≥ 0.8 中，否则低。展开任意行查看分项明细、累积状态、异常和全部建议。'
+        },
+
+        // Prediction panel (per-artifact replay + threshold ETA)
+        prediction: {
+            title: '🔮 预测',
+            historyDuration: '{days} 天（{years} 年）的监测历史',
+            noSensors: '此文物未关联任何传感器。请在 "实时数据" 面板中关联一个，以启用预测功能。',
+            noSamples: '此文物尚未接收任何传感器样本。',
+            forecastForward: '向前预测（重复气候）',
+            horizon: '时间跨度',
+            years10: '10 年',
+            years50: '50 年',
+            years200: '200 年',
+            refresh: '↻ 刷新',
+            exportPdf: '📄 导出 PDF',
+            runningReplay: '正在重放……',
+            modelChemical: '化学褪色',
+            modelMould: '霉菌指数',
+            modelFatigue: '疲劳累积',
+            modelSalt: '盐累积',
+            modelLifetime: '已消耗寿命',
+            ofThreshold: '阈值的 {threshold}',
+            etaCrossed: '已超过',
+            etaPrefix: 'ETA：{eta}',
+            chartLegendChemical: '⚗️ 化学',
+            chartLegendMould: '🦠 霉菌',
+            chartLegendFatigue: '🧱 疲劳',
+            chartLegendSalt: '🧂 盐',
+            chartYAxis: '阈值占比',
+            methodology: 'ℹ 方法：历史重放将五个模型逐日积分到实测的 T/RH/ΔRH 记录上。预测（虚线）通过循环最近一年的气候向前外推 — 在没有外部气候预报时这是合理的基准。阈值：ΔE*=5，霉菌=3/6，D=1，盐累积=1。'
+        },
+
+        // Defects panel keys (replaces the t() || 'fallback' pattern)
+        defects: {
+            logNew: '+ 记录缺陷',
+            empty: '尚未记录任何缺陷。',
+            errorTypeRequired: '缺陷类型是必填项',
+            deleteConfirm: '永久删除缺陷 "{name}"？此操作不可恢复。',
+            formCreateTitle: '记录新缺陷',
+            formEditTitle: '编辑缺陷',
+            fieldName: '名称（可选）',
+            fieldType: '缺陷类型',
+            fieldSeverity: '严重程度',
+            fieldDetectionDate: '发现日期',
+            fieldAffectedArea: '受影响区域（m²）',
+            fieldUrgent: '需要紧急处理',
+            fieldDescription: '描述',
+            fieldTreatment: '处置历史'
+        },
+
+        // Sensor dashboard form keys
+        sensorDashboardForm: {
+            createTitle: '注册新传感器',
+            editTitle: '编辑传感器',
+            placeholderName: '名称 *',
+            placeholderModel: '型号（如 HOBO MX2301A）',
+            placeholderSerial: '序列号',
+            noArtifactLink: '— 未关联文物 —',
+            groupCaves: '洞窟（整窟范围）',
+            groupStatues: '雕像（按文物）',
+            groupMurals: '壁画（按文物）',
+            groupPaintings: '绘画（按文物）',
+            groupInscriptions: '铭文（按文物）',
+            activeCheckbox: '活动中（接收新样本）',
+            saveChanges: '保存修改',
+            register: '注册',
+            cancel: '取消',
+            apiKeyShown: '✓ 已注册传感器 — 请保存此 API 密钥（仅显示一次）：',
+            edit: '编辑',
+            editTitle2: '编辑传感器元数据与文物关联'
         }
     },
 
@@ -741,6 +884,7 @@ export const messages = {
         // Simulation
         simulation: {
             title: 'Environmental Simulation',
+            pigmentRequiredHint: 'Run Pigment Analysis first — the simulation reads its per-pigment class map.',
             start: 'Start Simulation',
             stop: 'Stop Simulation',
             reset: 'Reset',
@@ -949,6 +1093,148 @@ export const messages = {
             invalid: '{field} is invalid',
             tooShort: '{field} is too short',
             tooLong: '{field} is too long'
+        },
+
+        // Login page
+        loginPage: {
+            heroTitle: 'Mogao Digital Twin Platform',
+            heroSubtitle: 'Preserving the Mogao Grottoes through digital twin technology. Monitor, simulate, and protect this UNESCO World Heritage site.',
+            feature3D: '3D digital replicas of cave temples and artefacts',
+            featureMonitoring: 'Real-time environmental monitoring and analysis',
+            featureSimulation: 'Deterioration simulation and conservation planning',
+            featureCollaboration: 'Collaborative research across institutions',
+            formTitle: 'M-Gemini',
+            formSubtitle: 'Mogao Digital Twin Platform',
+            usernameLabel: 'Username',
+            usernamePlaceholder: 'Enter your username',
+            passwordLabel: 'Password',
+            passwordPlaceholder: 'Enter your password',
+            signIn: 'Sign In',
+            signingIn: 'Please wait…',
+            or: 'or',
+            visitAsGuest: 'Visit as a Guest',
+            footer: 'Mogao Digital Twin © 2026',
+            connectionFailed: 'Connection failed. Is the backend running?'
+        },
+
+        // Sidebar/topbar additions
+        navExtras: {
+            maintenance: 'Maintenance'
+        },
+
+        // Maintenance queue (admin)
+        maintenance: {
+            title: '🔧 Maintenance Queue',
+            exportPdf: '📄 Export PDF',
+            refresh: '↻ Refresh',
+            loading: 'Scoring all artifacts… (runs a full deterioration replay for each)',
+            statTotal: 'Total',
+            statCritical: 'Critical',
+            statHigh: 'High',
+            statMedium: 'Medium',
+            statLow: 'Low',
+            statAnomalies: 'Active anomalies',
+            search: 'Search by name, gid or type…',
+            clearFilter: 'Clear filter',
+            noMatch: 'No artifacts match the filter.',
+            colPriority: 'Priority',
+            colScore: 'Score',
+            colArtifact: 'Artifact',
+            colType: 'Type',
+            colDamage: 'Damage',
+            colNearestEta: 'Nearest ETA',
+            colAnomalies: 'Anomalies',
+            colHistory: 'Hist.',
+            colTopAction: 'Top action',
+            openArtifact3D: '▶ Open 3D + Prediction',
+            drillUnavailable: '(Drill-in unavailable — no parent cave on record.)',
+            scoreBreakdown: 'Score breakdown',
+            recommendations: 'Recommendations',
+            currentCumulativeState: 'Current cumulative state',
+            activeAnomalies: 'Active anomalies',
+            currentDamage: 'Current damage',
+            etaUrgency: 'ETA urgency',
+            inspectionAge: 'Inspection age',
+            conservationStatusLabel: 'Conservation status',
+            chemicalDeltaE: '⚗️ Chemical ΔE*',
+            mouldIndex: '🦠 Mould index',
+            fatigueDamage: '🧱 Fatigue D',
+            saltCumulative: '🧂 Salt cumulative',
+            equivYears: '⏳ Equiv. reference-years',
+            mouldThreshold: '/ 6 (threshold 3)',
+            damageThreshold: '/ 1.0',
+            noCumulative: 'No cumulative data available yet.',
+            methodology: 'ℹ Scoring: composite = 1.0·damage + 1.0·(1/ETA_years) + 0.5·anomalyCount + 0.3·inspectionAge + 0.8·statusSeverity. Score ≥ 2.5 = critical, ≥ 1.5 = high, ≥ 0.8 = medium, else low. Expand any row for the per-index breakdown, full cumulative state, active anomalies, and all recommendations.'
+        },
+
+        // Prediction panel (per-artifact replay + threshold ETA)
+        prediction: {
+            title: '🔮 Prediction',
+            historyDuration: '{days} days ({years} y) of monitored history',
+            noSensors: 'No sensors linked to this artifact. Link one in the Live Data panel to enable prediction.',
+            noSamples: 'No sensor samples ingested yet for this artifact.',
+            forecastForward: 'Forecast forward (climate-repeat)',
+            horizon: 'Horizon',
+            years10: '10 years',
+            years50: '50 years',
+            years200: '200 years',
+            refresh: '↻ Refresh',
+            exportPdf: '📄 Export PDF',
+            runningReplay: 'Running replay…',
+            modelChemical: 'Chemical fading',
+            modelMould: 'Mould index',
+            modelFatigue: 'Fatigue damage',
+            modelSalt: 'Salt cumulative',
+            modelLifetime: 'Lifetime consumed',
+            ofThreshold: 'of {threshold} threshold',
+            etaCrossed: 'already crossed',
+            etaPrefix: 'ETA: {eta}',
+            chartLegendChemical: '⚗️ Chemical',
+            chartLegendMould: '🦠 Mould',
+            chartLegendFatigue: '🧱 Fatigue',
+            chartLegendSalt: '🧂 Salt',
+            chartYAxis: 'Fraction of threshold',
+            methodology: 'ℹ Method: historical replay integrates the five models day-by-day through the actual monitored T/RH/ΔRH record. Forecast (dashed) projects forward by looping the most recent year of climate — a defensible baseline when no external climate forecast is available. Thresholds: ΔE*=5, mould=3/6, D=1, salt-cum=1.'
+        },
+
+        // Defects panel keys
+        defects: {
+            logNew: '+ Log new defect',
+            empty: 'No defects recorded yet.',
+            errorTypeRequired: 'Defect type is required',
+            deleteConfirm: 'Delete the defect "{name}"? This cannot be undone.',
+            formCreateTitle: 'Log new defect',
+            formEditTitle: 'Edit defect',
+            fieldName: 'Name (optional)',
+            fieldType: 'Defect type',
+            fieldSeverity: 'Severity',
+            fieldDetectionDate: 'Detection date',
+            fieldAffectedArea: 'Affected area (m²)',
+            fieldUrgent: 'Requires immediate action',
+            fieldDescription: 'Description',
+            fieldTreatment: 'Treatment history'
+        },
+
+        // Sensor dashboard form keys
+        sensorDashboardForm: {
+            createTitle: 'Register new sensor',
+            editTitle: 'Edit sensor',
+            placeholderName: 'Name *',
+            placeholderModel: 'Model (e.g. HOBO MX2301A)',
+            placeholderSerial: 'Serial #',
+            noArtifactLink: '— No artifact link —',
+            groupCaves: 'Caves (whole-cave scope)',
+            groupStatues: 'Statues (per-artifact)',
+            groupMurals: 'Murals (per-artifact)',
+            groupPaintings: 'Paintings (per-artifact)',
+            groupInscriptions: 'Inscriptions (per-artifact)',
+            activeCheckbox: 'Active (receiving new samples)',
+            saveChanges: 'Save changes',
+            register: 'Register',
+            cancel: 'Cancel',
+            apiKeyShown: '✓ Sensor registered — save this API key (shown once):',
+            edit: 'Edit',
+            editTitle2: 'Edit sensor metadata and artifact link'
         }
     }
 };
