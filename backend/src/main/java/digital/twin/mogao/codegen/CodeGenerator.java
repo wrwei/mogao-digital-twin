@@ -220,7 +220,20 @@ public class CodeGenerator {
         return null;
     }
 
+    /**
+     * Write a generator-emitted file. Refuses to write outside
+     * {@link #MONGOOSE_OUTPUT_DIR} so that a stray template path or a
+     * misguided attempt to revive frontend codegen (retired in commit
+     * 9b33bc4) fails loudly here, rather than silently overwriting
+     * hand-written code under frontend/ or anywhere else.
+     */
     private void writeToFile(String directory, String fileName, String content) throws Exception {
+        if (directory == null || !directory.startsWith(MONGOOSE_OUTPUT_DIR)) {
+            throw new IllegalArgumentException(
+                "Refusing to write outside " + MONGOOSE_OUTPUT_DIR + ": got '" + directory +
+                "'. The frontend is hand-written by design; codegen is scoped to the " +
+                "Mongoose data layer. See backend/CODEGEN.md.");
+        }
         File dir = new File(directory);
         if (!dir.exists()) dir.mkdirs();
         File file = new File(dir, fileName);
