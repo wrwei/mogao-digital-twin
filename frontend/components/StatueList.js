@@ -39,7 +39,7 @@ export default {
             default: null
         }
     },
-    emits: ['select', 'edit', 'delete', 'create', 'view-detail'],
+    emits: ['select', 'edit', 'delete', 'create', 'view-detail', 'bulk-delete'],
     data() {
         return {
             searchQuery: '',
@@ -52,7 +52,10 @@ export default {
             simulationPanelWidth: 480,
             isDragging: false,
             dragStartX: 0,
-            dragStartWidth: 0
+            dragStartWidth: 0,
+            // Bulk-selection (F6). Array (not Set) for clean Vue reactivity
+            // and stable JSON serialization in dev tools.
+            selectedBulkIds: []
         };
     },
     mounted() {
@@ -69,7 +72,17 @@ export default {
         if (q) this.searchQuery = q;
     },
     watch: {
-        searchQuery(q) { replaceHashParams({ q: q || null }); }
+        searchQuery(q) { replaceHashParams({ q: q || null }); },
+        // Drop selected ids that disappeared from the list (typically after
+        // a successful bulk delete refetch). Without this, the bulk-action
+        // bar would keep showing stale counts referencing deleted items.
+        statues: {
+            handler(arr) {
+                if (!this.selectedBulkIds.length) return;
+                const present = new Set((arr || []).map(s => s.gid));
+                this.selectedBulkIds = this.selectedBulkIds.filter(id => present.has(id));
+            }
+        }
     },
     beforeUnmount() {
         if (this.handleResize) {
@@ -77,6 +90,16 @@ export default {
         }
     },
     methods: {
+        toggleBulkSelection(item) {
+            const idx = this.selectedBulkIds.indexOf(item.gid);
+            if (idx === -1) this.selectedBulkIds.push(item.gid);
+            else this.selectedBulkIds.splice(idx, 1);
+        },
+        clearBulkSelection() { this.selectedBulkIds = []; },
+        emitBulkDelete() {
+            const items = (this.statues || []).filter(s => this.selectedBulkIds.includes(s.gid));
+            if (items.length) this.$emit('bulk-delete', items);
+        },
         handleSimulationChanged(data) {
             this.simulationData = data;
             console.log('=== Statue Simulation Data ===', data);
@@ -187,17 +210,31 @@ export default {
                         :title="t('empty.noResultsTitle')"
                         :description="t('empty.noResultsHint')"></empty-state>
 
-                    <div v-else class="entity-cards" style="display: flex; flex-direction: column; gap: var(--spacing-sm);">
+                    <div v-else>
+                        <div v-if="selectedBulkIds.length > 0" class="bulk-action-bar" role="region" aria-live="polite">
+                            <span class="bulk-count">{{ t('actions.bulkSelected', { count: selectedBulkIds.length }) }}</span>
+                            <button class="btn btn-sm btn-danger" @click="emitBulkDelete">
+                                {{ t('actions.bulkDelete') }}
+                            </button>
+                            <button class="btn btn-sm" @click="clearBulkSelection">
+                                {{ t('actions.clearSelection') }}
+                            </button>
+                        </div>
+                        <div class="entity-cards" style="display: flex; flex-direction: column; gap: var(--spacing-sm);">
                         <statue-card
                             v-for="item in filteredStatues"
                             :key="item.gid"
                             :statue="item"
                             :selected-gid="selectedGid"
+                            :selected-for-bulk="selectedBulkIds.includes(item.gid)"
+                            @toggle-bulk="toggleBulkSelection"
                             @select="$emit('select', item)"
                             @view-detail="$emit('view-detail', item)"
                             @edit="$emit('edit', item)"
                             @delete="$emit('delete', item)"
-                        ></statue-card>                    </div>
+                        ></statue-card>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="list-footer" style="padding: var(--spacing-sm); border-top: 1px solid var(--border); text-align: center; color: var(--text-secondary); font-size: 0.9em;">

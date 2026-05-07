@@ -384,3 +384,61 @@
     color: #ef4444;
     font-weight: 600;
 }
+
+/* ─────────────────────────────────────────────────────────────────────
+ * Bulk-action bar — appears above the list when one or more items are
+ * checked. Uses the medium-severity tokens so it reads as "you have a
+ * pending action" without looking destructive on its own.
+ * ──────────────────────────────────────────────────────────────────── */
+
+.bulk-action-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    background: var(--severity-info-soft);
+    color: var(--severity-info-soft-fg);
+    border: 1px solid var(--severity-info-soft);
+    border-left: 4px solid var(--severity-info-bg);
+    border-radius: var(--radius-md, 8px);
+    font-size: 13px;
+}
+
+.bulk-action-bar .bulk-count {
+    font-weight: 600;
+    flex: 1;
+}
+
+.bulk-action-bar .btn {
+    padding: 4px 10px;
+    font-size: 12px;
+}
+
+/* Bulk-select checkbox positioned in the card top-right. The pointer
+ * events / click.stop logic in the card handler keeps the regular click
+ * (open detail) and the checkbox toggle from fighting. */
+
+.card-bulk-toggle {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 2;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.card-bulk-toggle input[type="checkbox"] {
+    margin: 0;
+    cursor: pointer;
+}
+
+.card.bulk-selected {
+    box-shadow: 0 0 0 2px var(--severity-info-bg), 0 2px 8px rgba(0, 0, 0, 0.08);
+}

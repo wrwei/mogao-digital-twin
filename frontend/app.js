@@ -691,6 +691,27 @@ const StatueView = {
                     this.$emit('show-message', this.t('actions.deleteError', { entity: this.t('entities.statue') }) + ': ' + err.message, 'error');
                 }
         },
+        async handleBulkDelete(items) {
+            if (!items || items.length === 0) return;
+            const ok = await this.$confirm({
+                message: this.t('actions.bulkDeleteConfirm', { count: items.length, entity: this.t('entities.statue') }),
+                danger: true
+            });
+            if (!ok) return;
+            let okCount = 0, failCount = 0;
+            for (const item of items) {
+                try { await this.deleteStatue(item.gid); okCount++; }
+                catch (e) { failCount++; }
+            }
+            if (failCount === 0) {
+                this.$emit('show-message',
+                    this.t('actions.deleteSuccess', { entity: this.t('entities.statue') }) + ` (${okCount})`, 'success');
+            } else {
+                this.$emit('show-message',
+                    this.t('actions.bulkDeletePartialError', { ok: okCount, fail: failCount }), 'error');
+            }
+            await this.fetchStatues();
+        },
         async handleFormSubmit() {
             this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.statue') }), 'success');
             this.showForm = false;
@@ -769,6 +790,7 @@ const StatueView = {
                 @delete="handleDelete"
                 @create="handleCreate"
                 @view-detail="handleViewDetail"
+                @bulk-delete="handleBulkDelete"
             ></statue-list>        </div>
     `
 };
@@ -830,6 +852,27 @@ const MuralView = {
                 } catch (err) {
                     this.$emit('show-message', this.t('actions.deleteError', { entity: this.t('entities.mural') }) + ': ' + err.message, 'error');
                 }
+        },
+        async handleBulkDelete(items) {
+            if (!items || items.length === 0) return;
+            const ok = await this.$confirm({
+                message: this.t('actions.bulkDeleteConfirm', { count: items.length, entity: this.t('entities.mural') }),
+                danger: true
+            });
+            if (!ok) return;
+            let okCount = 0, failCount = 0;
+            for (const item of items) {
+                try { await this.deleteMural(item.gid); okCount++; }
+                catch (e) { failCount++; }
+            }
+            if (failCount === 0) {
+                this.$emit('show-message',
+                    this.t('actions.deleteSuccess', { entity: this.t('entities.mural') }) + ` (${okCount})`, 'success');
+            } else {
+                this.$emit('show-message',
+                    this.t('actions.bulkDeletePartialError', { ok: okCount, fail: failCount }), 'error');
+            }
+            await this.fetchMurals();
         },
         async handleFormSubmit() {
             this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.mural') }), 'success');
@@ -909,6 +952,7 @@ const MuralView = {
                 @delete="handleDelete"
                 @create="handleCreate"
                 @view-detail="handleViewDetail"
+                @bulk-delete="handleBulkDelete"
             ></mural-list>        </div>
     `
 };
@@ -970,6 +1014,27 @@ const PaintingView = {
                 } catch (err) {
                     this.$emit('show-message', this.t('actions.deleteError', { entity: this.t('entities.painting') }) + ': ' + err.message, 'error');
                 }
+        },
+        async handleBulkDelete(items) {
+            if (!items || items.length === 0) return;
+            const ok = await this.$confirm({
+                message: this.t('actions.bulkDeleteConfirm', { count: items.length, entity: this.t('entities.painting') }),
+                danger: true
+            });
+            if (!ok) return;
+            let okCount = 0, failCount = 0;
+            for (const item of items) {
+                try { await this.deletePainting(item.gid); okCount++; }
+                catch (e) { failCount++; }
+            }
+            if (failCount === 0) {
+                this.$emit('show-message',
+                    this.t('actions.deleteSuccess', { entity: this.t('entities.painting') }) + ` (${okCount})`, 'success');
+            } else {
+                this.$emit('show-message',
+                    this.t('actions.bulkDeletePartialError', { ok: okCount, fail: failCount }), 'error');
+            }
+            await this.fetchPaintings();
         },
         async handleFormSubmit() {
             this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.painting') }), 'success');
@@ -1049,6 +1114,7 @@ const PaintingView = {
                 @delete="handleDelete"
                 @create="handleCreate"
                 @view-detail="handleViewDetail"
+                @bulk-delete="handleBulkDelete"
             ></painting-list>        </div>
     `
 };
@@ -1110,6 +1176,27 @@ const InscriptionView = {
                 } catch (err) {
                     this.$emit('show-message', this.t('actions.deleteError', { entity: this.t('entities.inscription') }) + ': ' + err.message, 'error');
                 }
+        },
+        async handleBulkDelete(items) {
+            if (!items || items.length === 0) return;
+            const ok = await this.$confirm({
+                message: this.t('actions.bulkDeleteConfirm', { count: items.length, entity: this.t('entities.inscription') }),
+                danger: true
+            });
+            if (!ok) return;
+            let okCount = 0, failCount = 0;
+            for (const item of items) {
+                try { await this.deleteInscription(item.gid); okCount++; }
+                catch (e) { failCount++; }
+            }
+            if (failCount === 0) {
+                this.$emit('show-message',
+                    this.t('actions.deleteSuccess', { entity: this.t('entities.inscription') }) + ` (${okCount})`, 'success');
+            } else {
+                this.$emit('show-message',
+                    this.t('actions.bulkDeletePartialError', { ok: okCount, fail: failCount }), 'error');
+            }
+            await this.fetchInscriptions();
         },
         async handleFormSubmit() {
             this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.inscription') }), 'success');
@@ -1189,6 +1276,7 @@ const InscriptionView = {
                 @delete="handleDelete"
                 @create="handleCreate"
                 @view-detail="handleViewDetail"
+                @bulk-delete="handleBulkDelete"
             ></inscription-list>        </div>
     `
 };

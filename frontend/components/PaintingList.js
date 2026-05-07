@@ -39,7 +39,7 @@ export default {
             default: null
         }
     },
-    emits: ['select', 'edit', 'delete', 'create', 'view-detail'],
+    emits: ['select', 'edit', 'delete', 'create', 'view-detail', 'bulk-delete'],
     data() {
         return {
             searchQuery: '',
@@ -52,7 +52,9 @@ export default {
             simulationPanelWidth: 480,
             isDragging: false,
             dragStartX: 0,
-            dragStartWidth: 0
+            dragStartWidth: 0,
+            // Bulk-selection (F6).
+            selectedBulkIds: []
         };
     },
     mounted() {
@@ -69,7 +71,14 @@ export default {
         if (q) this.searchQuery = q;
     },
     watch: {
-        searchQuery(q) { replaceHashParams({ q: q || null }); }
+        searchQuery(q) { replaceHashParams({ q: q || null }); },
+        paintings: {
+            handler(arr) {
+                if (!this.selectedBulkIds.length) return;
+                const present = new Set((arr || []).map(p => p.gid));
+                this.selectedBulkIds = this.selectedBulkIds.filter(id => present.has(id));
+            }
+        }
     },
     beforeUnmount() {
         if (this.handleResize) {
@@ -77,6 +86,16 @@ export default {
         }
     },
     methods: {
+        toggleBulkSelection(item) {
+            const idx = this.selectedBulkIds.indexOf(item.gid);
+            if (idx === -1) this.selectedBulkIds.push(item.gid);
+            else this.selectedBulkIds.splice(idx, 1);
+        },
+        clearBulkSelection() { this.selectedBulkIds = []; },
+        emitBulkDelete() {
+            const items = (this.paintings || []).filter(p => this.selectedBulkIds.includes(p.gid));
+            if (items.length) this.$emit('bulk-delete', items);
+        },
         handleSimulationChanged(data) {
             this.simulationData = data;
             console.log('=== Painting Simulation Data ===', data);
@@ -187,17 +206,31 @@ export default {
                         :title="t('empty.noResultsTitle')"
                         :description="t('empty.noResultsHint')"></empty-state>
 
-                    <div v-else class="entity-cards" style="display: flex; flex-direction: column; gap: var(--spacing-sm);">
-                        <painting-card
-                            v-for="item in filteredPaintings"
-                            :key="item.gid"
-                            :painting="item"
-                            :selected-gid="selectedGid"
-                            @select="$emit('select', item)"
-                            @view-detail="$emit('view-detail', item)"
-                            @edit="$emit('edit', item)"
-                            @delete="$emit('delete', item)"
-                        ></painting-card>                    </div>
+                    <div v-else>
+                        <div v-if="selectedBulkIds.length > 0" class="bulk-action-bar" role="region" aria-live="polite">
+                            <span class="bulk-count">{{ t('actions.bulkSelected', { count: selectedBulkIds.length }) }}</span>
+                            <button class="btn btn-sm btn-danger" @click="emitBulkDelete">
+                                {{ t('actions.bulkDelete') }}
+                            </button>
+                            <button class="btn btn-sm" @click="clearBulkSelection">
+                                {{ t('actions.clearSelection') }}
+                            </button>
+                        </div>
+                        <div class="entity-cards" style="display: flex; flex-direction: column; gap: var(--spacing-sm);">
+                            <painting-card
+                                v-for="item in filteredPaintings"
+                                :key="item.gid"
+                                :painting="item"
+                                :selected-gid="selectedGid"
+                                :selected-for-bulk="selectedBulkIds.includes(item.gid)"
+                                @toggle-bulk="toggleBulkSelection"
+                                @select="$emit('select', item)"
+                                @view-detail="$emit('view-detail', item)"
+                                @edit="$emit('edit', item)"
+                                @delete="$emit('delete', item)"
+                            ></painting-card>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="list-footer" style="padding: var(--spacing-sm); border-top: 1px solid var(--border); text-align: center; color: var(--text-secondary); font-size: 0.9em;">

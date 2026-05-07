@@ -37,7 +37,8 @@ export const messages = {
             warning: '警告',
             info: '信息',
             detail: '详情',
-            selected: '已选择'
+            selected: '已选择',
+            select: '选择'
         },
 
         // Empty-state messages (shared by all list views)
@@ -236,7 +237,12 @@ export const messages = {
             deleteSuccess: '{entity}删除成功',
             loadError: '加载{entity}失败',
             saveError: '保存{entity}失败',
-            deleteError: '删除{entity}失败'
+            deleteError: '删除{entity}失败',
+            bulkSelected: '已选 {count} 项',
+            bulkDelete: '删除所选',
+            bulkDeleteConfirm: '确认删除选中的 {count} 个{entity}吗？',
+            bulkDeletePartialError: '已删除 {ok} 项，{fail} 项失败',
+            clearSelection: '清除选择'
         },
 
         // Conservation Status
@@ -679,7 +685,8 @@ export const messages = {
             warning: 'Warning',
             info: 'Information',
             detail: 'Details',
-            selected: 'Selected'
+            selected: 'Selected',
+            select: 'Select'
         },
 
         // Empty-state messages (shared by all list views)
@@ -878,7 +885,12 @@ export const messages = {
             deleteSuccess: '{entity} deleted successfully',
             loadError: 'Failed to load {entity}',
             saveError: 'Failed to save {entity}',
-            deleteError: 'Failed to delete {entity}'
+            deleteError: 'Failed to delete {entity}',
+            bulkSelected: '{count} selected',
+            bulkDelete: 'Delete selected',
+            bulkDeleteConfirm: 'Delete {count} selected {entity} items?',
+            bulkDeletePartialError: 'Deleted {ok}; {fail} failed',
+            clearSelection: 'Clear selection'
         },
 
         // Conservation Status
