@@ -37,29 +37,6 @@ export default {
                     name: '',
                     description: '',
                     timestamp: null
-                },
-                defects: this.cave?.defects || {
-                    gid: '',
-                    name: '',
-                    description: '',
-                    defectType: '',
-                    severity: '',
-                    detectionDate: null,
-                    affectedArea: null,
-                    treatmentHistory: '',
-                    requiresImmediateAction: null
-                },
-                exhibits: this.cave?.exhibits || {
-                    gid: '',
-                    name: '',
-                    description: '',
-                    label: '',
-                    creationPeriod: '',
-                    lastInspectionDate: null,
-                    inspectionNotes: '',
-                    material: '',
-                    period: '',
-                    conservationStatus: ''
                 }
             },
             errors: {},
@@ -95,12 +72,6 @@ export default {
             }
             if (data.environmentConditions) {
                 this.form.environmentConditions = { ...data.environmentConditions };
-            }
-            if (data.defects) {
-                this.form.defects = { ...data.defects };
-            }
-            if (data.exhibits) {
-                this.form.exhibits = { ...data.exhibits };
             }
         },
 
@@ -177,17 +148,15 @@ export default {
             this.errors = {};
             let isValid = true;
 
-            // Validate name
+            // Require a name on every artifact — the only universally
+            // mandatory field across the metamodel.
+            if (!this.form.name || !this.form.name.trim()) {
+                this.errors.name = this.t('validation.required', { field: this.t('fields.name') })
+                    || 'Name is required.';
+                this.touched.name = true;
+                isValid = false;
+            }
 
-            // Validate description
-
-            // Validate label
-
-            // Validate creationPeriod
-
-            // Validate lastInspectionDate
-
-            // Validate inspectionNotes
 
             return isValid;
         },
@@ -211,29 +180,6 @@ export default {
                 name: '',
                 description: '',
                 timestamp: null
-            };
-            this.form.defects = {
-                gid: '',
-                name: '',
-                description: '',
-                defectType: '',
-                severity: '',
-                detectionDate: null,
-                affectedArea: null,
-                treatmentHistory: '',
-                requiresImmediateAction: null
-            };
-            this.form.exhibits = {
-                gid: '',
-                name: '',
-                description: '',
-                label: '',
-                creationPeriod: '',
-                lastInspectionDate: null,
-                inspectionNotes: '',
-                material: '',
-                period: '',
-                conservationStatus: ''
             };
             this.errors = {};
             this.touched = {};
@@ -303,9 +249,9 @@ export default {
         <form @submit.prevent="handleSubmit" class="form cave-form">
             <h2>{{ mode === 'create' ? t('common.create') : t('common.edit') }} {{ t('entities.cave') }}</h2>
 
-            <div class="form-group" v-if="mode === 'edit' || true">
+            <div class="form-group">
                 <label class="form-label" for="name">
-                    {{ t('fields.name') }}
+                    {{ t('fields.name') }} <span class="form-required" aria-hidden="true">*</span>
                 </label>
 
                 <input
@@ -323,7 +269,7 @@ export default {
                 </span>
             </div>
 
-            <div class="form-group" v-if="mode === 'edit' || true">
+            <div class="form-group">
                 <label class="form-label" for="description">
                     {{ t('fields.description') }}
                 </label>
@@ -344,7 +290,7 @@ export default {
                 </span>
             </div>
 
-            <div class="form-group" v-if="mode === 'edit' || true">
+            <div class="form-group">
                 <label class="form-label" for="label">
                     {{ t('fields.label') }}
                 </label>
@@ -364,7 +310,7 @@ export default {
                 </span>
             </div>
 
-            <div class="form-group" v-if="mode === 'edit' || true">
+            <div class="form-group">
                 <label class="form-label" for="creationPeriod">
                     {{ t('fields.creationPeriod') }}
                 </label>
@@ -384,7 +330,7 @@ export default {
                 </span>
             </div>
 
-            <div class="form-group" v-if="mode === 'edit' || true">
+            <div class="form-group">
                 <label class="form-label" for="lastInspectionDate">
                     {{ t('fields.lastInspectionDate') }}
                 </label>
@@ -404,7 +350,7 @@ export default {
                 </span>
             </div>
 
-            <div class="form-group" v-if="mode === 'edit' || true">
+            <div class="form-group">
                 <label class="form-label" for="inspectionNotes">
                     {{ t('fields.inspectionNotes') }}
                 </label>
@@ -425,7 +371,7 @@ export default {
             </div>
 
 
-            <fieldset class="form-fieldset" v-if="mode === 'edit'">
+            <fieldset class="form-fieldset">
                 <legend class="form-legend">{{ t('fields.reference') }}</legend>
                 <div class="form-group">
                     <label class="form-label" for="reference_gid">
@@ -503,7 +449,7 @@ accept=".jpg,.jpeg,.png,.bmp"                    />
                 </div>
             </fieldset>
 
-            <fieldset class="form-fieldset" v-if="mode === 'edit'">
+            <fieldset class="form-fieldset">
                 <legend class="form-legend">{{ t('fields.environmentConditions') }}</legend>
                 <div class="form-group">
                     <label class="form-label" for="environmentConditions_gid">
@@ -575,336 +521,7 @@ accept=".jpg,.jpeg,.png,.bmp"                    />
                 </div>
             </fieldset>
 
-            <fieldset class="form-fieldset" v-if="mode === 'edit'">
-                <legend class="form-legend">{{ t('fields.defects') }}</legend>
-                <div class="form-group">
-                    <label class="form-label" for="defects_gid">
-                        {{ t('fields.gid') }}
-                    </label>
-                    <input
-                        type="text"
-                        id="defects_gid"
-                        v-model="form.defects.gid"
-                        @blur="markTouched('defects.gid')"
-                        class="form-input"
-                        :class="{ 'form-input-error': errors['defects.gid'] && touched['defects.gid'] }"
-                        :placeholder="t('fields.gid')"
-                    />
-                    <span v-if="errors['defects.gid'] && touched['defects.gid']" class="form-error">
-                        {{ errors['defects.gid'] }}
-                    </span>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="defects_name">
-                        {{ t('fields.name') }}
-                    </label>
-                    <input
-                        type="text"
-                        id="defects_name"
-                        v-model="form.defects.name"
-                        @blur="markTouched('defects.name')"
-                        class="form-input"
-                        :class="{ 'form-input-error': errors['defects.name'] && touched['defects.name'] }"
-                        :placeholder="t('fields.name')"
-                    />
-                    <span v-if="errors['defects.name'] && touched['defects.name']" class="form-error">
-                        {{ errors['defects.name'] }}
-                    </span>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="defects_description">
-                        {{ t('fields.description') }}
-                    </label>
-                    <input
-                        type="text"
-                        id="defects_description"
-                        v-model="form.defects.description"
-                        @blur="markTouched('defects.description')"
-                        class="form-input"
-                        :class="{ 'form-input-error': errors['defects.description'] && touched['defects.description'] }"
-                        :placeholder="t('fields.description')"
-                    />
-                    <span v-if="errors['defects.description'] && touched['defects.description']" class="form-error">
-                        {{ errors['defects.description'] }}
-                    </span>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="defects_defectType">
-                        {{ t('fields.defectType') }}
-                    </label>
-                    <input
-                        type="text"
-                        id="defects_defectType"
-                        v-model="form.defects.defectType"
-                        @blur="markTouched('defects.defectType')"
-                        class="form-input"
-                        :class="{ 'form-input-error': errors['defects.defectType'] && touched['defects.defectType'] }"
-                        :placeholder="t('fields.defectType')"
-                    />
-                    <span v-if="errors['defects.defectType'] && touched['defects.defectType']" class="form-error">
-                        {{ errors['defects.defectType'] }}
-                    </span>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="defects_severity">
-                        {{ t('fields.severity') }}
-                    </label>
-                    <input
-                        type="text"
-                        id="defects_severity"
-                        v-model="form.defects.severity"
-                        @blur="markTouched('defects.severity')"
-                        class="form-input"
-                        :class="{ 'form-input-error': errors['defects.severity'] && touched['defects.severity'] }"
-                        :placeholder="t('fields.severity')"
-                    />
-                    <span v-if="errors['defects.severity'] && touched['defects.severity']" class="form-error">
-                        {{ errors['defects.severity'] }}
-                    </span>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="defects_detectionDate">
-                        {{ t('fields.detectionDate') }}
-                    </label>
-                    <input
-                        type="text"
-                        id="defects_detectionDate"
-                        v-model="form.defects.detectionDate"
-                        @blur="markTouched('defects.detectionDate')"
-                        class="form-input"
-                        :class="{ 'form-input-error': errors['defects.detectionDate'] && touched['defects.detectionDate'] }"
-                        :placeholder="t('fields.detectionDate')"
-                    />
-                    <span v-if="errors['defects.detectionDate'] && touched['defects.detectionDate']" class="form-error">
-                        {{ errors['defects.detectionDate'] }}
-                    </span>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="defects_affectedArea">
-                        {{ t('fields.affectedArea') }}
-                    </label>
-                    <input
-                        type="text"
-                        id="defects_affectedArea"
-                        v-model="form.defects.affectedArea"
-                        @blur="markTouched('defects.affectedArea')"
-                        class="form-input"
-                        :class="{ 'form-input-error': errors['defects.affectedArea'] && touched['defects.affectedArea'] }"
-                        :placeholder="t('fields.affectedArea')"
-                    />
-                    <span v-if="errors['defects.affectedArea'] && touched['defects.affectedArea']" class="form-error">
-                        {{ errors['defects.affectedArea'] }}
-                    </span>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="defects_treatmentHistory">
-                        {{ t('fields.treatmentHistory') }}
-                    </label>
-                    <input
-                        type="text"
-                        id="defects_treatmentHistory"
-                        v-model="form.defects.treatmentHistory"
-                        @blur="markTouched('defects.treatmentHistory')"
-                        class="form-input"
-                        :class="{ 'form-input-error': errors['defects.treatmentHistory'] && touched['defects.treatmentHistory'] }"
-                        :placeholder="t('fields.treatmentHistory')"
-                    />
-                    <span v-if="errors['defects.treatmentHistory'] && touched['defects.treatmentHistory']" class="form-error">
-                        {{ errors['defects.treatmentHistory'] }}
-                    </span>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="defects_requiresImmediateAction">
-                        {{ t('fields.requiresImmediateAction') }}
-                    </label>
-                    <input
-                        type="text"
-                        id="defects_requiresImmediateAction"
-                        v-model="form.defects.requiresImmediateAction"
-                        @blur="markTouched('defects.requiresImmediateAction')"
-                        class="form-input"
-                        :class="{ 'form-input-error': errors['defects.requiresImmediateAction'] && touched['defects.requiresImmediateAction'] }"
-                        :placeholder="t('fields.requiresImmediateAction')"
-                    />
-                    <span v-if="errors['defects.requiresImmediateAction'] && touched['defects.requiresImmediateAction']" class="form-error">
-                        {{ errors['defects.requiresImmediateAction'] }}
-                    </span>
-                </div>
-            </fieldset>
 
-            <fieldset class="form-fieldset" v-if="mode === 'edit'">
-                <legend class="form-legend">{{ t('fields.exhibits') }}</legend>
-                <div class="form-group">
-                    <label class="form-label" for="exhibits_gid">
-                        {{ t('fields.gid') }}
-                    </label>
-                    <input
-                        type="text"
-                        id="exhibits_gid"
-                        v-model="form.exhibits.gid"
-                        @blur="markTouched('exhibits.gid')"
-                        class="form-input"
-                        :class="{ 'form-input-error': errors['exhibits.gid'] && touched['exhibits.gid'] }"
-                        :placeholder="t('fields.gid')"
-                    />
-                    <span v-if="errors['exhibits.gid'] && touched['exhibits.gid']" class="form-error">
-                        {{ errors['exhibits.gid'] }}
-                    </span>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="exhibits_name">
-                        {{ t('fields.name') }}
-                    </label>
-                    <input
-                        type="text"
-                        id="exhibits_name"
-                        v-model="form.exhibits.name"
-                        @blur="markTouched('exhibits.name')"
-                        class="form-input"
-                        :class="{ 'form-input-error': errors['exhibits.name'] && touched['exhibits.name'] }"
-                        :placeholder="t('fields.name')"
-                    />
-                    <span v-if="errors['exhibits.name'] && touched['exhibits.name']" class="form-error">
-                        {{ errors['exhibits.name'] }}
-                    </span>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="exhibits_description">
-                        {{ t('fields.description') }}
-                    </label>
-                    <input
-                        type="text"
-                        id="exhibits_description"
-                        v-model="form.exhibits.description"
-                        @blur="markTouched('exhibits.description')"
-                        class="form-input"
-                        :class="{ 'form-input-error': errors['exhibits.description'] && touched['exhibits.description'] }"
-                        :placeholder="t('fields.description')"
-                    />
-                    <span v-if="errors['exhibits.description'] && touched['exhibits.description']" class="form-error">
-                        {{ errors['exhibits.description'] }}
-                    </span>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="exhibits_label">
-                        {{ t('fields.label') }}
-                    </label>
-                    <input
-                        type="text"
-                        id="exhibits_label"
-                        v-model="form.exhibits.label"
-                        @blur="markTouched('exhibits.label')"
-                        class="form-input"
-                        :class="{ 'form-input-error': errors['exhibits.label'] && touched['exhibits.label'] }"
-                        :placeholder="t('fields.label')"
-                    />
-                    <span v-if="errors['exhibits.label'] && touched['exhibits.label']" class="form-error">
-                        {{ errors['exhibits.label'] }}
-                    </span>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="exhibits_creationPeriod">
-                        {{ t('fields.creationPeriod') }}
-                    </label>
-                    <input
-                        type="text"
-                        id="exhibits_creationPeriod"
-                        v-model="form.exhibits.creationPeriod"
-                        @blur="markTouched('exhibits.creationPeriod')"
-                        class="form-input"
-                        :class="{ 'form-input-error': errors['exhibits.creationPeriod'] && touched['exhibits.creationPeriod'] }"
-                        :placeholder="t('fields.creationPeriod')"
-                    />
-                    <span v-if="errors['exhibits.creationPeriod'] && touched['exhibits.creationPeriod']" class="form-error">
-                        {{ errors['exhibits.creationPeriod'] }}
-                    </span>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="exhibits_lastInspectionDate">
-                        {{ t('fields.lastInspectionDate') }}
-                    </label>
-                    <input
-                        type="text"
-                        id="exhibits_lastInspectionDate"
-                        v-model="form.exhibits.lastInspectionDate"
-                        @blur="markTouched('exhibits.lastInspectionDate')"
-                        class="form-input"
-                        :class="{ 'form-input-error': errors['exhibits.lastInspectionDate'] && touched['exhibits.lastInspectionDate'] }"
-                        :placeholder="t('fields.lastInspectionDate')"
-                    />
-                    <span v-if="errors['exhibits.lastInspectionDate'] && touched['exhibits.lastInspectionDate']" class="form-error">
-                        {{ errors['exhibits.lastInspectionDate'] }}
-                    </span>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="exhibits_inspectionNotes">
-                        {{ t('fields.inspectionNotes') }}
-                    </label>
-                    <input
-                        type="text"
-                        id="exhibits_inspectionNotes"
-                        v-model="form.exhibits.inspectionNotes"
-                        @blur="markTouched('exhibits.inspectionNotes')"
-                        class="form-input"
-                        :class="{ 'form-input-error': errors['exhibits.inspectionNotes'] && touched['exhibits.inspectionNotes'] }"
-                        :placeholder="t('fields.inspectionNotes')"
-                    />
-                    <span v-if="errors['exhibits.inspectionNotes'] && touched['exhibits.inspectionNotes']" class="form-error">
-                        {{ errors['exhibits.inspectionNotes'] }}
-                    </span>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="exhibits_material">
-                        {{ t('fields.material') }}
-                    </label>
-                    <input
-                        type="text"
-                        id="exhibits_material"
-                        v-model="form.exhibits.material"
-                        @blur="markTouched('exhibits.material')"
-                        class="form-input"
-                        :class="{ 'form-input-error': errors['exhibits.material'] && touched['exhibits.material'] }"
-                        :placeholder="t('fields.material')"
-                    />
-                    <span v-if="errors['exhibits.material'] && touched['exhibits.material']" class="form-error">
-                        {{ errors['exhibits.material'] }}
-                    </span>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="exhibits_period">
-                        {{ t('fields.period') }}
-                    </label>
-                    <input
-                        type="text"
-                        id="exhibits_period"
-                        v-model="form.exhibits.period"
-                        @blur="markTouched('exhibits.period')"
-                        class="form-input"
-                        :class="{ 'form-input-error': errors['exhibits.period'] && touched['exhibits.period'] }"
-                        :placeholder="t('fields.period')"
-                    />
-                    <span v-if="errors['exhibits.period'] && touched['exhibits.period']" class="form-error">
-                        {{ errors['exhibits.period'] }}
-                    </span>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="exhibits_conservationStatus">
-                        {{ t('fields.conservationStatus') }}
-                    </label>
-                    <input
-                        type="text"
-                        id="exhibits_conservationStatus"
-                        v-model="form.exhibits.conservationStatus"
-                        @blur="markTouched('exhibits.conservationStatus')"
-                        class="form-input"
-                        :class="{ 'form-input-error': errors['exhibits.conservationStatus'] && touched['exhibits.conservationStatus'] }"
-                        :placeholder="t('fields.conservationStatus')"
-                    />
-                    <span v-if="errors['exhibits.conservationStatus'] && touched['exhibits.conservationStatus']" class="form-error">
-                        {{ errors['exhibits.conservationStatus'] }}
-                    </span>
-                </div>
-            </fieldset>
 
             <div class="form-actions">
                 <button type="button" class="btn btn-outline" @click="handleCancel" :disabled="loading">

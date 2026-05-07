@@ -136,10 +136,14 @@ export default {
         },
         handleSimulationClick() {
             if (!this.pigmentMap) {
-                this.simDisabledMsg = 'Run Pigment Analysis first before starting a simulation.';
-                setTimeout(() => { this.simDisabledMsg = null; }, 4000);
+                // Surface a persistent hint instead of an auto-clearing toast.
+                // The hint is cleared by the pigmentMap watcher once analysis runs.
+                this.simDisabledMsg = this.t('simulation.pigmentRequiredHint')
+                    || 'Run Pigment Analysis first — the simulation reads its per-pigment class map.';
+                this.activePanel = 'pigment';
                 return;
             }
+            this.simDisabledMsg = null;
             this.activePanel = 'simulation';
         },
         handleSimulationChanged(data) { this.simulationData = data; },
@@ -218,6 +222,10 @@ export default {
     watch: {
         pendingDrillIn(newVal) {
             if (newVal) this._processDrillIn(newVal);
+        },
+        /** Clear the pigment-required hint as soon as analysis produces a map. */
+        pigmentMap(newVal) {
+            if (newVal) this.simDisabledMsg = null;
         },
         /** Clear cross-exhibit state whenever the user opens a different 3D
          *  exhibit or returns to the cave view. Prevents pigment-map or
@@ -479,7 +487,7 @@ export default {
                 </div>
                 <div class="tool-buttons-bar">
                     <button class="tool-btn" :class="{ active: activePanel === 'pigment' }" :disabled="panelBusy || textureProcessing" @click="activePanel = 'pigment'">{{ t('pigmentAnalysis.title') }}</button>
-                    <button class="tool-btn" :class="{ active: activePanel === 'simulation' }" :disabled="panelBusy || textureProcessing || !pigmentMap" @click="handleSimulationClick">{{ t('simulation.title') }}</button>
+                    <button class="tool-btn" :class="{ active: activePanel === 'simulation', 'tool-btn-locked': !pigmentMap }" :disabled="panelBusy || textureProcessing" @click="handleSimulationClick" :title="!pigmentMap ? (t('simulation.pigmentRequiredHint') || 'Run Pigment Analysis first.') : ''">{{ t('simulation.title') }}</button>
                     <button class="tool-btn" :class="{ active: activePanel === 'live' }" :disabled="panelBusy || textureProcessing" @click="activePanel = 'live'">{{ t('liveData.title') }}</button>
                     <button class="tool-btn" :class="{ active: activePanel === 'prediction' }" :disabled="panelBusy || textureProcessing" @click="activePanel = 'prediction'">Prediction</button>
                     <span v-if="simDisabledMsg" class="tool-btn-hint">{{ simDisabledMsg }}</span>

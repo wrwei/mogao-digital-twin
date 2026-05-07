@@ -120,21 +120,15 @@ export default {
             this.errors = {};
             let isValid = true;
 
-            // Validate name
+            // Require a name on every artifact — the only universally
+            // mandatory field across the metamodel.
+            if (!this.form.name || !this.form.name.trim()) {
+                this.errors.name = this.t('validation.required', { field: this.t('fields.name') })
+                    || 'Name is required.';
+                this.touched.name = true;
+                isValid = false;
+            }
 
-            // Validate description
-
-            // Validate defectType
-
-            // Validate severity
-
-            // Validate detectionDate
-
-            // Validate affectedArea
-
-            // Validate treatmentHistory
-
-            // Validate requiresImmediateAction
 
             return isValid;
         },
@@ -223,9 +217,9 @@ export default {
         <form @submit.prevent="handleSubmit" class="form defect-form">
             <h2>{{ mode === 'create' ? t('common.create') : t('common.edit') }} {{ t('entities.defect') }}</h2>
 
-            <div class="form-group" v-if="mode === 'edit' || true">
+            <div class="form-group">
                 <label class="form-label" for="name">
-                    {{ t('fields.name') }}
+                    {{ t('fields.name') }} <span class="form-required" aria-hidden="true">*</span>
                 </label>
 
                 <input
@@ -243,7 +237,7 @@ export default {
                 </span>
             </div>
 
-            <div class="form-group" v-if="mode === 'edit' || true">
+            <div class="form-group">
                 <label class="form-label" for="description">
                     {{ t('fields.description') }}
                 </label>
@@ -264,7 +258,7 @@ export default {
                 </span>
             </div>
 
-            <div class="form-group" v-if="mode === 'edit' || true">
+            <div class="form-group">
                 <label class="form-label" for="defectType">
                     {{ t('fields.defectType') }}
                 </label>
@@ -305,7 +299,7 @@ export default {
                 </span>
             </div>
 
-            <div class="form-group" v-if="mode === 'edit' || true">
+            <div class="form-group">
                 <label class="form-label" for="severity">
                     {{ t('fields.severity') }}
                 </label>
@@ -330,7 +324,7 @@ export default {
                 </span>
             </div>
 
-            <div class="form-group" v-if="mode === 'edit' || true">
+            <div class="form-group">
                 <label class="form-label" for="detectionDate">
                     {{ t('fields.detectionDate') }}
                 </label>
@@ -350,7 +344,7 @@ export default {
                 </span>
             </div>
 
-            <div class="form-group" v-if="mode === 'edit' || true">
+            <div class="form-group">
                 <label class="form-label" for="affectedArea">
                     {{ t('fields.affectedArea') }}
                 </label>
@@ -370,7 +364,7 @@ export default {
                 </span>
             </div>
 
-            <div class="form-group" v-if="mode === 'edit' || true">
+            <div class="form-group">
                 <label class="form-label" for="treatmentHistory">
                     {{ t('fields.treatmentHistory') }}
                 </label>
@@ -390,7 +384,7 @@ export default {
                 </span>
             </div>
 
-            <div class="form-group" v-if="mode === 'edit' || true">
+            <div class="form-group">
                 <label class="form-label" for="requiresImmediateAction">
                     {{ t('fields.requiresImmediateAction') }}
                 </label>
@@ -411,7 +405,7 @@ export default {
             </div>
 
 
-            <fieldset class="form-fieldset" v-if="mode === 'edit'">
+            <fieldset class="form-fieldset">
                 <legend class="form-legend">{{ t('fields.reference') }}</legend>
                 <div class="form-group">
                     <label class="form-label" for="reference_gid">

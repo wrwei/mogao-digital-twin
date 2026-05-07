@@ -303,16 +303,24 @@ body {
     cursor: not-allowed;
 }
 
-.tool-btn-hint {
-    font-size: 12px;
-    color: #e07a5f;
-    margin-left: 4px;
-    animation: hint-fade 4s ease forwards;
+/* Visually de-emphasised but still clickable (e.g. Simulation tab while
+ * pigment analysis hasn't run yet). Gives the user a clear "this is
+ * locked, click to learn why" affordance instead of a dead button. */
+.tool-btn-locked {
+    opacity: 0.55;
+    border-style: dashed;
+    cursor: help;
 }
 
-@keyframes hint-fade {
-    0%, 80% { opacity: 1; }
-    100% { opacity: 0; }
+.tool-btn-hint {
+    font-size: 12px;
+    color: var(--warning-color, #f59e0b);
+    background: var(--warning-bg, #fff8e8);
+    border-left: 3px solid var(--warning-color, #f59e0b);
+    padding: 4px 10px;
+    border-radius: 4px;
+    margin-left: 8px;
+    align-self: center;
 }
 
 /* Pigment panel spinner */

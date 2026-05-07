@@ -1102,6 +1102,8 @@ const app = createApp({
             // Anomaly count (sidebar badge) — admin only
             anomalyCount: 0,
             _anomalyTimer: null,
+            _healthTimer:  null,
+            _onVisibility: null,
 
             // Drill-in from MaintenanceQueue: { gid, type } pending selection
             pendingArtifactDrillIn: null,
@@ -1186,17 +1188,25 @@ const app = createApp({
         },
 
         async checkBackendConnection() {
+            // Skip when the tab is hidden — saves an idle request every 30 s
+            // and avoids piling up backlog when the user comes back to the tab.
+            if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
             try {
                 const response = await window.api.health.check();
                 this.backendOnline = response.data.status !== 'offline';
             } catch (error) {
                 this.backendOnline = false;
+                if (error.response?.status === 401) this._stopBackgroundPolls();
                 console.warn('Backend connection check failed:', error.message);
             }
         },
 
         async fetchAnomalyCount() {
             if (!this.isAdmin) return;
+            // Skip when the tab is hidden, the JWT is gone, or the user has
+            // become a guest mid-session — those are silent failure modes.
+            if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+            if (!localStorage.getItem('mgemini-token')) return;
             try {
                 const res = await window.api.maintenance.anomalies();
                 const list = Array.isArray(res.data) ? res.data
@@ -1204,9 +1214,17 @@ const app = createApp({
                     : [];
                 this.anomalyCount = list.length;
             } catch (err) {
-                // Silent — don't spam on auth hiccups
                 this.anomalyCount = 0;
+                // 401 means the token expired or the role no longer has admin
+                // privileges; stop hammering the endpoint until the next sign-in.
+                if (err.response?.status === 401) this._stopBackgroundPolls();
             }
+        },
+
+        /** Tear down the two background polling timers. Used on auth-loss. */
+        _stopBackgroundPolls() {
+            if (this._anomalyTimer) { clearInterval(this._anomalyTimer); this._anomalyTimer = null; }
+            if (this._healthTimer)   { clearInterval(this._healthTimer);   this._healthTimer   = null; }
         },
 
         /**
@@ -1248,21 +1266,32 @@ const app = createApp({
             this.dashPaintings.fetchPaintings();
             this.dashInscriptions.fetchInscriptions();
 
-            // Set up periodic backend health check
-            setInterval(() => {
-                this.checkBackendConnection();
-            }, 30000);
+            // Set up periodic backend health check (handle is kept so the
+            // poll can be torn down on auth-loss).
+            this._healthTimer = setInterval(() => this.checkBackendConnection(), 30000);
 
-            // Anomaly badge poll (admin only) — initial + every 60s
+            // Anomaly badge poll (admin only) — initial + every 60s.
             if (this.isAdmin) {
                 this.fetchAnomalyCount();
                 this._anomalyTimer = setInterval(() => this.fetchAnomalyCount(), 60000);
             }
+
+            // When the tab becomes visible again, do an immediate refresh so
+            // the UI catches up before the next interval tick.
+            this._onVisibility = () => {
+                if (document.visibilityState !== 'visible') return;
+                this.checkBackendConnection();
+                if (this.isAdmin) this.fetchAnomalyCount();
+            };
+            document.addEventListener('visibilitychange', this._onVisibility);
         }
     },
 
     beforeUnmount() {
-        if (this._anomalyTimer) clearInterval(this._anomalyTimer);
+        this._stopBackgroundPolls();
+        if (this._onVisibility) {
+            document.removeEventListener('visibilitychange', this._onVisibility);
+        }
     },
 
     template: `
