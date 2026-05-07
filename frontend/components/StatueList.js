@@ -8,6 +8,7 @@ import ModelViewer from './ModelViewer.js';
 import SimulationPanel from './SimulationPanel.js';
 import Skeleton from './Skeleton.js';
 import EmptyState from './EmptyState.js';
+import { parseHash, replaceHashParams } from '../utils/router.js';
 import { useI18n } from '../i18n.js';
 
 export default {
@@ -61,6 +62,14 @@ export default {
             this.windowHeight = window.innerHeight;
         };
         window.addEventListener('resize', this.handleResize);
+
+        // Hydrate the search box from the URL so refresh / shared links
+        // restore the filter; the watcher writes it back via replaceState.
+        const q = parseHash().params.q;
+        if (q) this.searchQuery = q;
+    },
+    watch: {
+        searchQuery(q) { replaceHashParams({ q: q || null }); }
     },
     beforeUnmount() {
         if (this.handleResize) {
@@ -140,7 +149,6 @@ export default {
             return this.statues.find(item => item.gid === this.selectedGid);
         }
     },
-    mounted() {},
     template: `
         <div class="statue-list-container" style="display: grid; grid-template-columns: 280px 1fr; width: 100%; height: calc(100vh - 140px); gap: 0;">
             <!-- Left Panel: List -->

@@ -8,6 +8,7 @@ import ModelViewer from './ModelViewer.js';
 import SimulationPanel from './SimulationPanel.js';
 import Skeleton from './Skeleton.js';
 import EmptyState from './EmptyState.js';
+import { parseHash, replaceHashParams } from '../utils/router.js';
 import { useI18n } from '../i18n.js';
 
 export default {
@@ -61,6 +62,14 @@ export default {
             this.windowHeight = window.innerHeight;
         };
         window.addEventListener('resize', this.handleResize);
+
+        // Hydrate the search box from the URL so refresh / shared links
+        // restore the filter; the watcher writes it back via replaceState.
+        const q = parseHash().params.q;
+        if (q) this.searchQuery = q;
+    },
+    watch: {
+        searchQuery(q) { replaceHashParams({ q: q || null }); }
     },
     beforeUnmount() {
         if (this.handleResize) {
@@ -139,33 +148,6 @@ export default {
             if (!this.selectedGid) return null;
             return this.murals.find(item => item.gid === this.selectedGid);
         }
-    },
-    mounted() {
-        // Debug logging for layout sizes
-        this.$nextTick(() => {
-            setTimeout(() => {
-                const container = document.querySelector('.mural-list-container');
-                const viewerPanel = document.querySelector('.entity-viewer-panel');
-
-                console.log('=== Mural List Layout Debug ===');
-                if (container) {
-                    console.log('Grid Container:', {
-                        width: container.offsetWidth,
-                        height: container.offsetHeight,
-                        computedWidth: window.getComputedStyle(container).width
-                    });
-                }
-                if (viewerPanel) {
-                    console.log('Viewer Panel:', {
-                        width: viewerPanel.offsetWidth,
-                        height: viewerPanel.offsetHeight,
-                        computedWidth: window.getComputedStyle(viewerPanel).width
-                    });
-                }
-                console.log('Viewport width:', window.innerWidth);
-                console.log('Expected viewer width:', window.innerWidth - 280);
-            }, 500);
-        });
     },
     template: `
         <div class="mural-list-container" style="display: grid; grid-template-columns: 280px 1fr; width: 100%; height: calc(100vh - 140px); gap: 0;">

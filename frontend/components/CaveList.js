@@ -14,6 +14,7 @@ import PaintingForm from './PaintingForm.js';
 import InscriptionForm from './InscriptionForm.js';
 import Skeleton from './Skeleton.js';
 import EmptyState from './EmptyState.js';
+import { parseHash, replaceHashParams } from '../utils/router.js';
 import { useI18n } from '../i18n.js';
 import { vFocusTrap } from '../utils/a11y.js';
 
@@ -77,6 +78,12 @@ export default {
         this.handleResize = () => { this.windowWidth = window.innerWidth; this.windowHeight = window.innerHeight; };
         window.addEventListener('resize', this.handleResize);
         if (this.pendingDrillIn) this._processDrillIn(this.pendingDrillIn);
+
+        // Hydrate the search box from the URL so refresh / shared links
+        // restore the filter; the watcher below writes it back via
+        // replaceState (no history pollution per keystroke).
+        const q = parseHash().params.q;
+        if (q) this.searchQuery = q;
     },
     beforeUnmount() {
         if (this.handleResize) window.removeEventListener('resize', this.handleResize);
@@ -229,6 +236,7 @@ export default {
         }
     },
     watch: {
+        searchQuery(q) { replaceHashParams({ q: q || null }); },
         pendingDrillIn(newVal) {
             if (newVal) this._processDrillIn(newVal);
         },
