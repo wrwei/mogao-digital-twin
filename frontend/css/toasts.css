@@ -1,0 +1,97 @@
+/* ─────────────────────────────────────────────────────────────────────
+ * Toast stack — bottom-right notification stack.
+ *
+ * Replaces the single inline ErrorMessage banner. Toasts stack instead
+ * of overwriting each other. Colours come from the severity token set
+ * (severity.css) using the soft variant for less aggressive presence.
+ * ──────────────────────────────────────────────────────────────────── */
+
+.toast-stack {
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    z-index: 9999;
+    pointer-events: none;
+    max-width: min(420px, calc(100vw - 32px));
+    width: 100%;
+}
+
+.toast-stack-inner {
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 10px;
+    align-items: stretch;
+}
+
+.toast {
+    pointer-events: auto;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 12px 12px 14px;
+    border-radius: var(--radius-md, 8px);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.16), 0 2px 6px rgba(0, 0, 0, 0.08);
+    border-left: 4px solid var(--severity-info-bg);
+    background: var(--severity-info-soft);
+    color: var(--severity-info-soft-fg);
+    font-size: 14px;
+    line-height: 1.45;
+}
+
+.toast[data-level="critical"] { background: var(--severity-critical-soft); color: var(--severity-critical-soft-fg); border-left-color: var(--severity-critical-bg); }
+.toast[data-level="high"]     { background: var(--severity-high-soft);     color: var(--severity-high-soft-fg);     border-left-color: var(--severity-high-bg); }
+.toast[data-level="medium"]   { background: var(--severity-medium-soft);   color: var(--severity-medium-soft-fg);   border-left-color: var(--severity-medium-bg); }
+.toast[data-level="low"]      { background: var(--severity-low-soft);      color: var(--severity-low-soft-fg);      border-left-color: var(--severity-low-bg); }
+.toast[data-level="ok"]       { background: var(--severity-ok-soft);       color: var(--severity-ok-soft-fg);       border-left-color: var(--severity-ok-bg); }
+.toast[data-level="info"]     { background: var(--severity-info-soft);     color: var(--severity-info-soft-fg);     border-left-color: var(--severity-info-bg); }
+
+.toast-icon {
+    font-size: 16px;
+    line-height: 1.4;
+    flex-shrink: 0;
+}
+
+.toast-message {
+    flex: 1;
+    word-break: break-word;
+}
+
+.toast-dismiss {
+    background: transparent;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    font-size: 20px;
+    line-height: 1;
+    padding: 0 4px;
+    opacity: 0.65;
+    flex-shrink: 0;
+}
+
+.toast-dismiss:hover { opacity: 1; }
+
+.toast-dismiss:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+    opacity: 1;
+}
+
+/* Slide-in from the right, fade out in place */
+.toast-slide-enter-active,
+.toast-slide-leave-active {
+    transition: transform 220ms ease, opacity 220ms ease;
+}
+
+.toast-slide-enter-from {
+    transform: translateX(110%);
+    opacity: 0;
+}
+
+.toast-slide-leave-to {
+    opacity: 0;
+    transform: translateX(20%);
+}
+
+.toast-slide-move {
+    transition: transform 220ms ease;
+}

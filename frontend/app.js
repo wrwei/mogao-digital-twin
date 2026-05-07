@@ -13,6 +13,7 @@ import { useI18n } from './i18n.js';
 import { vFocusTrap } from './utils/a11y.js';
 import { parseHash, setHash, subscribeRoute } from './utils/router.js';
 import ConfirmDialog from './components/ConfirmDialog.js';
+import ToastStack from './components/ToastStack.js';
 
 // ============================================
 // Generated Component Imports
@@ -423,30 +424,6 @@ const LoadingSpinner = {
         <div class="loading-overlay">
             <div class="spinner"></div>
             <p style="margin-top: var(--spacing-md); color: var(--text-secondary);">{{ t('common.loading') }}</p>
-        </div>
-    `
-};
-
-const ErrorMessage = {
-    props: ['message', 'type'],
-    emits: ['dismiss'],
-    setup() {
-        const { t } = useI18n();
-        return { t };
-    },
-    template: `
-        <div :style="{
-            background: type === 'success' ? '#10b981' : (type === 'warning' ? '#f59e0b' : 'var(--error-color)'),
-            color: 'white',
-            padding: 'var(--spacing-md)',
-            margin: 'var(--spacing-md)',
-            borderRadius: 'var(--radius-md)',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center'
-        }">
-            <span>{{ type === 'success' ? '✅' : (type === 'warning' ? '⚠️' : '❌') }} {{ message }}</span>
-            <button @click="$emit('dismiss')" :aria-label="t('common.close') || 'Close'" style="background: transparent; border: none; color: white; cursor: pointer; font-size: 20px;">&times;</button>
         </div>
     `
 };
@@ -1126,7 +1103,6 @@ const app = createApp({
         AppTopbar,
         DashboardView,
         LoadingSpinner,
-        ErrorMessage,
         ModalDialog,
         CaveView,
         StatueView,
@@ -1137,6 +1113,7 @@ const app = createApp({
         SensorDashboard,
         MaintenanceQueue,
         ConfirmDialog,
+        ToastStack,
     },
     setup() {
         const { locale, t, setLocale } = useI18n();
@@ -1179,9 +1156,12 @@ const app = createApp({
             // and runs the route-arrival side effects (admin guard, fetches).
             currentView: 'dashboard',
             loading: false,
-            error: null,
-            message: null,
-            messageType: 'info',
+
+            // Toast stack — replaces the single inline ErrorMessage banner.
+            // showMessage() pushes a toast with a per-toast auto-dismiss
+            // timer so two errors in a row no longer overwrite each other.
+            toasts: [],
+            _toastSeq: 0,
 
             // Backend connection status
             backendOnline: false,
@@ -1302,17 +1282,18 @@ const app = createApp({
             document.documentElement.setAttribute('data-theme', themeId);
         },
 
-        showMessage(message, type = 'info') {
-            this.message = message;
-            this.messageType = type;
-            setTimeout(() => {
-                this.message = null;
-            }, 5000);
+        showMessage(message, type = 'info', duration = 5000) {
+            const id = ++this._toastSeq;
+            this.toasts.push({ id, message, type });
+            if (duration > 0) {
+                setTimeout(() => this.dismissToast(id), duration);
+            }
+            return id;
         },
 
-        dismissError() {
-            this.error = null;
-            this.message = null;
+        dismissToast(id) {
+            const idx = this.toasts.findIndex(t => t.id === id);
+            if (idx !== -1) this.toasts.splice(idx, 1);
         },
 
         handlePreferencesChanged(prefs) {
@@ -1466,12 +1447,6 @@ const app = createApp({
                     @logout="handleLogout"
                 ></app-topbar>
 
-                <error-message
-                    v-if="error || message"
-                    :message="error || message"
-                    :type="error ? 'error' : messageType"
-                    @dismiss="dismissError"
-                ></error-message>
 
                 <div class="main-content">
                     <loading-spinner v-if="loading"></loading-spinner>
@@ -1536,6 +1511,11 @@ const app = createApp({
         <!-- Themed replacement for window.confirm() — mounted once at root,
              driven by the $confirm injection. -->
         <confirm-dialog :state="confirmState"></confirm-dialog>
+
+        <!-- Bottom-right toast stack. showMessage() pushes; each toast has
+             its own auto-dismiss timer so consecutive errors stack instead
+             of overwriting. -->
+        <toast-stack :toasts="toasts" @dismiss="dismissToast"></toast-stack>
     `
 });
 
