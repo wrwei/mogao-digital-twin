@@ -499,7 +499,8 @@ const CaveView = {
         DrawerPanel,
     },
     props: {
-        pendingDrillIn: { type: Object, default: null }
+        pendingDrillIn: { type: Object, default: null },
+        initialGid:     { type: String, default: null }
     },
     emits: ['show-message', 'item-selected', 'drill-in-consumed'],
     inject: ['$confirm'],
@@ -568,11 +569,28 @@ const CaveView = {
             this.selectedItem = item;
             this.detailItem = item;
             this.showDetail = true;
+            setHash('caves', item.gid);
         },
         handleCloseDetail() {
             this.showDetail = false;
             this.detailItem = null;
+            setHash('caves');
+        },
+        _syncFromUrl() {
+            const gid = this.initialGid;
+            if (!gid) {
+                if (this.showDetail) this.handleCloseDetail();
+                return;
+            }
+            if (this.showDetail && this.selectedGid === gid) return;
+            const list = this.caves || [];
+            const item = list.find(c => c.gid === gid);
+            if (item) this.handleViewDetail(item);
         }
+    },
+    watch: {
+        initialGid: { immediate: true, handler() { this._syncFromUrl(); } },
+        caves:      { handler() { this._syncFromUrl(); } }
     },
     mounted() {
         this.fetchCaves();
@@ -623,6 +641,9 @@ const StatueView = {
         StatueDetailView,
         ModalDialog,
         DrawerPanel,
+    },
+    props: {
+        initialGid: { type: String, default: null }
     },
     inject: ['$confirm'],
     setup() {
@@ -690,11 +711,28 @@ const StatueView = {
             this.selectedItem = item;
             this.detailItem = item;
             this.showDetail = true;
+            setHash('statues', item.gid);
         },
         handleCloseDetail() {
             this.showDetail = false;
             this.detailItem = null;
+            setHash('statues');
+        },
+        _syncFromUrl() {
+            const gid = this.initialGid;
+            if (!gid) {
+                if (this.showDetail) this.handleCloseDetail();
+                return;
+            }
+            if (this.showDetail && this.selectedGid === gid) return;
+            const list = this.statues || [];
+            const item = list.find(s => s.gid === gid);
+            if (item) this.handleViewDetail(item);
         }
+    },
+    watch: {
+        initialGid: { immediate: true, handler() { this._syncFromUrl(); } },
+        statues:    { handler() { this._syncFromUrl(); } }
     },
     mounted() {
         this.fetchStatues();
@@ -743,6 +781,9 @@ const MuralView = {
         MuralDetailView,
         ModalDialog,
         DrawerPanel,
+    },
+    props: {
+        initialGid: { type: String, default: null }
     },
     inject: ['$confirm'],
     setup() {
@@ -810,11 +851,28 @@ const MuralView = {
             this.selectedItem = item;
             this.detailItem = item;
             this.showDetail = true;
+            setHash('murals', item.gid);
         },
         handleCloseDetail() {
             this.showDetail = false;
             this.detailItem = null;
+            setHash('murals');
+        },
+        _syncFromUrl() {
+            const gid = this.initialGid;
+            if (!gid) {
+                if (this.showDetail) this.handleCloseDetail();
+                return;
+            }
+            if (this.showDetail && this.selectedGid === gid) return;
+            const list = this.murals || [];
+            const item = list.find(m => m.gid === gid);
+            if (item) this.handleViewDetail(item);
         }
+    },
+    watch: {
+        initialGid: { immediate: true, handler() { this._syncFromUrl(); } },
+        murals:     { handler() { this._syncFromUrl(); } }
     },
     mounted() {
         this.fetchMurals();
@@ -863,6 +921,9 @@ const PaintingView = {
         PaintingDetailView,
         ModalDialog,
         DrawerPanel,
+    },
+    props: {
+        initialGid: { type: String, default: null }
     },
     inject: ['$confirm'],
     setup() {
@@ -930,11 +991,28 @@ const PaintingView = {
             this.selectedItem = item;
             this.detailItem = item;
             this.showDetail = true;
+            setHash('paintings', item.gid);
         },
         handleCloseDetail() {
             this.showDetail = false;
             this.detailItem = null;
+            setHash('paintings');
+        },
+        _syncFromUrl() {
+            const gid = this.initialGid;
+            if (!gid) {
+                if (this.showDetail) this.handleCloseDetail();
+                return;
+            }
+            if (this.showDetail && this.selectedGid === gid) return;
+            const list = this.paintings || [];
+            const item = list.find(p => p.gid === gid);
+            if (item) this.handleViewDetail(item);
         }
+    },
+    watch: {
+        initialGid: { immediate: true, handler() { this._syncFromUrl(); } },
+        paintings:  { handler() { this._syncFromUrl(); } }
     },
     mounted() {
         this.fetchPaintings();
@@ -983,6 +1061,9 @@ const InscriptionView = {
         InscriptionDetailView,
         ModalDialog,
         DrawerPanel,
+    },
+    props: {
+        initialGid: { type: String, default: null }
     },
     inject: ['$confirm'],
     setup() {
@@ -1050,11 +1131,28 @@ const InscriptionView = {
             this.selectedItem = item;
             this.detailItem = item;
             this.showDetail = true;
+            setHash('inscriptions', item.gid);
         },
         handleCloseDetail() {
             this.showDetail = false;
             this.detailItem = null;
+            setHash('inscriptions');
+        },
+        _syncFromUrl() {
+            const gid = this.initialGid;
+            if (!gid) {
+                if (this.showDetail) this.handleCloseDetail();
+                return;
+            }
+            if (this.showDetail && this.selectedGid === gid) return;
+            const list = this.inscriptions || [];
+            const item = list.find(i => i.gid === gid);
+            if (item) this.handleViewDetail(item);
         }
+    },
+    watch: {
+        initialGid:   { immediate: true, handler() { this._syncFromUrl(); } },
+        inscriptions: { handler() { this._syncFromUrl(); } }
     },
     mounted() {
         this.fetchInscriptions();
@@ -1184,6 +1282,12 @@ const app = createApp({
             // Drill-in from MaintenanceQueue: { gid, type } pending selection
             pendingArtifactDrillIn: null,
 
+            // gid extracted from the URL (e.g. #/caves/cave-001 → 'cave-001').
+            // _applyRoute updates this on every route change; entity views
+            // receive it via :initial-gid and reconcile their detail-drawer
+            // state against it. Single source of truth: URL drives state.
+            routeGid: null,
+
             // Themed-confirm dialog state. Components inject('$confirm') to
             // open it; the dialog component reads this state via prop and
             // resolves the queued promise on confirm/cancel.
@@ -1269,6 +1373,7 @@ const app = createApp({
                 return;
             }
             this.currentView = view;
+            this.routeGid = parseHash().gid;
             if (view === 'dashboard') {
                 this.dashCaves.fetchCaves();
                 this.dashStatues.fetchStatues();
@@ -1524,27 +1629,32 @@ const app = createApp({
                         <cave-view
                             v-if="currentView === 'caves'"
                             :pending-drill-in="pendingArtifactDrillIn"
+                            :initial-gid="routeGid"
                             @drill-in-consumed="clearPendingDrillIn"
                             @show-message="showMessage"
                             @item-selected="() => {}"
                         ></cave-view>
                         <statue-view
                             v-if="currentView === 'statues'"
+                            :initial-gid="routeGid"
                             @show-message="showMessage"
                             @item-selected="() => {}"
                         ></statue-view>
                         <mural-view
                             v-if="currentView === 'murals'"
+                            :initial-gid="routeGid"
                             @show-message="showMessage"
                             @item-selected="() => {}"
                         ></mural-view>
                         <painting-view
                             v-if="currentView === 'paintings'"
+                            :initial-gid="routeGid"
                             @show-message="showMessage"
                             @item-selected="() => {}"
                         ></painting-view>
                         <inscription-view
                             v-if="currentView === 'inscriptions'"
+                            :initial-gid="routeGid"
                             @show-message="showMessage"
                             @item-selected="() => {}"
                         ></inscription-view>
