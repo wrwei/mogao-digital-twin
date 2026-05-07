@@ -8,9 +8,12 @@
  * Phase 4 of the Predictive Analytics Plan.
  */
 import { useI18n } from '../i18n.js';
+import StatusBadge from './StatusBadge.js';
+import StatusCard from './StatusCard.js';
 
 export default {
     name: 'MaintenanceQueue',
+    components: { StatusBadge, StatusCard },
     emits: ['drill-in'],
     setup() {
         const { t } = useI18n();
@@ -61,14 +64,11 @@ export default {
                 this.loading = false;
             }
         },
-        tierColor(tier) {
-            return { critical: '#ef4444', high: '#f59e0b', medium: '#eab308', low: '#10b981' }[tier] || '#6b7280';
-        },
-        priorityLabel(p) {
-            return { critical: '⚠ Critical', high: '🔶 High', medium: '◆ Medium', low: '✓ Low', info: 'ℹ Info' }[p] || p;
-        },
-        priorityColor(p) {
-            return { critical: '#991b1b', high: '#b45309', medium: '#a16207', low: '#065f46', info: '#374151' }[p] || '#374151';
+        /** Resolve a severity level to a CSS custom property name so the
+         *  progress-bar fill picks up the shared severity tokens. */
+        tierColorVar(tier) {
+            const known = ['critical', 'high', 'medium', 'low', 'ok', 'info'].includes(tier);
+            return known ? `var(--severity-${tier}-bg)` : 'var(--severity-neutral-bg)';
         },
         toggleExpand(gid) {
             this.expandedGid = this.expandedGid === gid ? null : gid;
@@ -274,30 +274,16 @@ export default {
 
             <!-- Stats row -->
             <div v-if="!loading && rows.length > 0" style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 16px;">
-                <div class="stat-card" style="padding: 12px;">
-                    <div style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Total</div>
-                    <div style="font-size: 24px; font-weight: 700;">{{ stats.total }}</div>
-                </div>
-                <div class="stat-card" @click="tierFilter='critical'" style="padding: 12px; cursor: pointer;" :style="tierFilter==='critical' ? 'outline: 2px solid #ef4444;' : ''">
-                    <div style="font-size: 11px; color: #ef4444; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Critical</div>
-                    <div style="font-size: 24px; font-weight: 700; color: #ef4444;">{{ stats.counts.critical || 0 }}</div>
-                </div>
-                <div class="stat-card" @click="tierFilter='high'" style="padding: 12px; cursor: pointer;" :style="tierFilter==='high' ? 'outline: 2px solid #f59e0b;' : ''">
-                    <div style="font-size: 11px; color: #f59e0b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">High</div>
-                    <div style="font-size: 24px; font-weight: 700; color: #f59e0b;">{{ stats.counts.high || 0 }}</div>
-                </div>
-                <div class="stat-card" @click="tierFilter='medium'" style="padding: 12px; cursor: pointer;" :style="tierFilter==='medium' ? 'outline: 2px solid #eab308;' : ''">
-                    <div style="font-size: 11px; color: #a16207; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Medium</div>
-                    <div style="font-size: 24px; font-weight: 700; color: #a16207;">{{ stats.counts.medium || 0 }}</div>
-                </div>
-                <div class="stat-card" @click="tierFilter='low'" style="padding: 12px; cursor: pointer;" :style="tierFilter==='low' ? 'outline: 2px solid #10b981;' : ''">
-                    <div style="font-size: 11px; color: #10b981; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Low</div>
-                    <div style="font-size: 24px; font-weight: 700; color: #10b981;">{{ stats.counts.low || 0 }}</div>
-                </div>
-                <div class="stat-card" style="padding: 12px;">
-                    <div style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Active anomalies</div>
-                    <div style="font-size: 24px; font-weight: 700;">{{ stats.anomalies }}</div>
-                </div>
+                <status-card level="neutral" title="Total" :value="stats.total"></status-card>
+                <status-card level="critical" title="Critical" :value="stats.counts.critical || 0"
+                             clickable :active="tierFilter==='critical'" @click="tierFilter='critical'"></status-card>
+                <status-card level="high" title="High" :value="stats.counts.high || 0"
+                             clickable :active="tierFilter==='high'" @click="tierFilter='high'"></status-card>
+                <status-card level="medium" title="Medium" :value="stats.counts.medium || 0"
+                             clickable :active="tierFilter==='medium'" @click="tierFilter='medium'"></status-card>
+                <status-card level="low" title="Low" :value="stats.counts.low || 0"
+                             clickable :active="tierFilter==='low'" @click="tierFilter='low'"></status-card>
+                <status-card level="neutral" title="Active anomalies" :value="stats.anomalies"></status-card>
             </div>
 
             <!-- Search + filter -->
@@ -331,10 +317,7 @@ export default {
                         <template v-for="r in filtered" :key="r.gid">
                             <tr style="border-bottom: 1px solid #f0f0f0; cursor: pointer;" @click="toggleExpand(r.gid)">
                                 <td style="padding: 8px 10px;">
-                                    <span :style="{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 700, color: tierColor(r.priorityTier) }">
-                                        <span :style="{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: tierColor(r.priorityTier) }"></span>
-                                        {{ r.priorityTier }}
-                                    </span>
+                                    <status-badge :level="r.priorityTier" variant="dot" :label="r.priorityTier"></status-badge>
                                 </td>
                                 <td style="padding: 8px 10px; text-align: right; font-weight: 700;">{{ r.score.toFixed(2) }}</td>
                                 <td style="padding: 8px 10px;">
@@ -351,7 +334,7 @@ export default {
                                     <template v-else>—</template>
                                 </td>
                                 <td style="padding: 8px 10px; text-align: right;">
-                                    <span :style="{ color: r.anomalies > 0 ? '#ef4444' : 'var(--text-secondary)', fontWeight: r.anomalies > 0 ? 700 : 400 }">
+                                    <span :class="r.anomalies > 0 ? 'text-severity-high' : 'text-muted'" :style="{ fontWeight: r.anomalies > 0 ? 700 : 400 }">
                                         {{ r.anomalies }}
                                     </span>
                                 </td>
@@ -360,10 +343,8 @@ export default {
                                 </td>
                                 <td style="padding: 8px 10px; font-size: 11px; max-width: 360px;">
                                     <template v-if="r.recommendations && r.recommendations.length > 0">
-                                        <span :style="{ color: priorityColor(r.recommendations[0].priority), fontWeight: 600 }">
-                                            {{ priorityLabel(r.recommendations[0].priority) }}
-                                        </span>
-                                        {{ r.recommendations[0].message }}
+                                        <status-badge :level="r.recommendations[0].priority" :label="r.recommendations[0].priority"></status-badge>
+                                        <span style="margin-left: 6px;">{{ r.recommendations[0].message }}</span>
                                     </template>
                                 </td>
                             </tr>
@@ -394,22 +375,22 @@ export default {
                                             <div style="display: grid; grid-template-columns: auto 1fr auto; gap: 4px 10px; font-size: 12px; margin-bottom: 12px;">
                                                 <span style="color: var(--text-secondary);">Current damage</span>
                                                 <div style="background: #e5e5e5; border-radius: 4px; height: 8px; align-self: center; position: relative;">
-                                                    <div :style="{ width: pct(r.indices.damage), background: tierColor(r.priorityTier), height: '100%', borderRadius: '4px' }"></div>
+                                                    <div :style="{ width: pct(r.indices.damage), background: tierColorVar(r.priorityTier), height: '100%', borderRadius: '4px' }"></div>
                                                 </div>
                                                 <span>{{ pct(r.indices.damage) }}</span>
                                                 <span style="color: var(--text-secondary);">ETA urgency</span>
                                                 <div style="background: #e5e5e5; border-radius: 4px; height: 8px; align-self: center; position: relative;">
-                                                    <div :style="{ width: pct(r.indices.eta), background: '#f59e0b', height: '100%', borderRadius: '4px' }"></div>
+                                                    <div :style="{ width: pct(r.indices.eta), background: 'var(--severity-medium-bg)', height: '100%', borderRadius: '4px' }"></div>
                                                 </div>
                                                 <span>{{ pct(r.indices.eta) }}</span>
                                                 <span style="color: var(--text-secondary);">Active anomalies</span>
                                                 <div style="background: #e5e5e5; border-radius: 4px; height: 8px; align-self: center; position: relative;">
-                                                    <div :style="{ width: pct(r.indices.anomaly), background: '#ef4444', height: '100%', borderRadius: '4px' }"></div>
+                                                    <div :style="{ width: pct(r.indices.anomaly), background: 'var(--severity-high-bg)', height: '100%', borderRadius: '4px' }"></div>
                                                 </div>
                                                 <span>{{ r.anomalies }}</span>
                                                 <span style="color: var(--text-secondary);">Inspection age</span>
                                                 <div style="background: #e5e5e5; border-radius: 4px; height: 8px; align-self: center; position: relative;">
-                                                    <div :style="{ width: pct(r.indices.inspection), background: '#3b82f6', height: '100%', borderRadius: '4px' }"></div>
+                                                    <div :style="{ width: pct(r.indices.inspection), background: 'var(--severity-info-bg)', height: '100%', borderRadius: '4px' }"></div>
                                                 </div>
                                                 <span>{{ r.daysSinceInspection != null ? Math.round(r.daysSinceInspection) + ' d' : '—' }}</span>
                                                 <span style="color: var(--text-secondary);">Conservation status</span>
@@ -422,9 +403,7 @@ export default {
                                             <div style="font-weight: 600; margin: 10px 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary);">Recommendations</div>
                                             <ul style="margin: 0; padding-left: 18px; font-size: 12px; line-height: 1.6;">
                                                 <li v-for="(rec, i) in r.recommendations" :key="i">
-                                                    <span :style="{ color: priorityColor(rec.priority), fontWeight: 600 }">
-                                                        {{ priorityLabel(rec.priority) }}
-                                                    </span>
+                                                    <status-badge :level="rec.priority" :label="rec.priority"></status-badge>
                                                     — {{ rec.message }}
                                                 </li>
                                             </ul>
@@ -450,10 +429,8 @@ export default {
                                             <div v-if="r.anomalyDetail && r.anomalyDetail.length > 0" style="font-weight: 600; margin: 10px 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary);">Active anomalies</div>
                                             <ul v-if="r.anomalyDetail && r.anomalyDetail.length > 0" style="margin: 0; padding-left: 18px; font-size: 11px; line-height: 1.5;">
                                                 <li v-for="(a, i) in r.anomalyDetail" :key="i">
-                                                    <span :style="{ color: a.severity === 'critical' ? '#dc2626' : a.severity === 'high' ? '#b45309' : '#64748b', fontWeight: 600 }">
-                                                        [{{ a.rule }}]
-                                                    </span>
-                                                    {{ a.sensorName }}: {{ a.message }}
+                                                    <status-badge :level="a.severity" :label="a.rule"></status-badge>
+                                                    <span style="margin-left: 4px;">{{ a.sensorName }}: {{ a.message }}</span>
                                                 </li>
                                             </ul>
                                         </div>

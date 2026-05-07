@@ -10,9 +10,11 @@
  *     the forward-projected continuation
  */
 import { useI18n } from '../i18n.js';
+import StatusBadge from './StatusBadge.js';
 
 export default {
     name: 'PredictionPanel',
+    components: { StatusBadge },
     props: {
         entity: { type: Object, default: null }
     },
@@ -142,13 +144,15 @@ export default {
             return n.toFixed(digits);
         },
 
-        tierColor(current, threshold) {
-            if (threshold == null) return '#6b7280';
+        /** Map a (current / threshold) ratio onto the shared severity-token
+         *  level used by StatusCard. */
+        tierLevel(current, threshold) {
+            if (threshold == null) return 'neutral';
             const frac = current / threshold;
-            if (frac >= 1) return '#ef4444';
-            if (frac >= 0.66) return '#f59e0b';
-            if (frac >= 0.33) return '#eab308';
-            return '#10b981';
+            if (frac >= 1)    return 'critical';
+            if (frac >= 0.66) return 'high';
+            if (frac >= 0.33) return 'medium';
+            return 'ok';
         },
 
         drawChart() {
@@ -303,34 +307,34 @@ export default {
             </div>
 
             <!-- No sensors / no data -->
-            <div v-if="!loading && !hasSensors" style="background: #fff8e8; border-left: 3px solid #f59e0b; padding: 10px 12px; border-radius: 6px; font-size: 12px; color: #5c4a1a;">
+            <div v-if="!loading && !hasSensors" style="background: var(--severity-medium-soft); border-left: 3px solid var(--severity-medium-bg); padding: 10px 12px; border-radius: 6px; font-size: 12px; color: var(--severity-medium-soft-fg);">
                 No sensors linked to this artifact. Link one in the Live Data panel to enable prediction.
             </div>
-            <div v-else-if="!loading && historicalDays === 0" style="background: #fff8e8; border-left: 3px solid #f59e0b; padding: 10px 12px; border-radius: 6px; font-size: 12px; color: #5c4a1a;">
+            <div v-else-if="!loading && historicalDays === 0" style="background: var(--severity-medium-soft); border-left: 3px solid var(--severity-medium-bg); padding: 10px 12px; border-radius: 6px; font-size: 12px; color: var(--severity-medium-soft-fg);">
                 No sensor samples ingested yet for this artifact.
             </div>
 
             <!-- Error -->
-            <div v-if="error" style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; padding: 8px 12px; margin-bottom: 10px; font-size: 12px; color: #dc2626;">
+            <div v-if="error" style="background: var(--severity-high-soft); border: 1px solid var(--severity-high-bg); border-radius: 6px; padding: 8px 12px; margin-bottom: 10px; font-size: 12px; color: var(--severity-high-soft-fg);">
                 {{ error }}
             </div>
 
-            <!-- Status cards -->
+            <!-- Per-model status cards (severity-token-driven accent) -->
             <div v-if="cum" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-bottom: 14px;">
                 <div v-for="m in modelStatus" :key="m.key"
-                     :style="{ background: '#fafafa', borderRadius: '8px', padding: '10px', borderLeft: '4px solid ' + tierColor(m.current, m.threshold) }">
-                    <div style="font-size: 10px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">
-                        {{ m.icon }} {{ m.label }}
-                    </div>
-                    <div style="font-size: 18px; font-weight: 700; margin-top: 4px;">
-                        {{ fmtNum(m.current) }}
+                     class="status-card"
+                     :data-level="tierLevel(m.current, m.threshold)">
+                    <div class="status-card-title">{{ m.icon }} {{ m.label }}</div>
+                    <div class="status-card-value">
+                        <span>{{ fmtNum(m.current) }}</span>
                         <span style="font-size: 11px; color: var(--text-secondary); font-weight: 400;">{{ m.unit }}</span>
                     </div>
-                    <div v-if="m.threshold != null" style="font-size: 10px; color: var(--text-secondary);">
+                    <div v-if="m.threshold != null" class="status-card-meta">
                         of {{ fmtNum(m.threshold) }} threshold
                     </div>
-                    <div v-if="m.eta" style="font-size: 10px; margin-top: 3px; font-weight: 600;" :style="{ color: m.eta === 'crossed' ? '#dc2626' : '#f59e0b' }">
-                        {{ m.eta === 'crossed' ? '⚠ already crossed' : 'ETA: ' + m.eta }}
+                    <div v-if="m.eta" style="margin-top: 4px;">
+                        <status-badge v-if="m.eta === 'crossed'" level="critical" variant="solid" label="already crossed" icon="⚠"></status-badge>
+                        <status-badge v-else level="medium" variant="soft" :label="'ETA: ' + m.eta"></status-badge>
                     </div>
                 </div>
             </div>
@@ -359,7 +363,7 @@ export default {
             </div>
 
             <!-- Methodology note -->
-            <div v-if="cum" style="background: #fef3c7; border-left: 3px solid #f59e0b; border-radius: 6px; padding: 8px 12px; font-size: 11px; color: #5c4a1a;">
+            <div v-if="cum" style="background: var(--severity-medium-soft); border-left: 3px solid var(--severity-medium-bg); border-radius: 6px; padding: 8px 12px; font-size: 11px; color: var(--severity-medium-soft-fg);">
                 <strong>ℹ Method:</strong> historical replay integrates the five models day-by-day through the
                 actual monitored T/RH/ΔRH record. Forecast (dashed) projects forward by looping the most recent
                 year of climate — a defensible baseline when no external climate forecast is available.

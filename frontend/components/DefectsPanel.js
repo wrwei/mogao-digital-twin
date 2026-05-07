@@ -17,6 +17,7 @@
  *   DELETE /exhibits/:gid/defects/:defectGid
  */
 import { useI18n } from '../i18n.js';
+import StatusBadge from './StatusBadge.js';
 
 const DEFECT_TYPES = [
     'cracking', 'flaking', 'blistering', 'detachment', 'materialLoss',
@@ -42,6 +43,7 @@ function emptyForm() {
 
 export default {
     name: 'DefectsPanel',
+    components: { StatusBadge },
     props: {
         exhibitGid:     { type: String, required: true },
         initialDefects: { type: Array, default: () => [] }
@@ -184,9 +186,16 @@ export default {
             catch (_) { return ''; }
         },
 
-        severityColor(s) {
-            return { minor: '#65a30d', moderate: '#ca8a04',
-                     severe: '#dc2626', critical: '#7f1d1d' }[s] || '#6b7280';
+        /** Map defect severity (minor/moderate/severe/critical) onto the
+         *  shared severity-token level used by StatusBadge. */
+        severityLevel(s) {
+            return { minor: 'low', moderate: 'medium',
+                     severe: 'high', critical: 'critical' }[s] || 'neutral';
+        },
+        /** Resolve to a CSS variable for the row's left-accent border. */
+        severityAccent(s) {
+            const level = this.severityLevel(s);
+            return `var(--severity-${level}-bg)`;
         }
     },
     template: `
@@ -273,12 +282,10 @@ export default {
             <div v-else class="defects-list" style="margin-top: 8px;">
                 <div v-for="d in sortedDefects" :key="d.gid"
                      class="defect-card"
-                     :style="{ borderLeft: '4px solid ' + severityColor(d.severity) }">
+                     :style="{ borderLeft: '4px solid ' + severityAccent(d.severity) }">
                     <div class="defect-card-header">
                         <strong class="defect-name">{{ d.name || d.gid }}</strong>
-                        <span v-if="d.severity" class="badge" :style="{ background: severityColor(d.severity), color: '#fff' }">
-                            {{ d.severity }}
-                        </span>
+                        <status-badge v-if="d.severity" :level="severityLevel(d.severity)" variant="solid" :label="d.severity"></status-badge>
                         <span v-if="d.requiresImmediateAction" class="meta-urgent" style="margin-left: 6px;">⚠️</span>
                     </div>
                     <div class="defect-meta" style="font-size: 11px; color: var(--text-secondary); margin: 4px 0;">

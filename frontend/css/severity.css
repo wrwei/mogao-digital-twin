@@ -1,0 +1,199 @@
+/* ─────────────────────────────────────────────────────────────────────
+ * Severity / status token set
+ *
+ * Single source of truth for tier-coloured indicators across the app.
+ * Replaces the five hand-rolled red→green palettes that were drifting in
+ * MaintenanceQueue.js, SensorDashboard.js, PredictionPanel.js,
+ * DefectsPanel.js, and CaveList.js. Every status surface (priority tier,
+ * defect severity, sensor health, conservation status, deterioration
+ * risk) is expected to map onto one of the levels below.
+ *
+ * Levels (high → low):
+ *   critical / high / medium / low / ok / neutral / info
+ *
+ * Each level provides four tokens:
+ *   --severity-X-bg      solid background  (badge "solid" variant)
+ *   --severity-X-fg      foreground on solid bg
+ *   --severity-X-soft    tinted background (badge "soft" variant)
+ *   --severity-X-soft-fg foreground on soft bg
+ *
+ * All foreground/background pairs target WCAG AA (≥ 4.5:1 for normal
+ * text, ≥ 3:1 for large text and UI components).
+ * ──────────────────────────────────────────────────────────────────── */
+
+:root {
+    /* Tier 4 — critical (acute threat, immediate action) */
+    --severity-critical-bg:        #7f1d1d;
+    --severity-critical-fg:        #ffffff;
+    --severity-critical-soft:      #fee2e2;
+    --severity-critical-soft-fg:   #7f1d1d;
+
+    /* Tier 3 — high / severe (priority intervention) */
+    --severity-high-bg:            #dc2626;
+    --severity-high-fg:            #ffffff;
+    --severity-high-soft:          #fef2f2;
+    --severity-high-soft-fg:       #991b1b;
+
+    /* Tier 2 — medium / moderate / warning */
+    --severity-medium-bg:          #b45309;
+    --severity-medium-fg:          #ffffff;
+    --severity-medium-soft:        #fff8e8;
+    --severity-medium-soft-fg:     #92400e;
+
+    /* Tier 1 — low / minor (monitor) */
+    --severity-low-bg:             #65a30d;
+    --severity-low-fg:             #ffffff;
+    --severity-low-soft:           #f0fdf4;
+    --severity-low-soft-fg:        #166534;
+
+    /* Tier 0 — ok / nominal / online / excellent */
+    --severity-ok-bg:              #059669;
+    --severity-ok-fg:              #ffffff;
+    --severity-ok-soft:            #ecfdf5;
+    --severity-ok-soft-fg:         #065f46;
+
+    /* Neutral — offline / unknown / not-applicable */
+    --severity-neutral-bg:         #6b7280;
+    --severity-neutral-fg:         #ffffff;
+    --severity-neutral-soft:       #f3f4f6;
+    --severity-neutral-soft-fg:    #374151;
+
+    /* Info — informational, not a severity tier */
+    --severity-info-bg:            #2563eb;
+    --severity-info-fg:            #ffffff;
+    --severity-info-soft:          #eff6ff;
+    --severity-info-soft-fg:       #1e40af;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * StatusBadge component
+ *
+ * Three variants:
+ *   - solid: filled badge ("Critical", "Online")
+ *   - soft:  tinted background, dark foreground (the default)
+ *   - dot:   leading coloured dot + plain text
+ * ──────────────────────────────────────────────────────────────────── */
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.6;
+    letter-spacing: 0.02em;
+    text-transform: capitalize;
+    white-space: nowrap;
+}
+
+.status-badge[data-variant="solid"] { color: var(--severity-neutral-fg);      background: var(--severity-neutral-bg);   }
+.status-badge[data-variant="soft"]  { color: var(--severity-neutral-soft-fg); background: var(--severity-neutral-soft); }
+.status-badge[data-variant="dot"]   { color: var(--text-primary, #1c1917); background: transparent; padding-left: 0; padding-right: 0; }
+
+.status-badge[data-variant="solid"][data-level="critical"] { background: var(--severity-critical-bg); color: var(--severity-critical-fg); }
+.status-badge[data-variant="solid"][data-level="high"]     { background: var(--severity-high-bg);     color: var(--severity-high-fg); }
+.status-badge[data-variant="solid"][data-level="medium"]   { background: var(--severity-medium-bg);   color: var(--severity-medium-fg); }
+.status-badge[data-variant="solid"][data-level="low"]      { background: var(--severity-low-bg);      color: var(--severity-low-fg); }
+.status-badge[data-variant="solid"][data-level="ok"]       { background: var(--severity-ok-bg);       color: var(--severity-ok-fg); }
+.status-badge[data-variant="solid"][data-level="info"]     { background: var(--severity-info-bg);     color: var(--severity-info-fg); }
+
+.status-badge[data-variant="soft"][data-level="critical"] { background: var(--severity-critical-soft); color: var(--severity-critical-soft-fg); }
+.status-badge[data-variant="soft"][data-level="high"]     { background: var(--severity-high-soft);     color: var(--severity-high-soft-fg); }
+.status-badge[data-variant="soft"][data-level="medium"]   { background: var(--severity-medium-soft);   color: var(--severity-medium-soft-fg); }
+.status-badge[data-variant="soft"][data-level="low"]      { background: var(--severity-low-soft);      color: var(--severity-low-soft-fg); }
+.status-badge[data-variant="soft"][data-level="ok"]       { background: var(--severity-ok-soft);       color: var(--severity-ok-soft-fg); }
+.status-badge[data-variant="soft"][data-level="info"]     { background: var(--severity-info-soft);     color: var(--severity-info-soft-fg); }
+
+.status-badge-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--severity-neutral-bg);
+    flex-shrink: 0;
+}
+.status-badge[data-level="critical"] .status-badge-dot { background: var(--severity-critical-bg); }
+.status-badge[data-level="high"]     .status-badge-dot { background: var(--severity-high-bg); }
+.status-badge[data-level="medium"]   .status-badge-dot { background: var(--severity-medium-bg); }
+.status-badge[data-level="low"]      .status-badge-dot { background: var(--severity-low-bg); }
+.status-badge[data-level="ok"]       .status-badge-dot { background: var(--severity-ok-bg); }
+.status-badge[data-level="info"]     .status-badge-dot { background: var(--severity-info-bg); }
+
+/* ─────────────────────────────────────────────────────────────────────
+ * StatusCard component
+ *
+ * Click-target summary card with a coloured left accent matching its
+ * severity level. Used for the tier-count tiles at the top of admin
+ * panels (MaintenanceQueue, SensorDashboard) and for per-model state
+ * tiles in PredictionPanel.
+ * ──────────────────────────────────────────────────────────────────── */
+
+.status-card {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    background: var(--card-bg, #ffffff);
+    border: 1px solid var(--border-color, #e5e5e5);
+    border-left: 4px solid var(--severity-neutral-bg);
+    border-radius: 8px;
+    padding: 12px 14px;
+    transition: outline 0.12s, box-shadow 0.12s, transform 0.12s;
+}
+
+.status-card[data-level="critical"] { border-left-color: var(--severity-critical-bg); }
+.status-card[data-level="high"]     { border-left-color: var(--severity-high-bg); }
+.status-card[data-level="medium"]   { border-left-color: var(--severity-medium-bg); }
+.status-card[data-level="low"]      { border-left-color: var(--severity-low-bg); }
+.status-card[data-level="ok"]       { border-left-color: var(--severity-ok-bg); }
+.status-card[data-level="info"]     { border-left-color: var(--severity-info-bg); }
+
+.status-card--clickable          { cursor: pointer; }
+.status-card--clickable:hover    { box-shadow: 0 2px 8px rgba(0,0,0,0.06); transform: translateY(-1px); }
+
+.status-card--active[data-level="critical"] { outline: 2px solid var(--severity-critical-bg); }
+.status-card--active[data-level="high"]     { outline: 2px solid var(--severity-high-bg); }
+.status-card--active[data-level="medium"]   { outline: 2px solid var(--severity-medium-bg); }
+.status-card--active[data-level="low"]      { outline: 2px solid var(--severity-low-bg); }
+.status-card--active[data-level="ok"]       { outline: 2px solid var(--severity-ok-bg); }
+.status-card--active[data-level="info"]     { outline: 2px solid var(--severity-info-bg); }
+.status-card--active[data-level="neutral"]  { outline: 2px solid var(--severity-neutral-bg); }
+
+.status-card-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-secondary, #6b7280);
+}
+.status-card-value {
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--text-primary, #1c1917);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.status-card[data-level="critical"] .status-card-value { color: var(--severity-critical-soft-fg); }
+.status-card[data-level="high"]     .status-card-value { color: var(--severity-high-soft-fg); }
+.status-card[data-level="medium"]   .status-card-value { color: var(--severity-medium-soft-fg); }
+.status-card[data-level="low"]      .status-card-value { color: var(--severity-low-soft-fg); }
+.status-card[data-level="ok"]       .status-card-value { color: var(--severity-ok-soft-fg); }
+.status-card[data-level="info"]     .status-card-value { color: var(--severity-info-soft-fg); }
+
+.status-card-icon { font-size: 20px; }
+.status-card-meta {
+    font-size: 11px;
+    color: var(--text-secondary, #6b7280);
+    margin-top: 2px;
+}
+
+/* ─── Text utilities for inline severity colouring (use sparingly) ──── */
+.text-severity-critical { color: var(--severity-critical-soft-fg); }
+.text-severity-high     { color: var(--severity-high-soft-fg); }
+.text-severity-medium   { color: var(--severity-medium-soft-fg); }
+.text-severity-low      { color: var(--severity-low-soft-fg); }
+.text-severity-ok       { color: var(--severity-ok-soft-fg); }
+.text-muted             { color: var(--text-secondary, #6b7280); }

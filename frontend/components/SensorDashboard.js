@@ -4,12 +4,15 @@
  * detail rows, bulk CSV backfill.
  */
 import { useI18n } from '../i18n.js';
+import StatusBadge from './StatusBadge.js';
+import StatusCard from './StatusCard.js';
 
 const STALE_MS_WARNING  = 30 * 60 * 1000;       // > 30 min since last sample → warning
 const STALE_MS_OFFLINE  = 6  * 60 * 60 * 1000;  // > 6 h → offline
 
 export default {
     name: 'SensorDashboard',
+    components: { StatusBadge, StatusCard },
     setup() {
         const { t } = useI18n();
         return { t };
@@ -99,9 +102,10 @@ export default {
             return `${Math.floor(s/86400)}d ago`;
         },
 
-        healthColor(h) {
-            return { online: '#10b981', warning: '#f59e0b', offline: '#ef4444',
-                     inactive: '#6b7280', new: '#3b82f6', unknown: '#6b7280' }[h] || '#6b7280';
+        /** Map sensor health → severity-token level used by StatusBadge. */
+        healthLevel(h) {
+            return { online: 'ok', warning: 'medium', offline: 'high',
+                     inactive: 'neutral', new: 'info', unknown: 'neutral' }[h] || 'neutral';
         },
 
         healthLabel(h) {
@@ -393,30 +397,16 @@ export default {
 
             <!-- Stats row -->
             <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 16px;">
-                <div class="stat-card" style="padding: 12px;">
-                    <div style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">{{ t('sensorDashboard.total') }}</div>
-                    <div style="font-size: 24px; font-weight: 700;">{{ stats.total }}</div>
-                </div>
-                <div class="stat-card" @click="statusFilter='online'" style="padding: 12px; cursor: pointer;" :style="statusFilter==='online' ? 'outline: 2px solid #10b981;' : ''">
-                    <div style="font-size: 11px; color: #10b981; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">{{ t('sensorDashboard.online') }}</div>
-                    <div style="font-size: 24px; font-weight: 700; color: #10b981;">{{ stats.byHealth.online || 0 }}</div>
-                </div>
-                <div class="stat-card" @click="statusFilter='warning'" style="padding: 12px; cursor: pointer;" :style="statusFilter==='warning' ? 'outline: 2px solid #f59e0b;' : ''">
-                    <div style="font-size: 11px; color: #f59e0b; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">{{ t('sensorDashboard.warning') }}</div>
-                    <div style="font-size: 24px; font-weight: 700; color: #f59e0b;">{{ stats.byHealth.warning || 0 }}</div>
-                </div>
-                <div class="stat-card" @click="statusFilter='offline'" style="padding: 12px; cursor: pointer;" :style="statusFilter==='offline' ? 'outline: 2px solid #ef4444;' : ''">
-                    <div style="font-size: 11px; color: #ef4444; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">{{ t('sensorDashboard.offline') }}</div>
-                    <div style="font-size: 24px; font-weight: 700; color: #ef4444;">{{ stats.byHealth.offline || 0 }}</div>
-                </div>
-                <div class="stat-card" @click="statusFilter='inactive'" style="padding: 12px; cursor: pointer;" :style="statusFilter==='inactive' ? 'outline: 2px solid #6b7280;' : ''">
-                    <div style="font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">{{ t('sensorDashboard.inactive') }}</div>
-                    <div style="font-size: 24px; font-weight: 700; color: #6b7280;">{{ stats.byHealth.inactive || 0 }}</div>
-                </div>
-                <div class="stat-card" style="padding: 12px;">
-                    <div style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">{{ t('sensorDashboard.samples') }}</div>
-                    <div style="font-size: 24px; font-weight: 700;">{{ stats.totalSamples.toLocaleString() }}</div>
-                </div>
+                <status-card level="neutral" :title="t('sensorDashboard.total')" :value="stats.total"></status-card>
+                <status-card level="ok" :title="t('sensorDashboard.online')" :value="stats.byHealth.online || 0"
+                             clickable :active="statusFilter==='online'" @click="statusFilter='online'"></status-card>
+                <status-card level="medium" :title="t('sensorDashboard.warning')" :value="stats.byHealth.warning || 0"
+                             clickable :active="statusFilter==='warning'" @click="statusFilter='warning'"></status-card>
+                <status-card level="high" :title="t('sensorDashboard.offline')" :value="stats.byHealth.offline || 0"
+                             clickable :active="statusFilter==='offline'" @click="statusFilter='offline'"></status-card>
+                <status-card level="neutral" :title="t('sensorDashboard.inactive')" :value="stats.byHealth.inactive || 0"
+                             clickable :active="statusFilter==='inactive'" @click="statusFilter='inactive'"></status-card>
+                <status-card level="info" :title="t('sensorDashboard.samples')" :value="stats.totalSamples.toLocaleString()"></status-card>
             </div>
 
             <!-- Search + filter -->
@@ -447,10 +437,7 @@ export default {
                         </tr>
                         <tr v-for="s in filteredSensors" :key="s.gid" style="border-bottom: 1px solid #f0f0f0;">
                             <td style="padding: 8px 10px;">
-                                <span :style="{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600, color: healthColor(s._health) }">
-                                    <span :style="{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: healthColor(s._health) }"></span>
-                                    {{ healthLabel(s._health) }}
-                                </span>
+                                <status-badge :level="healthLevel(s._health)" variant="dot" :label="healthLabel(s._health)"></status-badge>
                             </td>
                             <td style="padding: 8px 10px;">
                                 <div style="font-weight: 600;">{{ s.name }}</div>
