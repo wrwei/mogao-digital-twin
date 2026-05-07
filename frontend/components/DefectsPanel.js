@@ -49,6 +49,10 @@ export default {
         initialDefects: { type: Array, default: () => [] }
     },
     emits: ['defects-updated'],
+    inject: {
+        $confirm: { default: () => () => Promise.resolve(false) },
+        isGuest:  { default: { value: false } }
+    },
     setup() {
         const { t } = useI18n();
         return { t, DEFECT_TYPES, SEVERITIES };
@@ -63,7 +67,6 @@ export default {
             form: emptyForm()
         };
     },
-    inject: { isGuest: { default: { value: false } } },
     computed: {
         readOnly() { return this.isGuest && this.isGuest.value; },
         sortedDefects() {
@@ -164,7 +167,11 @@ export default {
 
         async confirmDelete(defect) {
             const label = defect.name || defect.gid;
-            if (!confirm(this.t('defects.deleteConfirm', { name: label }))) return;
+            const _ok = await this.$confirm({
+                message: this.t('defects.deleteConfirm', { name: label }),
+                danger: true
+            });
+            if (!_ok) return;
             this.loading = true;
             this.error = null;
             try {
@@ -212,7 +219,7 @@ export default {
 
             <div v-if="error" style="background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; padding: 8px 12px; border-radius: 6px; font-size: 12px; margin-top: 8px;">
                 {{ error }}
-                <button @click="error = null" style="float: right; background: none; border: none; cursor: pointer; color: #dc2626;">✕</button>
+                <button @click="error = null" :aria-label="t('common.close')" style="float: right; background: none; border: none; cursor: pointer; color: var(--severity-high-bg);">✕</button>
             </div>
 
             <!-- Inline form (create or edit) -->

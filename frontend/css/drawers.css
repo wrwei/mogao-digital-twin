@@ -242,3 +242,67 @@
         max-width: 95%;
     }
 }
+
+/* ─────────────────────────────────────────────────────────────────────
+ * ConfirmDialog
+ * Themed replacement for window.confirm(). The overlay is a flexbox
+ * centring container; the dialog itself is a card with two action
+ * buttons and an optional danger variant for destructive actions.
+ * ──────────────────────────────────────────────────────────────────── */
+
+.confirm-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+
+.confirm-dialog {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+    max-width: 480px;
+    width: 100%;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.confirm-dialog--danger {
+    border-top: 4px solid var(--severity-high-bg, #dc2626);
+}
+
+.confirm-message {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--text-primary, #1c1917);
+    white-space: pre-wrap;
+}
+
+.confirm-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+.btn-danger {
+    background: var(--severity-high-bg, #dc2626);
+    color: var(--severity-high-fg, #fff);
+    border-color: var(--severity-high-bg, #dc2626);
+}
+
+.btn-danger:hover {
+    background: var(--severity-critical-bg, #7f1d1d);
+    border-color: var(--severity-critical-bg, #7f1d1d);
+}
+
+.confirm-fade-enter-active,
+.confirm-fade-leave-active { transition: opacity 0.12s ease; }
+.confirm-fade-enter-from,
+.confirm-fade-leave-to     { opacity: 0; }

@@ -119,7 +119,7 @@ export default {
             <!-- Error -->
             <div v-if="error" style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; padding: 8px 12px; margin-bottom: 10px; font-size: 12px; color: #dc2626;">
                 {{ error }}
-                <button @click="error = null" style="float: right; background: none; border: none; cursor: pointer; color: #dc2626;">✕</button>
+                <button @click="error = null" :aria-label="t('common.close')" style="float: right; background: none; border: none; cursor: pointer; color: var(--severity-high-bg);">✕</button>
             </div>
 
             <!-- Action -->

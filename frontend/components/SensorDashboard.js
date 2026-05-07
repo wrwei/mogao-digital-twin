@@ -13,6 +13,7 @@ const STALE_MS_OFFLINE  = 6  * 60 * 60 * 1000;  // > 6 h → offline
 export default {
     name: 'SensorDashboard',
     components: { StatusBadge, StatusCard },
+    inject: ['$confirm'],
     setup() {
         const { t } = useI18n();
         return { t };
@@ -257,7 +258,11 @@ export default {
         },
 
         async deactivate(gid) {
-            if (!confirm(this.t('sensorDashboard.deactivateConfirm'))) return;
+            const _ok = await this.$confirm({
+                message: this.t('sensorDashboard.deactivateConfirm'),
+                danger: true
+            });
+            if (!_ok) return;
             try {
                 await window.api.sensors.deactivate(gid);
                 await this.loadSensors();
@@ -271,7 +276,8 @@ export default {
             const samples = (sensor.status && sensor.status.samplesTotal) || 0;
             const warning = this.t('sensorDashboard.deleteConfirm', { name, samples })
                 || `Permanently delete sensor "${name}" and all ${samples} telemetry samples? This cannot be undone.`;
-            if (!confirm(warning)) return;
+            const _ok = await this.$confirm({ message: warning, danger: true });
+            if (!_ok) return;
             try {
                 await window.api.sensors.remove(sensor.gid);
                 if (this.selectedGid === sensor.gid) this.selectedGid = null;
@@ -503,7 +509,7 @@ export default {
                                     <span v-else style="color: var(--text-secondary);">ready</span>
                                 </td>
                                 <td style="padding: 6px;">
-                                    <button v-if="!bulkRunning" class="btn btn-xs" @click="removeBulkFile(i)" style="padding: 1px 6px;">✕</button>
+                                    <button v-if="!bulkRunning" class="btn btn-xs" @click="removeBulkFile(i)" :aria-label="t('common.delete')" style="padding: 1px 6px;">✕</button>
                                 </td>
                             </tr>
                         </tbody>

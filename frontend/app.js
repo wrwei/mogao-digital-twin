@@ -10,6 +10,8 @@ const { createApp } = Vue;
 // Import i18n
 // ============================================
 import { useI18n } from './i18n.js';
+import { vFocusTrap } from './utils/a11y.js';
+import ConfirmDialog from './components/ConfirmDialog.js';
 
 // ============================================
 // Generated Component Imports
@@ -243,38 +245,82 @@ const AppTopbar = {
         selectTheme(themeId) {
             this.$emit('change-theme', themeId);
             this.showThemePicker = false;
+            // Restore focus to the trigger after closing.
+            this.$nextTick(() => { if (this.$refs.themeBtn) this.$refs.themeBtn.focus(); });
+        },
+        toggleThemePicker() {
+            this.showThemePicker = !this.showThemePicker;
+        },
+        closeThemePicker() {
+            this.showThemePicker = false;
+        },
+        handleThemePickerKey(ev) {
+            // Esc closes the picker; arrows navigate items.
+            if (ev.key === 'Escape') {
+                ev.stopPropagation();
+                this.showThemePicker = false;
+                if (this.$refs.themeBtn) this.$refs.themeBtn.focus();
+            }
+        },
+        handleDocClick(ev) {
+            // Click-outside dismissal — runs only while picker is open
+            // because the listener is registered/removed by a watcher below.
+            if (this.$refs.picker && !this.$refs.picker.contains(ev.target)) {
+                this.showThemePicker = false;
+            }
         }
+    },
+    watch: {
+        showThemePicker(open) {
+            if (open) {
+                document.addEventListener('mousedown', this.handleDocClick);
+            } else {
+                document.removeEventListener('mousedown', this.handleDocClick);
+            }
+        }
+    },
+    beforeUnmount() {
+        document.removeEventListener('mousedown', this.handleDocClick);
     },
     template: `
         <div class="app-topbar">
             <span class="topbar-title">{{ locale === 'zh' ? 'M-Gemini 数字孪生平台' : 'M-Gemini Digital Twin Platform' }}</span>
             <div class="topbar-actions">
                 <!-- Theme picker -->
-                <div class="theme-picker-wrapper">
-                    <button class="topbar-icon-btn" @click="showThemePicker = !showThemePicker" title="Theme">
+                <div class="theme-picker-wrapper" ref="picker" @keydown="handleThemePickerKey">
+                    <button ref="themeBtn"
+                            class="topbar-icon-btn"
+                            @click="toggleThemePicker"
+                            :aria-label="t('settings.theme') || 'Theme'"
+                            aria-haspopup="menu"
+                            :aria-expanded="showThemePicker">
                         🎨
                     </button>
-                    <div v-if="showThemePicker" class="theme-picker-dropdown">
-                        <div class="theme-picker-title">Theme</div>
-                        <div
-                            v-for="t in themes"
-                            :key="t.id"
+                    <div v-if="showThemePicker" class="theme-picker-dropdown" role="menu">
+                        <div class="theme-picker-title">{{ t('settings.theme') || 'Theme' }}</div>
+                        <button
+                            v-for="th in themes"
+                            :key="th.id"
+                            type="button"
                             class="theme-picker-item"
-                            :class="{ active: theme === t.id }"
-                            @click="selectTheme(t.id)"
+                            :class="{ active: theme === th.id }"
+                            role="menuitemradio"
+                            :aria-checked="theme === th.id"
+                            @click="selectTheme(th.id)"
                         >
-                            <span class="theme-picker-swatch" :style="{ background: t.sidebar }">
-                                <span class="theme-picker-swatch-dot" :style="{ background: t.primary }"></span>
+                            <span class="theme-picker-swatch" :style="{ background: th.sidebar }">
+                                <span class="theme-picker-swatch-dot" :style="{ background: th.primary }"></span>
                             </span>
-                            <span>{{ t.icon }} {{ t.name }}</span>
-                            <span v-if="theme === t.id" style="margin-left: auto; color: var(--primary-color);">✓</span>
-                        </div>
+                            <span>{{ th.icon }} {{ th.name }}</span>
+                            <span v-if="theme === th.id" style="margin-left: auto; color: var(--primary-color);" aria-hidden="true">✓</span>
+                        </button>
                     </div>
                 </div>
                 <!-- Locale -->
                 <select class="topbar-locale-select"
                         @change="$emit('change-locale', $event.target.value)"
-                        :value="locale">
+                        :value="locale"
+                        :aria-label="t('settings.language') || 'Language'">
                     <option value="en">🌐 English</option>
                     <option value="zh">🌐 中文</option>
                 </select>
@@ -282,7 +328,11 @@ const AppTopbar = {
                 <span v-if="user" style="color: var(--sidebar-text, #ccc); font-size: 13px; margin-left: 8px;">
                     {{ user.fullName || user.username }}
                 </span>
-                <button class="topbar-icon-btn" @click="$emit('logout')" title="Logout" style="margin-left: 4px;">
+                <button class="topbar-icon-btn"
+                        @click="$emit('logout')"
+                        :aria-label="t('actions.logout') || 'Logout'"
+                        :title="t('actions.logout') || 'Logout'"
+                        style="margin-left: 4px;">
                     ⏻
                 </button>
             </div>
@@ -379,6 +429,10 @@ const LoadingSpinner = {
 const ErrorMessage = {
     props: ['message', 'type'],
     emits: ['dismiss'],
+    setup() {
+        const { t } = useI18n();
+        return { t };
+    },
     template: `
         <div :style="{
             background: type === 'success' ? '#10b981' : (type === 'warning' ? '#f59e0b' : 'var(--error-color)'),
@@ -391,7 +445,7 @@ const ErrorMessage = {
             alignItems: 'center'
         }">
             <span>{{ type === 'success' ? '✅' : (type === 'warning' ? '⚠️' : '❌') }} {{ message }}</span>
-            <button @click="$emit('dismiss')" style="background: transparent; border: none; color: white; cursor: pointer; font-size: 20px;">&times;</button>
+            <button @click="$emit('dismiss')" :aria-label="t('common.close') || 'Close'" style="background: transparent; border: none; color: white; cursor: pointer; font-size: 20px;">&times;</button>
         </div>
     `
 };
@@ -399,12 +453,20 @@ const ErrorMessage = {
 const ModalDialog = {
     props: ['title', 'show', 'wide'],
     emits: ['close'],
+    directives: { focusTrap: vFocusTrap },
+    setup() {
+        const { t } = useI18n();
+        return { t };
+    },
     template: `
-        <div v-if="show" class="modal-overlay" @click.self="$emit('close')">
+        <div v-if="show" class="modal-overlay" @click.self="$emit('close')"
+             v-focus-trap="{ onEscape: () => $emit('close') }"
+             role="dialog" aria-modal="true" aria-labelledby="modal-title">
             <div class="modal" :style="wide ? 'min-width: 500px; max-width: 95vw; width: auto;' : 'min-width: 500px;'">
                 <div class="modal-header">
-                    <h3 class="modal-title">{{ title }}</h3>
-                    <button class="modal-close" @click="$emit('close')">&times;</button>
+                    <h3 id="modal-title" class="modal-title">{{ title }}</h3>
+                    <button class="modal-close" @click="$emit('close')"
+                            :aria-label="t('common.close') || 'Close'">&times;</button>
                 </div>
                 <div class="modal-body">
                     <slot></slot>
@@ -417,18 +479,22 @@ const ModalDialog = {
 const DrawerPanel = {
     props: ['show', 'title'],
     emits: ['close'],
+    directives: { focusTrap: vFocusTrap },
     setup() {
         const { t } = useI18n();
         return { t };
     },
     template: `
-        <div v-if="show" class="drawer-overlay" @click.self="$emit('close')">
+        <div v-if="show" class="drawer-overlay" @click.self="$emit('close')"
+             v-focus-trap="{ onEscape: () => $emit('close') }"
+             role="dialog" aria-modal="true" aria-labelledby="drawer-title">
             <div class="drawer drawer-right">
                 <div class="drawer-header" style="display: flex; justify-content: space-between; align-items: center;">
-                    <h3 style="margin: 0; flex: 1;">{{ title }}</h3>
+                    <h3 id="drawer-title" style="margin: 0; flex: 1;">{{ title }}</h3>
                     <div class="drawer-header-actions" style="display: flex; align-items: center; gap: 8px;">
                         <slot name="header-actions"></slot>
-                        <button class="drawer-close" @click="$emit('close')">&times;</button>
+                        <button class="drawer-close" @click="$emit('close')"
+                                :aria-label="t('common.close') || 'Close'">&times;</button>
                     </div>
                 </div>
                 <div class="drawer-body">
@@ -456,6 +522,7 @@ const CaveView = {
         pendingDrillIn: { type: Object, default: null }
     },
     emits: ['show-message', 'item-selected', 'drill-in-consumed'],
+    inject: ['$confirm'],
     setup() {
         const composable = useCaves();
         const { t } = useI18n();
@@ -489,14 +556,17 @@ const CaveView = {
             this.showForm = true;
         },
         async handleDelete(item) {
-            if (confirm(this.t('actions.deleteConfirm', { entity: this.t('entities.cave') }))) {
+            const ok = await this.$confirm({
+                message: this.t('actions.deleteConfirm', { entity: this.t('entities.cave') }),
+                danger: true
+            });
+            if (!ok) return;
                 try {
                     await this.deleteCave(item.gid);
                     this.$emit('show-message', this.t('actions.deleteSuccess', { entity: this.t('entities.cave') }), 'success');
                 } catch (err) {
                     this.$emit('show-message', this.t('actions.deleteError', { entity: this.t('entities.cave') }) + ': ' + err.message, 'error');
                 }
-            }
         },
         async handleFormSubmit() {
             this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.cave') }), 'success');
@@ -574,6 +644,7 @@ const StatueView = {
         ModalDialog,
         DrawerPanel,
     },
+    inject: ['$confirm'],
     setup() {
         const composable = useStatues();
         const { t } = useI18n();
@@ -607,14 +678,17 @@ const StatueView = {
             this.showForm = true;
         },
         async handleDelete(item) {
-            if (confirm(this.t('actions.deleteConfirm', { entity: this.t('entities.statue') }))) {
+            const ok = await this.$confirm({
+                message: this.t('actions.deleteConfirm', { entity: this.t('entities.statue') }),
+                danger: true
+            });
+            if (!ok) return;
                 try {
                     await this.deleteStatue(item.gid);
                     this.$emit('show-message', this.t('actions.deleteSuccess', { entity: this.t('entities.statue') }), 'success');
                 } catch (err) {
                     this.$emit('show-message', this.t('actions.deleteError', { entity: this.t('entities.statue') }) + ': ' + err.message, 'error');
                 }
-            }
         },
         async handleFormSubmit() {
             this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.statue') }), 'success');
@@ -690,6 +764,7 @@ const MuralView = {
         ModalDialog,
         DrawerPanel,
     },
+    inject: ['$confirm'],
     setup() {
         const composable = useMurals();
         const { t } = useI18n();
@@ -723,14 +798,17 @@ const MuralView = {
             this.showForm = true;
         },
         async handleDelete(item) {
-            if (confirm(this.t('actions.deleteConfirm', { entity: this.t('entities.mural') }))) {
+            const ok = await this.$confirm({
+                message: this.t('actions.deleteConfirm', { entity: this.t('entities.mural') }),
+                danger: true
+            });
+            if (!ok) return;
                 try {
                     await this.deleteMural(item.gid);
                     this.$emit('show-message', this.t('actions.deleteSuccess', { entity: this.t('entities.mural') }), 'success');
                 } catch (err) {
                     this.$emit('show-message', this.t('actions.deleteError', { entity: this.t('entities.mural') }) + ': ' + err.message, 'error');
                 }
-            }
         },
         async handleFormSubmit() {
             this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.mural') }), 'success');
@@ -806,6 +884,7 @@ const PaintingView = {
         ModalDialog,
         DrawerPanel,
     },
+    inject: ['$confirm'],
     setup() {
         const composable = usePaintings();
         const { t } = useI18n();
@@ -839,14 +918,17 @@ const PaintingView = {
             this.showForm = true;
         },
         async handleDelete(item) {
-            if (confirm(this.t('actions.deleteConfirm', { entity: this.t('entities.painting') }))) {
+            const ok = await this.$confirm({
+                message: this.t('actions.deleteConfirm', { entity: this.t('entities.painting') }),
+                danger: true
+            });
+            if (!ok) return;
                 try {
                     await this.deletePainting(item.gid);
                     this.$emit('show-message', this.t('actions.deleteSuccess', { entity: this.t('entities.painting') }), 'success');
                 } catch (err) {
                     this.$emit('show-message', this.t('actions.deleteError', { entity: this.t('entities.painting') }) + ': ' + err.message, 'error');
                 }
-            }
         },
         async handleFormSubmit() {
             this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.painting') }), 'success');
@@ -922,6 +1004,7 @@ const InscriptionView = {
         ModalDialog,
         DrawerPanel,
     },
+    inject: ['$confirm'],
     setup() {
         const composable = useInscriptions();
         const { t } = useI18n();
@@ -955,14 +1038,17 @@ const InscriptionView = {
             this.showForm = true;
         },
         async handleDelete(item) {
-            if (confirm(this.t('actions.deleteConfirm', { entity: this.t('entities.inscription') }))) {
+            const ok = await this.$confirm({
+                message: this.t('actions.deleteConfirm', { entity: this.t('entities.inscription') }),
+                danger: true
+            });
+            if (!ok) return;
                 try {
                     await this.deleteInscription(item.gid);
                     this.$emit('show-message', this.t('actions.deleteSuccess', { entity: this.t('entities.inscription') }), 'success');
                 } catch (err) {
                     this.$emit('show-message', this.t('actions.deleteError', { entity: this.t('entities.inscription') }) + ': ' + err.message, 'error');
                 }
-            }
         },
         async handleFormSubmit() {
             this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.inscription') }), 'success');
@@ -1049,6 +1135,7 @@ const app = createApp({
         SettingsView,
         SensorDashboard,
         MaintenanceQueue,
+        ConfirmDialog,
     },
     setup() {
         const { locale, t, setLocale } = useI18n();
@@ -1108,9 +1195,36 @@ const app = createApp({
 
             // Drill-in from MaintenanceQueue: { gid, type } pending selection
             pendingArtifactDrillIn: null,
+
+            // Themed-confirm dialog state. Components inject('$confirm') to
+            // open it; the dialog component reads this state via prop and
+            // resolves the queued promise on confirm/cancel.
+            confirmState: {
+                open: false,
+                message: '',
+                confirmLabel: '',
+                cancelLabel: '',
+                danger: false,
+                _resolve: null
+            },
         };
     },
 
+    provide() {
+        // Expose `$confirm({ message, confirmLabel?, cancelLabel?, danger? })`
+        // to every descendant. Returns Promise<boolean>.
+        const state = this.confirmState;
+        return {
+            $confirm: (opts = {}) => new Promise(resolve => {
+                state.message      = opts.message || '';
+                state.confirmLabel = opts.confirmLabel || '';
+                state.cancelLabel  = opts.cancelLabel  || '';
+                state.danger       = !!opts.danger;
+                state._resolve     = resolve;
+                state.open         = true;
+            })
+        };
+    },
     methods: {
         handleLoginSuccess({ token, user }) {
             this.isAuthenticated = true;
@@ -1386,6 +1500,10 @@ const app = createApp({
 
             </div>
         </div>
+
+        <!-- Themed replacement for window.confirm() — mounted once at root,
+             driven by the $confirm injection. -->
+        <confirm-dialog :state="confirmState"></confirm-dialog>
     `
 });
 

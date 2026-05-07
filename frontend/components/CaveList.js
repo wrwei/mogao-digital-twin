@@ -13,9 +13,11 @@ import MuralForm from './MuralForm.js';
 import PaintingForm from './PaintingForm.js';
 import InscriptionForm from './InscriptionForm.js';
 import { useI18n } from '../i18n.js';
+import { vFocusTrap } from '../utils/a11y.js';
 
 export default {
     name: 'CaveList',
+    inject: ['$confirm'],
     setup() {
         const { t } = useI18n();
         const isGuest = Vue.inject('isGuest', Vue.ref(false));
@@ -25,6 +27,7 @@ export default {
         });
         return { t, isGuest, isAdmin };
     },
+    directives: { focusTrap: vFocusTrap },
     components: {
         CaveCard, ModelViewer, SimulationPanel, PigmentAnalysisPanel, LiveDataPanel, PredictionPanel,
         StatueForm, MuralForm, PaintingForm, InscriptionForm
@@ -109,7 +112,11 @@ export default {
             if (!apiKey) return;
             const name = item.name || item.gid;
             const typeLabel = { statue: this.t('entities.statue'), mural: this.t('entities.mural'), painting: this.t('entities.painting'), inscription: this.t('entities.inscription') }[type] || type;
-            if (!confirm(`${this.t('actions.deleteConfirm', { entity: typeLabel })}\n\n"${name}"`)) return;
+            const _ok = await this.$confirm({
+                message: `${this.t('actions.deleteConfirm', { entity: typeLabel })}\n\n"${name}"`,
+                danger: true
+            });
+            if (!_ok) return;
             try {
                 await window.api[apiKey].delete(item.gid);
                 const listMap = { statue: this.statues, mural: this.murals, painting: this.paintings, inscription: this.inscriptions };
@@ -275,15 +282,18 @@ export default {
         <div class="page-view">
 
             <!-- ═══ EDIT MODAL (Principia-style centered dialog) ═══ -->
-            <div v-if="editModal" class="modal-backdrop" @click.self="closeEdit">
+            <div v-if="editModal" class="modal-backdrop" @click.self="closeEdit"
+                 v-focus-trap="{ onEscape: closeEdit }"
+                 role="dialog" aria-modal="true" aria-labelledby="edit-modal-title">
                 <div class="edit-modal">
                     <div class="edit-modal-header">
                         <div class="edit-modal-header-icon">{{ editItem ? '📝' : '➕' }}</div>
                         <div>
-                            <div class="edit-modal-header-title">{{ editItem ? t('common.edit') : t('common.create') }} {{ editTypeLabel() }}</div>
+                            <div id="edit-modal-title" class="edit-modal-header-title">{{ editItem ? t('common.edit') : t('common.create') }} {{ editTypeLabel() }}</div>
                             <div class="edit-modal-header-sub">{{ editItem ? editItem.name || editItem.gid : '' }}</div>
                         </div>
-                        <button class="edit-modal-close" @click="closeEdit">&times;</button>
+                        <button class="edit-modal-close" @click="closeEdit"
+                                :aria-label="t('common.close') || 'Close'">&times;</button>
                     </div>
                     <div class="edit-modal-body">
                         <statue-form v-if="editType === 'statue'" :statue="editItem" :mode="editItem ? 'edit' : 'create'"

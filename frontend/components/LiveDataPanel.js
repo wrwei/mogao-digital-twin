@@ -17,6 +17,7 @@ export default {
         isAdmin: { type: Boolean, default: false }
     },
     emits: ['busy-changed'],
+    inject: ['$confirm'],
     setup() {
         const { t, locale } = useI18n();
         return { t, locale };
@@ -300,7 +301,11 @@ export default {
         },
 
         async rotateKey(gid) {
-            if (!confirm('This invalidates the current API key. Any field logger using the old key will stop being able to post data until reconfigured. Continue?')) return;
+            const _ok = await this.$confirm({
+                message: this.t('liveData.rotateKeyConfirm') || 'This invalidates the current API key. Any field logger using the old key will stop being able to post data until reconfigured. Continue?',
+                danger: true
+            });
+            if (!_ok) return;
             this.adminLoading = true;
             this.adminError = null;
             try {
