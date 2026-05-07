@@ -12,6 +12,7 @@ import StatueForm from './StatueForm.js';
 import MuralForm from './MuralForm.js';
 import PaintingForm from './PaintingForm.js';
 import InscriptionForm from './InscriptionForm.js';
+import Skeleton from './Skeleton.js';
 import { useI18n } from '../i18n.js';
 import { vFocusTrap } from '../utils/a11y.js';
 
@@ -30,7 +31,7 @@ export default {
     directives: { focusTrap: vFocusTrap },
     components: {
         CaveCard, ModelViewer, SimulationPanel, PigmentAnalysisPanel, LiveDataPanel, PredictionPanel,
-        StatueForm, MuralForm, PaintingForm, InscriptionForm
+        StatueForm, MuralForm, PaintingForm, InscriptionForm, Skeleton
     },
     props: {
         caves: { type: Array, default: () => [] },
@@ -331,7 +332,7 @@ export default {
                     </div>
                 </div>
                 <div class="page-section-label">{{ t('entities.caves').toUpperCase() }}</div>
-                <div v-if="loading" style="display: flex; align-items: center; justify-content: center; padding: 80px;"><div class="spinner"></div></div>
+                <skeleton v-if="loading" variant="grid-card" :count="6"></skeleton>
                 <div v-else-if="filteredCaves.length === 0" style="text-align: center; padding: 60px; color: var(--text-secondary);">
                     <div style="font-size: 48px; margin-bottom: 12px; opacity: 0.3;">🏛️</div><p>{{ t('common.noData') }}</p>
                 </div>

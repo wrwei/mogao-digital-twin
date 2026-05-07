@@ -6,6 +6,7 @@
 import InscriptionCard from './InscriptionCard.js';
 import ModelViewer from './ModelViewer.js';
 import SimulationPanel from './SimulationPanel.js';
+import Skeleton from './Skeleton.js';
 import { useI18n } from '../i18n.js';
 
 export default {
@@ -18,7 +19,8 @@ export default {
     components: {
         InscriptionCard,
         ModelViewer,
-        SimulationPanel
+        SimulationPanel,
+        Skeleton
     },
     props: {
         inscriptions: {
@@ -187,10 +189,7 @@ export default {
                 </div>
 
                 <div class="list-body" style="flex: 1; overflow-y: auto; padding: var(--spacing-sm);">
-                    <div v-if="loading" class="loading-overlay">
-                        <div class="spinner"></div>
-                        <p style="margin-top: var(--spacing-md); color: var(--text-secondary);">{{ t('common.loading') }}</p>
-                    </div>
+                    <skeleton v-if="loading" variant="row" :count="6"></skeleton>
 
                     <div v-else-if="isEmpty" class="empty-state">
                         <div class="empty-state-icon">📭</div>
