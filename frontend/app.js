@@ -14,6 +14,8 @@ import { vFocusTrap } from './utils/a11y.js';
 import { parseHash, setHash, subscribeRoute } from './utils/router.js';
 import ConfirmDialog from './components/ConfirmDialog.js';
 import ToastStack from './components/ToastStack.js';
+import ShortcutsCheatsheet from './components/ShortcutsCheatsheet.js';
+import { installShortcuts, registerSingleKey, registerLeaderPair } from './utils/keyboard.js';
 
 // ============================================
 // Generated Component Imports
@@ -1114,6 +1116,7 @@ const app = createApp({
         MaintenanceQueue,
         ConfirmDialog,
         ToastStack,
+        ShortcutsCheatsheet,
     },
     setup() {
         const { locale, t, setLocale } = useI18n();
@@ -1162,6 +1165,9 @@ const app = createApp({
             // timer so two errors in a row no longer overwrite each other.
             toasts: [],
             _toastSeq: 0,
+
+            // Keyboard cheatsheet visibility — toggled by '?'.
+            showCheatsheet: false,
 
             // Backend connection status
             backendOnline: false,
@@ -1402,6 +1408,35 @@ const app = createApp({
         clearPendingDrillIn() {
             this.pendingArtifactDrillIn = null;
         },
+
+        _registerShortcuts() {
+            // '/' focuses the most relevant search box on the current view.
+            // We pick the first visible .search-input or .page-search-input
+            // (CaveList uses the latter for its full-page layout).
+            registerSingleKey('/', () => {
+                const sel = document.querySelector(
+                    '.page-search-input, .search-input, input[type="search"]'
+                );
+                if (sel) sel.focus();
+            });
+
+            // '?' toggles the cheatsheet. The keyboard module lets '?' through
+            // even when an overlay is open, so pressing it again while open
+            // is a no-op (this.showCheatsheet stays true).
+            registerSingleKey('?', () => { this.showCheatsheet = true; });
+
+            // 'g <letter>' jumps between top-level views. The leader-pair
+            // helper handles the 1.2s timeout and the followup matching.
+            const goto = (view) => () => this.changeView(view);
+            registerLeaderPair('g', 'd', goto('dashboard'));
+            registerLeaderPair('g', 'c', goto('caves'));
+            registerLeaderPair('g', 's', goto('statues'));
+            registerLeaderPair('g', 'm', goto('murals'));
+            registerLeaderPair('g', 'p', goto('paintings'));
+            registerLeaderPair('g', 'i', goto('inscriptions'));
+            registerLeaderPair('g', 'e', goto('sensors'));      // e for "environment"
+            registerLeaderPair('g', 'q', goto('maintenance'));  // q for "queue"
+        },
     },
 
     mounted() {
@@ -1427,6 +1462,12 @@ const app = createApp({
             setHash(this.currentView);
             this._startBackgroundPolls();
         }
+
+        // Keyboard shortcuts. Registered once at root; registry survives
+        // re-mounts because the maps live at module scope. installed=true
+        // is module-scoped so re-installing is a no-op.
+        this._registerShortcuts();
+        this._uninstallShortcuts = installShortcuts();
     },
 
     beforeUnmount() {
@@ -1434,6 +1475,10 @@ const app = createApp({
         if (this._unsubscribeRoute) {
             this._unsubscribeRoute();
             this._unsubscribeRoute = null;
+        }
+        if (this._uninstallShortcuts) {
+            this._uninstallShortcuts();
+            this._uninstallShortcuts = null;
         }
     },
 
@@ -1531,6 +1576,10 @@ const app = createApp({
              its own auto-dismiss timer so consecutive errors stack instead
              of overwriting. -->
         <toast-stack :toasts="toasts" @dismiss="dismissToast"></toast-stack>
+
+        <!-- Keyboard-shortcut cheatsheet, opened with '?'. -->
+        <shortcuts-cheatsheet :open="showCheatsheet" :is-admin="isAdmin"
+                              @close="showCheatsheet = false"></shortcuts-cheatsheet>
     `
 });
 

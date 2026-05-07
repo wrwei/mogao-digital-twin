@@ -48,6 +48,25 @@ export const messages = {
             noResultsHint:  '尝试调整搜索关键词或清除筛选',
         },
 
+        // Keyboard shortcuts cheatsheet
+        shortcuts: {
+            title: '键盘快捷键',
+            navigation: '导航',
+            actions: '操作',
+            then: '然后',
+            goDashboard: '跳转到仪表盘',
+            goCaves: '跳转到洞窟',
+            goStatues: '跳转到雕像',
+            goMurals: '跳转到壁画',
+            goPaintings: '跳转到绘画',
+            goInscriptions: '跳转到铭文',
+            goSensors: '跳转到传感器',
+            goMaintenance: '跳转到维护队列',
+            focusSearch: '聚焦搜索框',
+            openCheatsheet: '打开快捷键说明',
+            closeDialog: '关闭对话框',
+        },
+
         // Entity Names
         entities: {
             cave: '洞窟',
@@ -669,6 +688,25 @@ export const messages = {
             noEntityHint:  'Add your first {entity} using the button below',
             noResultsTitle: 'No matches',
             noResultsHint:  'Try a different search term or clear the filter',
+        },
+
+        // Keyboard shortcuts cheatsheet
+        shortcuts: {
+            title: 'Keyboard shortcuts',
+            navigation: 'Navigation',
+            actions: 'Actions',
+            then: 'then',
+            goDashboard: 'Go to dashboard',
+            goCaves: 'Go to caves',
+            goStatues: 'Go to statues',
+            goMurals: 'Go to murals',
+            goPaintings: 'Go to paintings',
+            goInscriptions: 'Go to inscriptions',
+            goSensors: 'Go to sensors',
+            goMaintenance: 'Go to maintenance queue',
+            focusSearch: 'Focus search box',
+            openCheatsheet: 'Open this cheatsheet',
+            closeDialog: 'Close dialog',
         },
 
         // Entity Names
