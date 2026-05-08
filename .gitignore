@@ -46,6 +46,12 @@ Thumbs.db
 # Test data
 kneeling-attendant-bodhisattva/
 
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
 # Python
 __pycache__/
 *.pyc
