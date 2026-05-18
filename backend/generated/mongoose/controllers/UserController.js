@@ -138,9 +138,10 @@ const UserController = {
 
     updateProfile: async (req, res) => {
         try {
-            const { fullName, gender, bio } = req.body;
+            const { fullName, email, gender, bio } = req.body;
             const update = {};
             if (fullName !== undefined) update.fullName = fullName;
+            if (email !== undefined) update.email = email;
             if (gender !== undefined) update.gender = gender;
             if (bio !== undefined) update.bio = bio;
             const user = await UserService.update(req.user._id, update);

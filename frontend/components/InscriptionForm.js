@@ -141,14 +141,19 @@ export default {
                     this.form[refName][attrName] = path;
                 }
 
+                // Clean empty strings to avoid validation errors
+                const data = { ...this.form };
+                delete data._id;
+                delete data.__v;
+                Object.keys(data).forEach(k => { if (data[k] === '') delete data[k]; });
+
                 if (this.mode === 'create') {
-                    this.form.gid = 'inscription-' + Date.now();
-                    const response = await api.inscriptions.create(this.form);
+                    const response = await api.inscriptions.create(data);
                     this.$emit('created', response.data);
                 } else {
                     const gid = this.inscription.gid;
-                    await api.inscriptions.update(gid, this.form);
-                    this.$emit('updated', { ...this.inscription, ...this.form });
+                    await api.inscriptions.update(gid, data);
+                    this.$emit('updated', { ...this.inscription, ...data });
                 }
                 this.resetForm();
             } catch (error) {
@@ -268,8 +273,8 @@ export default {
                     const category = attrName.replace('Location', '').toLowerCase();
 
                     const formData = new FormData();
-                    formData.append('file', file);
                     formData.append('category', category);
+                    formData.append('file', file);
 
                     try {
                         const response = await api.post('/api/upload', formData, {
@@ -379,7 +384,7 @@ export default {
                 </label>
 
                 <input
-                    type="text"
+                    type="date"
                     id="lastInspectionDate"
                     v-model="form.lastInspectionDate"
                     @blur="markTouched('lastInspectionDate')"
@@ -465,7 +470,7 @@ export default {
                     class="form-select"
                     :class="{ 'form-select-error': errors.conservationStatus && touched.conservationStatus }"
                 >
-                    <option value="">{{ t('common.loading') }}</option>
+                    <option value="">{{ t('common.select') || 'Select...' }}</option>
                     <option value="excellent">excellent</option>
                     <option value="good">good</option>
                     <option value="fair">fair</option>

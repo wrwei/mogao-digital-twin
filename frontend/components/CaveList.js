@@ -9,6 +9,10 @@ import StatueForm from './StatueForm.js';
 import MuralForm from './MuralForm.js';
 import PaintingForm from './PaintingForm.js';
 import InscriptionForm from './InscriptionForm.js';
+import StatueDetailView from './StatueDetailView.js';
+import MuralDetailView from './MuralDetailView.js';
+import PaintingDetailView from './PaintingDetailView.js';
+import InscriptionDetailView from './InscriptionDetailView.js';
 import { useI18n } from '../i18n.js';
 
 export default {
@@ -20,14 +24,15 @@ export default {
     },
     components: {
         CaveCard, ModelViewer, SimulationPanel,
-        StatueForm, MuralForm, PaintingForm, InscriptionForm
+        StatueForm, MuralForm, PaintingForm, InscriptionForm,
+        StatueDetailView, MuralDetailView, PaintingDetailView, InscriptionDetailView
     },
     props: {
         caves: { type: Array, default: () => [] },
         loading: { type: Boolean, default: false },
         selectedGid: { type: String, default: null }
     },
-    emits: ['select', 'edit', 'delete', 'create', 'view-detail'],
+    emits: ['select', 'edit', 'delete', 'create', 'view-detail', 'navigate-dashboard'],
     data() {
         return {
             searchQuery: '',
@@ -47,7 +52,10 @@ export default {
             // Edit modal
             editModal: false,
             editType: null,
-            editItem: null
+            editItem: null,
+            // Detail drawer
+            detailItem: null,
+            detailType: null
         };
     },
     mounted() {
@@ -67,7 +75,10 @@ export default {
         backToList() { this.mode = 'list'; this.openedCave = null; this.selectedExhibit = null; this.closeEdit(); },
         openExhibit3D(exhibit) { this.selectedExhibit = exhibit; this.mode = '3d'; this.closeEdit(); },
         backToCave() { this.mode = 'cave'; this.selectedExhibit = null; },
+        openDetail(type, item) { this.selectedExhibit = item; this.detailType = type; this.mode = '3d'; },
+        closeDetail() { this.detailType = null; this.mode = 'cave'; this.selectedExhibit = null; },
         openEdit(type, item) { this.editType = type; this.editItem = item; this.editModal = true; },
+        openCreate(type) { this.editType = type; this.editItem = null; this.editModal = true; },
         closeEdit() { this.editModal = false; this.editType = null; this.editItem = null; },
         async handleEditSubmit(data) {
             const listMap = { statue: this.statues, mural: this.murals, painting: this.paintings, inscription: this.inscriptions };
@@ -76,6 +87,11 @@ export default {
                 const idx = list.findIndex(i => i.gid === this.editItem.gid);
                 if (idx !== -1) list[idx] = { ...list[idx], ...data };
             }
+            this.closeEdit();
+        },
+        async handleCreateSubmit(data) {
+            // Form already called api.create() — just refresh the list
+            await this.fetchAllAssets();
             this.closeEdit();
         },
         async fetchAllAssets() {
@@ -103,7 +119,7 @@ export default {
         onResizerMouseLeave(e) { if (!this.isDragging) e.target.style.background = '#e0dcd7'; },
         editTypeLabel() {
             const map = { statue: this.t('entities.statue'), mural: this.t('entities.mural'), painting: this.t('entities.painting'), inscription: this.t('entities.inscription') };
-            return map[this.editType] || '';
+            return map[this.editType] || map[this.detailType] || '';
         }
     },
     computed: {
@@ -134,22 +150,22 @@ export default {
             <div v-if="editModal" class="modal-backdrop" @click.self="closeEdit">
                 <div class="edit-modal">
                     <div class="edit-modal-header">
-                        <div class="edit-modal-header-icon">📝</div>
+                        <div class="edit-modal-header-icon">{{ editItem ? '📝' : '➕' }}</div>
                         <div>
-                            <div class="edit-modal-header-title">{{ t('common.edit') }} {{ editTypeLabel() }}</div>
+                            <div class="edit-modal-header-title">{{ editItem ? t('common.edit') : t('common.create') }} {{ editTypeLabel() }}</div>
                             <div class="edit-modal-header-sub">{{ editItem ? editItem.name || editItem.gid : '' }}</div>
                         </div>
                         <button class="edit-modal-close" @click="closeEdit">&times;</button>
                     </div>
                     <div class="edit-modal-body">
-                        <statue-form v-if="editType === 'statue'" :statue="editItem" mode="edit"
-                            @updated="handleEditSubmit" @cancel="closeEdit" @error="(msg) => console.error(msg)"></statue-form>
-                        <mural-form v-if="editType === 'mural'" :mural="editItem" mode="edit"
-                            @updated="handleEditSubmit" @cancel="closeEdit" @error="(msg) => console.error(msg)"></mural-form>
-                        <painting-form v-if="editType === 'painting'" :painting="editItem" mode="edit"
-                            @updated="handleEditSubmit" @cancel="closeEdit" @error="(msg) => console.error(msg)"></painting-form>
-                        <inscription-form v-if="editType === 'inscription'" :inscription="editItem" mode="edit"
-                            @updated="handleEditSubmit" @cancel="closeEdit" @error="(msg) => console.error(msg)"></inscription-form>
+                        <statue-form v-if="editType === 'statue'" :statue="editItem" :mode="editItem ? 'edit' : 'create'"
+                            @updated="handleEditSubmit" @created="handleCreateSubmit" @cancel="closeEdit" @error="(msg) => console.error(msg)"></statue-form>
+                        <mural-form v-if="editType === 'mural'" :mural="editItem" :mode="editItem ? 'edit' : 'create'"
+                            @updated="handleEditSubmit" @created="handleCreateSubmit" @cancel="closeEdit" @error="(msg) => console.error(msg)"></mural-form>
+                        <painting-form v-if="editType === 'painting'" :painting="editItem" :mode="editItem ? 'edit' : 'create'"
+                            @updated="handleEditSubmit" @created="handleCreateSubmit" @cancel="closeEdit" @error="(msg) => console.error(msg)"></painting-form>
+                        <inscription-form v-if="editType === 'inscription'" :inscription="editItem" :mode="editItem ? 'edit' : 'create'"
+                            @updated="handleEditSubmit" @created="handleCreateSubmit" @cancel="closeEdit" @error="(msg) => console.error(msg)"></inscription-form>
                     </div>
                 </div>
             </div>
@@ -157,7 +173,7 @@ export default {
             <!-- ═══ LIST MODE ═══ -->
             <template v-if="mode === 'list'">
                 <div class="page-breadcrumb">
-                    <span class="breadcrumb-item">{{ t('nav.dashboard') }}</span>
+                    <span class="breadcrumb-link" @click="$emit('navigate-dashboard')">{{ t('nav.dashboard') }}</span>
                     <span class="breadcrumb-sep">/</span>
                     <span class="breadcrumb-current">{{ t('entities.caves') }}</span>
                 </div>
@@ -204,10 +220,17 @@ export default {
 
             <!-- ═══ CAVE DETAIL MODE (Principia project-style) ═══ -->
             <template v-if="mode === 'cave' && openedCave">
-                <!-- Top buttons -->
-                <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-                    <button class="project-action-btn" @click="backToList" style="padding: 6px 16px;">← {{ t('common.back') }}</button>
-                    <button class="project-action-btn" style="color: var(--secondary-color); border-color: var(--secondary-color); padding: 6px 16px;" @click="$emit('edit', openedCave)">{{ t('common.edit') }}</button>
+                <!-- Breadcrumb + actions -->
+                <div style="display: flex; align-items: center; margin-bottom: 20px;">
+                    <div class="page-breadcrumb" style="margin: 0; flex: 1;">
+                        <span class="breadcrumb-link" @click="backToList">{{ t('entities.caves') }}</span>
+                        <span class="breadcrumb-sep">/</span>
+                        <span class="breadcrumb-current">{{ openedCave.name }}</span>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="project-action-btn" style="color: var(--secondary-color); border-color: var(--secondary-color); padding: 6px 16px;" @click="$emit('edit', openedCave)">✏️ {{ t('common.edit') }}</button>
+                        <button class="project-action-btn" @click="backToList" style="padding: 6px 16px;">✕ {{ t('common.close') }}</button>
+                    </div>
                 </div>
 
                 <!-- Cave Info Card -->
@@ -252,7 +275,7 @@ export default {
                                 <span style="font-weight: 600; font-size: 15px;">{{ cat.label }}</span>
                                 <span class="asset-category-count" :style="{ background: cat.color + '18', color: cat.color }">{{ cat.items.length }}</span>
                             </div>
-                            <button class="project-action-btn" style="font-size: 12px;">+ Add</button>
+                            <button class="project-action-btn" style="font-size: 12px;" @click="openCreate(cat.type)">+ {{ t('common.create') || 'Add' }}</button>
                         </div>
 
                         <div v-if="cat.items.length === 0" style="padding: 24px; text-align: center; color: var(--text-secondary); font-size: 13px; font-style: italic;">
@@ -260,7 +283,7 @@ export default {
                         </div>
 
                         <div v-else class="project-cards-grid">
-                            <div v-for="item in cat.items" :key="item.gid" class="project-card">
+                            <div v-for="item in cat.items" :key="item.gid" class="project-card" @click="openDetail(cat.type, item)" style="cursor: pointer;">
                                 <div class="project-card-badges">
                                     <span v-if="item.conservationStatus" class="project-badge" :style="{ background: statusColor(item.conservationStatus), color: 'white' }">{{ item.conservationStatus }}</span>
                                     <span v-if="item.reference && item.reference.modelLocation" class="project-badge" style="background: var(--secondary-color); color: white;">3D</span>
@@ -277,8 +300,8 @@ export default {
                                 <div class="project-card-footer">
                                     <div></div>
                                     <div class="project-card-actions">
-                                        <button v-if="item.reference && item.reference.modelLocation" class="project-action-btn project-action-open" @click="openExhibit3D(item)">🔬 3D View</button>
-                                        <button class="project-action-btn" @click="openEdit(cat.type, item)">✏️ {{ t('common.edit') }}</button>
+                                        <button v-if="item.reference && item.reference.modelLocation" class="project-action-btn project-action-open" @click.stop="openExhibit3D(item)">🔬 3D View</button>
+                                        <button class="project-action-btn" @click.stop="openEdit(cat.type, item)">✏️ {{ t('common.edit') }}</button>
                                     </div>
                                 </div>
                             </div>
@@ -289,17 +312,23 @@ export default {
 
             <!-- ═══ 3D VIEWER MODE ═══ -->
             <template v-if="mode === '3d' && selectedExhibit">
-                <div class="page-breadcrumb">
-                    <span class="breadcrumb-link" @click="backToList">{{ t('entities.caves') }}</span>
-                    <span class="breadcrumb-sep">/</span>
-                    <span class="breadcrumb-link" @click="backToCave">{{ openedCave ? openedCave.name : '' }}</span>
-                    <span class="breadcrumb-sep">/</span>
-                    <span class="breadcrumb-current">{{ selectedExhibit.name }}</span>
+                <div style="display: flex; align-items: center; margin-bottom: 4px;">
+                    <div class="page-breadcrumb" style="margin: 0; flex: 1;">
+                        <span class="breadcrumb-link" @click="backToList">{{ t('entities.caves') }}</span>
+                        <span class="breadcrumb-sep">/</span>
+                        <span class="breadcrumb-link" @click="backToCave">{{ openedCave ? openedCave.name : '' }}</span>
+                        <span class="breadcrumb-sep">/</span>
+                        <span class="breadcrumb-current">{{ selectedExhibit.name }}</span>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="project-action-btn" style="color: var(--secondary-color); border-color: var(--secondary-color); padding: 6px 16px;" @click="openEdit(detailType, selectedExhibit)">✏️ {{ t('common.edit') }}</button>
+                        <button class="project-action-btn" @click="backToCave" style="padding: 6px 16px;">✕ {{ t('common.close') }}</button>
+                    </div>
                 </div>
                 <div style="flex: 1; display: flex; flex-direction: row; padding: 16px; overflow: hidden;">
                     <div style="flex: 1; display: flex; flex-direction: column; align-items: center; padding-right: 8px; overflow-y: auto;">
                         <div style="flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; margin: auto 0;">
-                            <model-viewer :asset-reference="selectedExhibit.reference" v-model:autoRotate="autoRotate" :width="viewerWidth" :height="viewerHeight"></model-viewer>
+                            <model-viewer :asset-reference="selectedExhibit.reference" :simulation-data="simulationData" v-model:autoRotate="autoRotate" :width="viewerWidth" :height="viewerHeight"></model-viewer>
                             <div style="margin-top: 12px; padding: 8px 16px; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
                                 <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 13px; font-weight: 500;">
                                     <input type="checkbox" v-model="autoRotate" style="cursor: pointer; width: 16px; height: 16px; accent-color: #8B4513;" />

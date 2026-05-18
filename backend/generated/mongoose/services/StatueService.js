@@ -11,6 +11,8 @@ const StatueService = {
      * Create a new Statue
      */
     create: async (data) => {
+        delete data._id;
+        delete data.__v;
         if (!data.gid) {
             data.gid = 'statue-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
         }

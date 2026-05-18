@@ -23,7 +23,7 @@ const R = 8.314; // Universal gas constant, J/(mol·K)
 const CHEMICAL_DEFAULTS = {
     Ea_dark: 70000,
     Ea_light: 25000,
-    k0_dark: 0.0001,
+    k0_dark: 25000,
     k0_light: 0.001,
     q: 0.8,
     p: 0.9

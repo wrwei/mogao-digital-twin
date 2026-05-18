@@ -26,7 +26,7 @@ const R = 8.314; // Universal gas constant, J/(mol·K)
 export const CHEMICAL_DEFAULTS = {
     Ea_dark: 70000,     // J/mol — activation energy, dark oxidation (linseed oil)
     Ea_light: 25000,    // J/mol — activation energy, photofading
-    k0_dark: 0.0001,    // Pre-exponential factor, dark ageing
+    k0_dark: 25000,     // Pre-exponential factor, dark ageing
     k0_light: 0.001,    // Pre-exponential factor, light fading
     q: 0.8,             // Reaction order w.r.t. water
     p: 0.9              // Light reciprocity exponent

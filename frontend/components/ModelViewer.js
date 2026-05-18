@@ -46,6 +46,7 @@ export default {
             textureContext: null,   // Canvas 2D context
             // Multi-model deterioration results
             mouldResult: null,      // VTT mould growth model output
+            lifetimeResult: null,   // Michalski lifetime multiplier output
             enabledChemical: true,  // Whether chemical fading model is active
             chemicalDegradationFactor: 1.0,  // Pre-computed from SimulationPanel
             chemicalRateConstant: 0,         // Pre-computed from SimulationPanel
@@ -107,6 +108,7 @@ export default {
                     this.simLight = newData.deterioration.lightIntensity;
                     // Store per-model results if available (null = disabled)
                     this.mouldResult = newData.deterioration.mould || null;
+                    this.lifetimeResult = newData.deterioration.lifetime || null;
                     this.enabledChemical = newData.deterioration.chemical !== null;
                     // Store pre-computed degradation factor from SimulationPanel
                     this.chemicalDegradationFactor = newData.deterioration.degradationFactor;
@@ -117,6 +119,7 @@ export default {
                     // Reset to original texture when simulation stops
                     this.degradationEnabled = false;
                     this.mouldResult = null;
+                    this.lifetimeResult = null;
                     this.resetTexture();
                 }
             }
@@ -274,35 +277,36 @@ export default {
                     // Enable CORS for canvas manipulation
                     textureLoader.setCrossOrigin('anonymous');
 
-                    const texture = await new Promise((resolve, reject) => {
-                        textureLoader.load(fullTexturePath, resolve, undefined, reject);
-                    });
+                    try {
+                        const texture = await new Promise((resolve, reject) => {
+                            textureLoader.load(fullTexturePath, resolve, undefined, reject);
+                        });
 
-                    // Store original texture for deterioration simulation
-                    this.originalTexture = texture;
+                        // Store original texture for deterioration simulation
+                        this.originalTexture = texture;
 
-                    // Log texture info
-                    console.log('Texture loaded:', {
-                        path: fullTexturePath,
-                        image: texture.image,
-                        width: texture.image?.width,
-                        height: texture.image?.height,
-                        complete: texture.image?.complete
-                    });
+                        console.log('Texture loaded:', {
+                            path: fullTexturePath,
+                            width: texture.image?.width,
+                            height: texture.image?.height
+                        });
 
-                    this.model.traverse((child) => {
-                        if (child instanceof THREE.Mesh) {
-                            if (Array.isArray(child.material)) {
-                                child.material.forEach(mat => {
-                                    mat.map = texture;
-                                    mat.needsUpdate = true;
-                                });
-                            } else {
-                                child.material.map = texture;
-                                child.material.needsUpdate = true;
+                        this.model.traverse((child) => {
+                            if (child instanceof THREE.Mesh) {
+                                if (Array.isArray(child.material)) {
+                                    child.material.forEach(mat => {
+                                        mat.map = texture;
+                                        mat.needsUpdate = true;
+                                    });
+                                } else {
+                                    child.material.map = texture;
+                                    child.material.needsUpdate = true;
+                                }
                             }
-                        }
-                    });
+                        });
+                    } catch (texErr) {
+                        console.warn('Texture not available, model will use material colors:', texErr.message || texErr);
+                    }
                 }
 
                 // Center and scale model
@@ -379,8 +383,16 @@ export default {
          * Simulates color fading, yellowing, and darkening
          */
         applyDeteriorationToTexture() {
-            if (!this.originalTexture || !this.model) {
-                console.warn('No texture or model available for deterioration');
+            if (!this.model) {
+                console.warn('No model available for deterioration');
+                return;
+            }
+
+            let degradationFactor = this.enabledChemical ? (this.chemicalDegradationFactor || 1.0) : 1.0;
+
+            // If no texture, apply deterioration via material color
+            if (!this.originalTexture) {
+                this.applyDeteriorationToMaterial(degradationFactor);
                 return;
             }
 
@@ -392,19 +404,22 @@ export default {
                 return;
             }
 
+            // Skip if already processing
+            if (this.isProcessing) return;
+
             // Show notification that texture processing is starting
             this.isProcessing = true;
             this.showToast('⚙️ Applying texture deterioration...', 'info', 0); // No auto-hide
 
-            console.log('Applying deterioration to texture:', img.width, 'x', img.height);
-
             try {
-                // Use pre-computed degradation factor from SimulationPanel (with configurable params)
                 let k = this.enabledChemical ? (this.chemicalRateConstant || 0) : 0;
-                let degradationFactor = this.enabledChemical ? (this.chemicalDegradationFactor || 1.0) : 1.0;
                 const t_days = this.simDays + (this.simMonths * 30.44) + (this.simYears * 365.25);
 
-                console.log('Degradation params:', { k, t_days, degradationFactor, chemicalEnabled: this.enabledChemical });
+                // Downscale large textures for simulation (cap at 2048px)
+                const maxSimSize = 2048;
+                const scale = Math.min(1, maxSimSize / Math.max(img.width, img.height));
+                const simW = Math.round(img.width * scale);
+                const simH = Math.round(img.height * scale);
 
                 // Create canvas for texture manipulation if not exists
                 if (!this.textureCanvas) {
@@ -412,17 +427,17 @@ export default {
                     this.textureContext = this.textureCanvas.getContext('2d');
                 }
 
-                this.textureCanvas.width = img.width;
-                this.textureCanvas.height = img.height;
+                this.textureCanvas.width = simW;
+                this.textureCanvas.height = simH;
 
                 // Clear canvas first
-                this.textureContext.clearRect(0, 0, img.width, img.height);
+                this.textureContext.clearRect(0, 0, simW, simH);
 
-                // Draw original image
-                this.textureContext.drawImage(img, 0, 0);
+                // Draw original image (downscaled if needed)
+                this.textureContext.drawImage(img, 0, 0, simW, simH);
 
                 // Get pixel data
-                const imageData = this.textureContext.getImageData(0, 0, img.width, img.height);
+                const imageData = this.textureContext.getImageData(0, 0, simW, simH);
                 const data = imageData.data;
 
                 if (data.length === 0) {
@@ -430,13 +445,23 @@ export default {
                     return;
                 }
 
+                // Compute lifetime aging factor:
+                // multiplier < 1 means faster aging; effective age = exposure / multiplier
+                // Normalize to a 0-1 aging intensity over a 500-year reference lifespan
+                let lifetimeAgingFactor = 0;
+                if (this.lifetimeResult && this.lifetimeResult.multiplier > 0) {
+                    const effectiveYears = (t_days / 365.25) / this.lifetimeResult.multiplier;
+                    lifetimeAgingFactor = Math.min(1, effectiveYears / 500);
+                }
+
                 // Post pixel data to Web Worker for off-main-thread processing
                 this.deteriorationWorker.postMessage({
                     pixelData: imageData.data.buffer,
-                    width: img.width,
-                    height: img.height,
+                    width: simW,
+                    height: simH,
                     degradationFactor: degradationFactor,
-                    amplification: 10
+                    amplification: 3,
+                    lifetimeAgingFactor: lifetimeAgingFactor
                 }, [imageData.data.buffer]);
 
                 console.log(`Sent texture to worker: k=${k.toExponential(3)}, degradationFactor=${degradationFactor.toFixed(6)}`);
@@ -447,6 +472,74 @@ export default {
                 this.isProcessing = false;
                 this.showToast(`❌ Error: ${error.message}`, 'error', 5000);
             }
+        },
+
+        /**
+         * Apply deterioration directly to material color (for models without textures)
+         */
+        applyDeteriorationToMaterial(degradationFactor) {
+            const amplification = 3;
+            const visualDeg = 1 - Math.pow(degradationFactor, amplification);
+            const fadeFactor = 1 - visualDeg;
+
+            // Warm gray target for fading
+            const targetR = 180 / 255, targetG = 170 / 255, targetB = 155 / 255;
+            const yellowShift = visualDeg * 0.06; // Normalized yellowing
+
+            // Lifetime aging factor
+            const t_days = this.simDays + (this.simMonths * 30.44) + (this.simYears * 365.25);
+            let aging = 0;
+            if (this.lifetimeResult && this.lifetimeResult.multiplier > 0) {
+                const effectiveYears = (t_days / 365.25) / this.lifetimeResult.multiplier;
+                aging = Math.min(1, effectiveYears / 500);
+            }
+
+            this.model.traverse((child) => {
+                if (child.isMesh && child.material) {
+                    const mats = Array.isArray(child.material) ? child.material : [child.material];
+                    mats.forEach(mat => {
+                        // Store original color on first application
+                        if (!mat.userData.originalColor) {
+                            mat.userData.originalColor = mat.color.clone();
+                        }
+                        const orig = mat.userData.originalColor;
+
+                        // Chemical: fading toward warm gray
+                        let r = orig.r * fadeFactor + targetR * (1 - fadeFactor);
+                        let g = orig.g * fadeFactor + targetG * (1 - fadeFactor);
+                        let b = orig.b * fadeFactor + targetB * (1 - fadeFactor);
+
+                        // Yellowing
+                        r = Math.min(1, r + yellowShift);
+                        g = Math.min(1, g + yellowShift * 0.7);
+                        b = Math.max(0, b - yellowShift * 0.5);
+
+                        // Lifetime aging
+                        if (aging > 0) {
+                            const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+                            const desatAmount = aging * 0.6;
+                            r = r + (gray - r) * desatAmount;
+                            g = g + (gray - g) * desatAmount;
+                            b = b + (gray - b) * desatAmount;
+
+                            const darken = 1 - aging * 0.35;
+                            r *= darken; g *= darken; b *= darken;
+
+                            const patina = aging * 0.08;
+                            r = Math.min(1, r + patina * 0.5);
+                            g = Math.min(1, g + patina * 0.15);
+                            b = Math.max(0, b - patina * 0.6);
+                        }
+
+                        mat.color.setRGB(r, g, b);
+                        mat.needsUpdate = true;
+                    });
+                }
+            });
+
+            const degradationPercent = (100 * (1 - degradationFactor)).toFixed(1);
+            const totalDays = (this.simDays + (this.simMonths * 30.44) + (this.simYears * 365.25)).toFixed(0);
+            this.showToast(`✅ Material updated: ${degradationPercent}% degradation after ${totalDays} days`, 'success', 3000);
         },
 
         /**
@@ -494,19 +587,22 @@ export default {
          * Reset to original texture
          */
         resetTexture() {
-            if (!this.originalTexture || !this.model) return;
+            if (!this.model) return;
 
             this.model.traverse((child) => {
-                if (child instanceof THREE.Mesh) {
-                    if (Array.isArray(child.material)) {
-                        child.material.forEach(mat => {
+                if (child.isMesh && child.material) {
+                    const mats = Array.isArray(child.material) ? child.material : [child.material];
+                    mats.forEach(mat => {
+                        // Restore original texture if available
+                        if (this.originalTexture) {
                             mat.map = this.originalTexture;
-                            mat.needsUpdate = true;
-                        });
-                    } else {
-                        child.material.map = this.originalTexture;
-                        child.material.needsUpdate = true;
-                    }
+                        }
+                        // Restore original material color
+                        if (mat.userData.originalColor) {
+                            mat.color.copy(mat.userData.originalColor);
+                        }
+                        mat.needsUpdate = true;
+                    });
                 }
             });
         },
@@ -534,20 +630,23 @@ export default {
                 return ((h ^ (h >> 16)) & 0x7fffffff) / 0x7fffffff; // 0-1
             };
 
-            // Generate spots at a grid resolution (every 8px)
-            const gridSize = 8;
-            const spotRadius = 12; // pixels
+            // Sparse, isolated colonies — wide grid, small spots, no overlap
+            const gridSize = 64;
+            const spotRadius = 8;
 
             // Mould colour: dark green-black
-            const mouldR = 20, mouldG = 40, mouldB = 15;
+            const mouldR = 30, mouldG = 50, mouldB = 20;
+
+            // At max coverage only ~20% of grid cells get a colony
+            const threshold = coverage * 0.2;
 
             for (let gy = 0; gy < height; gy += gridSize) {
                 for (let gx = 0; gx < width; gx += gridSize) {
                     // Decide if this grid cell has a mould spot
                     const spotChance = hash(gx, gy, 42);
-                    if (spotChance > coverage * 1.5) continue; // More spots as coverage grows
+                    if (spotChance > threshold) continue;
 
-                    // Spot center with slight jitter
+                    // Spot center with jitter within grid cell
                     const cx = gx + hash(gx, gy, 7) * gridSize;
                     const cy = gy + hash(gx, gy, 13) * gridSize;
 
@@ -569,11 +668,11 @@ export default {
                             const falloff = 1 - Math.sqrt(dist2) / spotRadius;
                             const idx = (py * width + px) * 4;
 
-                            // Bias: darker original pixels are more susceptible
+                            // Bias: darker/damper recesses get more mould
                             const brightness = (data[idx] + data[idx + 1] + data[idx + 2]) / (3 * 255);
-                            const darkBias = 1 - brightness * 0.6; // 0.4 - 1.0
+                            const darkBias = 1 - brightness * 0.5;
 
-                            const blend = falloff * intensity * darkBias * 0.8;
+                            const blend = Math.min(0.35, falloff * intensity * darkBias * 0.35);
 
                             data[idx]     = Math.round(data[idx]     * (1 - blend) + mouldR * blend);
                             data[idx + 1] = Math.round(data[idx + 1] * (1 - blend) + mouldG * blend);

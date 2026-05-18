@@ -11,16 +11,18 @@ const { v4: uuidv4 } = require('uuid');
 const app = express();
 
 // Middleware
-app.use(cors({
+const corsOptions = {
     origin: (process.env.CORS_ORIGINS || 'http://localhost:8009,http://localhost:8008,http://127.0.0.1:8009,http://127.0.0.1:8008').split(','),
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Guest-Access'],
     credentials: true
-}));
+};
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 
-// Serve uploaded files
-app.use('/exhibit_models', express.static(path.join(__dirname, 'exhibit_models')));
+// Serve uploaded files (fallthrough: false returns 404 instead of passing to auth middleware)
+app.use('/exhibit_models', express.static(path.join(__dirname, 'exhibit_models'), { fallthrough: false }));
 
 // Authentication
 const { authMiddleware, requireWriteAccess } = require('./middleware/auth');

@@ -13,7 +13,7 @@ const HeritageArtifactSchema = new Schema({
     description: { type: String },
     label: { type: String },
     creationPeriod: { type: String },
-    lastInspectionDate: { type: Number },
+    lastInspectionDate: { type: Date },
     inspectionNotes: { type: String },
     reference: { type: Schema.Types.Mixed },
     coordinates: { type: Schema.Types.Mixed },

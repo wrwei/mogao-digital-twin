@@ -99,14 +99,19 @@ export default {
                     this.form[refName][attrName] = path;
                 }
 
+                // Clean empty strings to avoid validation errors
+                const data = { ...this.form };
+                delete data._id;
+                delete data.__v;
+                Object.keys(data).forEach(k => { if (data[k] === '') delete data[k]; });
+
                 if (this.mode === 'create') {
-                    this.form.gid = 'defect-' + Date.now();
-                    const response = await api.defects.create(this.form);
+                    const response = await api.defects.create(data);
                     this.$emit('created', response.data);
                 } else {
                     const gid = this.defect.gid;
-                    await api.defects.update(gid, this.form);
-                    this.$emit('updated', { ...this.defect, ...this.form });
+                    await api.defects.update(gid, data);
+                    this.$emit('updated', { ...this.defect, ...data });
                 }
                 this.resetForm();
             } catch (error) {
@@ -200,8 +205,8 @@ export default {
                     const category = attrName.replace('Location', '').toLowerCase();
 
                     const formData = new FormData();
-                    formData.append('file', file);
                     formData.append('category', category);
+                    formData.append('file', file);
 
                     try {
                         const response = await api.post('/api/upload', formData, {
@@ -277,7 +282,7 @@ export default {
                     class="form-select"
                     :class="{ 'form-select-error': errors.defectType && touched.defectType }"
                 >
-                    <option value="">{{ t('common.loading') }}</option>
+                    <option value="">{{ t('common.select') || 'Select...' }}</option>
                     <option value="cracking">cracking</option>
                     <option value="flaking">flaking</option>
                     <option value="blistering">blistering</option>
@@ -318,7 +323,7 @@ export default {
                     class="form-select"
                     :class="{ 'form-select-error': errors.severity && touched.severity }"
                 >
-                    <option value="">{{ t('common.loading') }}</option>
+                    <option value="">{{ t('common.select') || 'Select...' }}</option>
                     <option value="minor">minor</option>
                     <option value="moderate">moderate</option>
                     <option value="severe">severe</option>

@@ -58,7 +58,7 @@ export default {
             // Model configuration (expandable)
             showConfig: { chemical: false, lifetime: false, mould: false, saltCryst: false },
             // Configurable model parameters (loaded from backend /deterioration/defaults)
-            chemicalParams: { Ea_dark: 70000, Ea_light: 25000, k0_dark: 0.0001, k0_light: 0.001, q: 0.8, p: 0.9 },
+            chemicalParams: { Ea_dark: 70000, Ea_light: 25000, k0_dark: 25000, k0_light: 0.001, q: 0.8, p: 0.9 },
             lifetimeParams: { Ea: 70000, n: 1.3, T0: 20, RH0: 50 },
             mouldParams: { growthCoeff: 0.13, declineRate: -0.128 },
             saltCrystParams: { Vm: 5.33e-5, DRH_ref: 84.2, DRH_slope: -0.17, T_ref: 25, tensileStrength: 3.0, cyclesPerYear: 120 },
@@ -213,6 +213,8 @@ export default {
                     saltCrystParams: this.saltCrystParams
                 });
                 this._assessmentResults = response.data;
+                // Re-emit with actual API results so ModelViewer gets the real degradation factor
+                this._emitCurrentResults();
             } catch (error) {
                 console.error('Deterioration API error:', error);
             }
@@ -231,10 +233,10 @@ export default {
             }
         },
 
-        emitSimulation() {
+        // Emit current results without re-fetching (called after API response)
+        _emitCurrentResults() {
             if (!this.isSimulating) return;
 
-            this.fetchAssessment();
             const results = this.assessmentResults;
             const totalDays = this.getTotalDays();
 
@@ -249,7 +251,6 @@ export default {
                     unit: 'RH'
                 },
                 deterioration: {
-                    // Legacy fields for backward compatibility with ModelViewer
                     days: this.simDays,
                     months: this.simMonths,
                     years: this.simYears,
@@ -258,7 +259,6 @@ export default {
                     rateConstant: this.enabledModels.chemical ? results.chemical.rateConstant : 0,
                     degradationFactor: this.enabledModels.chemical ? results.chemical.degradationFactor : 1.0,
                     scientificDegradation: this.enabledModels.chemical ? results.chemical.scientificDegradation : 0,
-                    // Per-model results (null when disabled)
                     chemical: this.enabledModels.chemical ? results.chemical : null,
                     lifetime: this.enabledModels.lifetime ? results.lifetime : null,
                     mould: this.enabledModels.mould ? results.mould : null,
@@ -267,6 +267,13 @@ export default {
                 timestamp: Date.now(),
                 speed: this.simulationSpeed
             });
+        },
+
+        emitSimulation() {
+            if (!this.isSimulating) return;
+
+            this.fetchAssessment();
+            this._emitCurrentResults();
         },
 
         toggleSimulation() {
@@ -537,7 +544,7 @@ export default {
                         </div>
                     </div>
                     <div class="sim-speed-btns">
-                        <button v-for="s in [1, 5, 10, 20]" :key="s"
+                        <button v-for="s in [1, 5, 10, 20, 100, 200]" :key="s"
                                 class="sim-speed-btn" :class="{ active: simulationSpeed === s }"
                                 @click="simulationSpeed = s">
                             ×{{ s }}
@@ -637,6 +644,13 @@ export default {
                                 <span class="sim-compact-value" :style="{ color: humidityColor }">{{ humidity.toFixed(0) }}%</span>
                             </div>
                             <input type="range" v-model.number="humidity" min="10" max="90" step="1" class="simulation-slider" :style="{ '--slider-color': humidityColor }" />
+                        </div>
+                        <div class="sim-compact-control">
+                            <div class="sim-compact-control-header">
+                                <span class="sim-compact-label">⏱️ Exposure</span>
+                                <span class="sim-compact-value">{{ simYears }} yr</span>
+                            </div>
+                            <input type="range" v-model.number="simYears" min="0" max="200" step="1" class="simulation-slider" />
                         </div>
                     </div>
                     <div class="sim-tab-result">
@@ -864,6 +878,8 @@ export default {
                             <button @click="simulationSpeed = 5.0" class="btn btn-xs" :disabled="false">5×</button>
                             <button @click="simulationSpeed = 10.0" class="btn btn-xs" :disabled="false">10×</button>
                             <button @click="simulationSpeed = 20.0" class="btn btn-xs" :disabled="false">20×</button>
+                            <button @click="simulationSpeed = 100.0" class="btn btn-xs" :disabled="false">100×</button>
+                            <button @click="simulationSpeed = 200.0" class="btn btn-xs" :disabled="false">200×</button>
                         </div>
                     </div>
 

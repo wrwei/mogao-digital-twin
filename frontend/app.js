@@ -176,39 +176,33 @@ const LoginPage = {
 // Shared UI Components
 // ============================================
 const AppSidebar = {
-    props: ['currentView', 'backendOnline'],
-    emits: ['change-view'],
+    props: ['currentView', 'backendOnline', 'collapsed'],
+    emits: ['change-view', 'toggle-collapse'],
     setup() {
         const { t } = useI18n();
         return { t };
     },
     template: `
-        <div class="app-sidebar">
-            <div class="sidebar-header">
+        <div class="app-sidebar" :class="{ 'sidebar-collapsed': collapsed }">
+            <div class="sidebar-header" @click="$emit('toggle-collapse')" style="cursor: pointer;">
                 <div class="sidebar-logo">🏛️</div>
-                <span class="sidebar-brand">M-Gemini</span>
+                <span v-if="!collapsed" class="sidebar-brand">M-Gemini</span>
             </div>
             <div class="sidebar-nav">
-                <div class="sidebar-nav-item" :class="{ active: currentView === 'dashboard' }" @click="$emit('change-view', 'dashboard')">
+                <div class="sidebar-nav-item" :class="{ active: currentView === 'dashboard' }" @click="$emit('change-view', 'dashboard')" :title="collapsed ? t('nav.dashboard') : ''">
                     <span class="sidebar-nav-icon">📊</span>
-                    <span>{{ t('nav.dashboard') }}</span>
+                    <span v-if="!collapsed">{{ t('nav.dashboard') }}</span>
                 </div>
-                <div class="sidebar-nav-item" :class="{ active: currentView === 'caves' || currentView === 'statues' || currentView === 'murals' || currentView === 'paintings' || currentView === 'inscriptions' }" @click="$emit('change-view', 'caves')">
+                <div class="sidebar-nav-item" :class="{ active: currentView === 'caves' || currentView === 'statues' || currentView === 'murals' || currentView === 'paintings' || currentView === 'inscriptions' }" @click="$emit('change-view', 'caves')" :title="collapsed ? t('entities.caves') : ''">
                     <span class="sidebar-nav-icon">🏛️</span>
-                    <span>{{ t('entities.caves') }}</span>
-                </div>
-                <div class="sidebar-nav-item" :class="{ active: currentView === 'defects' }" @click="$emit('change-view', 'defects')">
-                    <span class="sidebar-nav-icon">⚠️</span>
-                    <span>{{ t('entities.defects') }}</span>
-                </div>
-                <div class="sidebar-nav-item" :class="{ active: currentView === 'settings' }" @click="$emit('change-view', 'settings')" style="margin-top: auto;">
-                    <span class="sidebar-nav-icon">&#9881;</span>
-                    <span>{{ t('nav.settings') || 'Settings' }}</span>
+                    <span v-if="!collapsed">{{ t('entities.caves') }}</span>
                 </div>
             </div>
-            <div class="sidebar-footer">
-                <span class="status-dot" :class="backendOnline ? 'online' : 'offline'"></span>
-                <span>{{ backendOnline ? t('nav.backendOnline') : t('nav.backendOffline') }}</span>
+            <div class="sidebar-bottom">
+                <div class="sidebar-nav-item" :class="{ active: currentView === 'settings' }" @click="$emit('change-view', 'settings')" :title="collapsed ? (t('nav.settings') || 'Settings') : ''">
+                    <span class="sidebar-nav-icon">&#9881;</span>
+                    <span v-if="!collapsed">{{ t('nav.settings') || 'Settings' }}</span>
+                </div>
             </div>
         </div>
     `
@@ -553,6 +547,7 @@ const CaveView = {
                 @delete="handleDelete"
                 @create="handleCreate"
                 @view-detail="handleViewDetail"
+                @navigate-dashboard="$emit('navigate-dashboard')"
             ></cave-list>        </div>
     `
 };
@@ -1250,6 +1245,9 @@ const app = createApp({
 
             // Theme
             currentTheme: localStorage.getItem('mgemini-theme') || 'mogao',
+
+            // Sidebar
+            sidebarCollapsed: localStorage.getItem('mgemini-sidebar-collapsed') === 'true',
         };
     },
 
@@ -1316,6 +1314,15 @@ const app = createApp({
         handlePreferencesChanged(prefs) {
             if (prefs.theme) this.changeTheme(prefs.theme);
             if (prefs.language) this.changeLocale(prefs.language);
+            if (prefs.sidebarCollapsed !== undefined) {
+                this.sidebarCollapsed = prefs.sidebarCollapsed;
+                localStorage.setItem('mgemini-sidebar-collapsed', prefs.sidebarCollapsed);
+            }
+        },
+
+        toggleSidebar() {
+            this.sidebarCollapsed = !this.sidebarCollapsed;
+            localStorage.setItem('mgemini-sidebar-collapsed', this.sidebarCollapsed);
         },
 
         handleProfileUpdated(user) {
@@ -1370,7 +1377,9 @@ const app = createApp({
             <app-sidebar
                 :current-view="currentView"
                 :backend-online="backendOnline"
+                :collapsed="sidebarCollapsed"
                 @change-view="changeView"
+                @toggle-collapse="toggleSidebar"
             ></app-sidebar>
 
             <div class="app-main">
@@ -1406,6 +1415,7 @@ const app = createApp({
                             v-if="currentView === 'caves'"
                             @show-message="showMessage"
                             @item-selected="() => {}"
+                            @navigate-dashboard="changeView('dashboard')"
                         ></cave-view>
                         <statue-view
                             v-if="currentView === 'statues'"

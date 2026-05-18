@@ -13,7 +13,7 @@ const PaintingSchema = new Schema({
     description: { type: String },
     label: { type: String },
     creationPeriod: { type: String },
-    lastInspectionDate: { type: Number },
+    lastInspectionDate: { type: Date },
     inspectionNotes: { type: String },
     material: { type: String },
     period: { type: String },
