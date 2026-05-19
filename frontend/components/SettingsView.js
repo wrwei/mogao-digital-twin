@@ -1,6 +1,6 @@
 /**
  * Settings View Component
- * Provides user profile, appearance, notifications, and admin settings
+ * Provides user profile, appearance, and admin settings
  */
 import { useI18n } from '../i18n.js';
 
@@ -66,11 +66,6 @@ export default {
                     currentTheme.value = d.preferences.theme || currentTheme.value;
                     fontSize.value = d.preferences.fontSize || fontSize.value;
                     sidebarCollapsed.value = d.preferences.sidebarCollapsed || false;
-                    if (d.preferences.notifications) {
-                        notifications.email = d.preferences.notifications.email !== false;
-                        notifications.inApp = d.preferences.notifications.inApp !== false;
-                        notifications.digest = d.preferences.notifications.digest || 'none';
-                    }
                 }
             } catch (err) {
                 profile.fullName = props.user?.fullName || '';
