@@ -118,91 +118,66 @@ const api = {
         delete: (gid) => apiClient.delete(`/inscriptions/gid/${gid}`),
     },
 
-    // Coordinate endpoints
-    coordinates: {
-        getAll: () => apiClient.get('/coordinates'),
-        getByGid: (gid) => apiClient.get(`/coordinates/gid/${gid}`),
-        create: (data) => apiClient.post('/coordinates', data),
-        update: (gid, data) => apiClient.put(`/coordinates/gid/${gid}`, data),
-        delete: (gid) => apiClient.delete(`/coordinates/gid/${gid}`),
-    },
-
-    // Parameter endpoints
-    parameters: {
-        getAll: () => apiClient.get('/parameters'),
-        getByGid: (gid) => apiClient.get(`/parameters/gid/${gid}`),
-        create: (data) => apiClient.post('/parameters', data),
-        update: (gid, data) => apiClient.put(`/parameters/gid/${gid}`, data),
-        delete: (gid) => apiClient.delete(`/parameters/gid/${gid}`),
-    },
-
-    // AssetReference endpoints
-    assetReferences: {
-        getAll: () => apiClient.get('/assetReferences'),
-        getByGid: (gid) => apiClient.get(`/assetReferences/gid/${gid}`),
-        create: (data) => apiClient.post('/assetReferences', data),
-        update: (gid, data) => apiClient.put(`/assetReferences/gid/${gid}`, data),
-        delete: (gid) => apiClient.delete(`/assetReferences/gid/${gid}`),
-    },
-
-    // DTPackage endpoints
-    dTPackages: {
-        getAll: () => apiClient.get('/dTPackages'),
-        getByGid: (gid) => apiClient.get(`/dTPackages/gid/${gid}`),
-        create: (data) => apiClient.post('/dTPackages', data),
-        update: (gid, data) => apiClient.put(`/dTPackages/gid/${gid}`, data),
-        delete: (gid) => apiClient.delete(`/dTPackages/gid/${gid}`),
-    },
-
-    // Temperature endpoints
-    temperatures: {
-        getAll: () => apiClient.get('/temperatures'),
-        getByGid: (gid) => apiClient.get(`/temperatures/gid/${gid}`),
-        create: (data) => apiClient.post('/temperatures', data),
-        update: (gid, data) => apiClient.put(`/temperatures/gid/${gid}`, data),
-        delete: (gid) => apiClient.delete(`/temperatures/gid/${gid}`),
-    },
-
-    // Humidity endpoints
-    humidities: {
-        getAll: () => apiClient.get('/humidities'),
-        getByGid: (gid) => apiClient.get(`/humidities/gid/${gid}`),
-        create: (data) => apiClient.post('/humidities', data),
-        update: (gid, data) => apiClient.put(`/humidities/gid/${gid}`, data),
-        delete: (gid) => apiClient.delete(`/humidities/gid/${gid}`),
-    },
-
-    // LightIntensity endpoints
-    lightIntensities: {
-        getAll: () => apiClient.get('/lightIntensities'),
-        getByGid: (gid) => apiClient.get(`/lightIntensities/gid/${gid}`),
-        create: (data) => apiClient.post('/lightIntensities', data),
-        update: (gid, data) => apiClient.put(`/lightIntensities/gid/${gid}`, data),
-        delete: (gid) => apiClient.delete(`/lightIntensities/gid/${gid}`),
-    },
-
     // Deterioration model calculations
     deterioration: {
         assess: (data) => apiClient.post('/deterioration/assess', data),
-        chemical: (data) => apiClient.post('/deterioration/chemical', data),
-        lifetime: (data) => apiClient.post('/deterioration/lifetime', data),
-        mould: (data) => apiClient.post('/deterioration/mould', data),
-        salt: (data) => apiClient.post('/deterioration/salt', data),
         defaults: () => apiClient.get('/deterioration/defaults'),
     },
 
     // Cross-entity exhibit queries
     exhibits: {
-        getAll: () => apiClient.get('/exhibits'),
-        getByStatus: (status) => apiClient.get(`/exhibits/status/${status}`),
-        getCritical: () => apiClient.get('/exhibits/critical'),
-        getByMaterial: (material) => apiClient.get(`/exhibits/material/${material}`),
-        getByPeriod: (period) => apiClient.get(`/exhibits/period/${period}`),
-        getWithDefects: () => apiClient.get('/exhibits/with-defects'),
-        getRequiringAttention: () => apiClient.get('/exhibits/requiring-attention'),
-        setInspection: (gid, data) => apiClient.put(`/exhibits/${gid}/inspection`, data),
-        updateConservationStatus: (gid, data) => apiClient.put(`/exhibits/${gid}/conservation-status`, data),
-        setCoordinates: (gid, data) => apiClient.put(`/exhibits/${gid}/coordinates`, data),
+        /**
+         * Query environment time-series for an artifact.
+         * @param gid      Artifact gid
+         * @param params   { from?, to?, interval?: 'raw'|'hourly'|'daily' }
+         */
+        getEnvironment: (gid, params = {}) =>
+            apiClient.get(`/exhibits/${gid}/environment`, { params }),
+
+        // Per-exhibit defect log (observed damage records)
+        listDefects:   (gid)                    => apiClient.get(`/exhibits/${gid}/defects`),
+        addDefect:     (gid, data)              => apiClient.post(`/exhibits/${gid}/defects`, data),
+        updateDefect:  (gid, defectGid, data)   => apiClient.put(`/exhibits/${gid}/defects/${defectGid}`, data),
+        removeDefect:  (gid, defectGid)         => apiClient.delete(`/exhibits/${gid}/defects/${defectGid}`),
+        /**
+         * Historical deterioration replay with optional forward projection.
+         * @param gid    Artifact gid
+         * @param params { from?, to?, forecast?: boolean, maxYears?: number }
+         */
+        replayDeterioration: (gid, params = {}) =>
+            apiClient.get(`/exhibits/${gid}/deterioration/replay`, { params, timeout: 60000 }),
+    },
+
+    // Sensor management (admin)
+    sensors: {
+        list: () => apiClient.get('/sensors'),
+        get: (gid) => apiClient.get(`/sensors/${gid}`),
+        register: (data) => apiClient.post('/sensors', data),
+        update: (gid, patch) => apiClient.patch(`/sensors/${gid}`, patch),
+        deactivate: (gid) => apiClient.delete(`/sensors/${gid}`),
+        remove:     (gid) => apiClient.delete(`/sensors/${gid}/purge`),
+        linkArtifact: (gid, artifactGid) =>
+            apiClient.post(`/sensors/${gid}/link-artifact`, { artifactGid }),
+        unlinkArtifact: (gid, artifactGid) =>
+            apiClient.delete(`/sensors/${gid}/link-artifact/${artifactGid}`),
+        rotateKey: (gid) => apiClient.post(`/sensors/${gid}/rotate-key`),
+        anomalies: (gid) => apiClient.get(`/sensors/${gid}/anomalies`),
+        uploadCSV: (gid, file) => {
+            const fd = new FormData();
+            fd.append('file', file);
+            return apiClient.post(`/sensors/${gid}/samples/upload`, fd, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+        },
+        batch: (gid, samples) =>
+            apiClient.post(`/sensors/${gid}/samples/batch`, { samples }),
+    },
+
+    // Maintenance queue (prediction + anomalies composite)
+    maintenance: {
+        queue:       ()    => apiClient.get('/maintenance/queue', { timeout: 120000 }),
+        artifact:    (gid) => apiClient.get(`/maintenance/artifact/${gid}`, { timeout: 60000 }),
+        anomalies:   ()    => apiClient.get('/maintenance/anomalies'),
     },
 
     // Health check

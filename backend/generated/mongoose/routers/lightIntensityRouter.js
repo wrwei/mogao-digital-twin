@@ -14,6 +14,9 @@ const LightIntensityController = require('../controllers/LightIntensityControlle
  * GET    /:id           - Get LightIntensity by ID
  * PUT    /:id           - Update LightIntensity by ID
  * DELETE /:id           - Delete LightIntensity by ID
+ *
+ * The /gid/:gid routes are registered BEFORE the /:id routes so that
+ * Express does not interpret the literal string "gid" as a Mongo ObjectId.
  */
 
 router.post('/', LightIntensityController.create);

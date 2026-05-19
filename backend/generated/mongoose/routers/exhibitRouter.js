@@ -28,9 +28,21 @@ router.get('/material/:material', ExhibitController.getByMaterial);
 router.get('/period/:period', ExhibitController.getByPeriod);
 router.get('/', ExhibitController.getAll);
 
+// Environment query (time-series T/RH/light for an exhibit)
+router.get('/:gid/environment', ExhibitController.getEnvironment);
+
+// Deterioration replay (historical damage integration + optional forecast)
+router.get('/:gid/deterioration/replay', ExhibitController.replayDeterioration);
+
 // Mutation endpoints
 router.put('/:gid/inspection', ExhibitController.setInspection);
 router.put('/:gid/conservation-status', ExhibitController.updateConservationStatus);
 router.put('/:gid/coordinates', ExhibitController.setCoordinates);
+
+// Defects: per-exhibit observation log
+router.get('/:gid/defects',                   ExhibitController.listDefects);
+router.post('/:gid/defects',                  ExhibitController.addDefect);
+router.put('/:gid/defects/:defectGid',        ExhibitController.updateDefect);
+router.delete('/:gid/defects/:defectGid',     ExhibitController.removeDefect);
 
 module.exports = router;

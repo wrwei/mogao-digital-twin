@@ -6,6 +6,9 @@
 import InscriptionCard from './InscriptionCard.js';
 import ModelViewer from './ModelViewer.js';
 import SimulationPanel from './SimulationPanel.js';
+import Skeleton from './Skeleton.js';
+import EmptyState from './EmptyState.js';
+import { parseHash, replaceHashParams } from '../utils/router.js';
 import { useI18n } from '../i18n.js';
 
 export default {
@@ -18,7 +21,9 @@ export default {
     components: {
         InscriptionCard,
         ModelViewer,
-        SimulationPanel
+        SimulationPanel,
+        Skeleton,
+        EmptyState
     },
     props: {
         inscriptions: {
@@ -34,7 +39,7 @@ export default {
             default: null
         }
     },
-    emits: ['select', 'edit', 'delete', 'create', 'view-detail'],
+    emits: ['select', 'edit', 'delete', 'create', 'view-detail', 'bulk-delete'],
     data() {
         return {
             searchQuery: '',
@@ -47,7 +52,9 @@ export default {
             simulationPanelWidth: 480,
             isDragging: false,
             dragStartX: 0,
-            dragStartWidth: 0
+            dragStartWidth: 0,
+            // Bulk-selection (F6).
+            selectedBulkIds: []
         };
     },
     mounted() {
@@ -57,6 +64,21 @@ export default {
             this.windowHeight = window.innerHeight;
         };
         window.addEventListener('resize', this.handleResize);
+
+        // Hydrate the search box from the URL so refresh / shared links
+        // restore the filter; the watcher writes it back via replaceState.
+        const q = parseHash().params.q;
+        if (q) this.searchQuery = q;
+    },
+    watch: {
+        searchQuery(q) { replaceHashParams({ q: q || null }); },
+        inscriptions: {
+            handler(arr) {
+                if (!this.selectedBulkIds.length) return;
+                const present = new Set((arr || []).map(i => i.gid));
+                this.selectedBulkIds = this.selectedBulkIds.filter(id => present.has(id));
+            }
+        }
     },
     beforeUnmount() {
         if (this.handleResize) {
@@ -64,6 +86,16 @@ export default {
         }
     },
     methods: {
+        toggleBulkSelection(item) {
+            const idx = this.selectedBulkIds.indexOf(item.gid);
+            if (idx === -1) this.selectedBulkIds.push(item.gid);
+            else this.selectedBulkIds.splice(idx, 1);
+        },
+        clearBulkSelection() { this.selectedBulkIds = []; },
+        emitBulkDelete() {
+            const items = (this.inscriptions || []).filter(i => this.selectedBulkIds.includes(i.gid));
+            if (items.length) this.$emit('bulk-delete', items);
+        },
         handleSimulationChanged(data) {
             this.simulationData = data;
             console.log('=== Inscription Simulation Data ===', data);
@@ -136,33 +168,6 @@ export default {
             return this.inscriptions.find(item => item.gid === this.selectedGid);
         }
     },
-    mounted() {
-        // Debug logging for layout sizes
-        this.$nextTick(() => {
-            setTimeout(() => {
-                const container = document.querySelector('.inscription-list-container');
-                const viewerPanel = document.querySelector('.entity-viewer-panel');
-
-                console.log('=== Inscription List Layout Debug ===');
-                if (container) {
-                    console.log('Grid Container:', {
-                        width: container.offsetWidth,
-                        height: container.offsetHeight,
-                        computedWidth: window.getComputedStyle(container).width
-                    });
-                }
-                if (viewerPanel) {
-                    console.log('Viewer Panel:', {
-                        width: viewerPanel.offsetWidth,
-                        height: viewerPanel.offsetHeight,
-                        computedWidth: window.getComputedStyle(viewerPanel).width
-                    });
-                }
-                console.log('Viewport width:', window.innerWidth);
-                console.log('Expected viewer width:', window.innerWidth - 280);
-            }, 500);
-        });
-    },
     template: `
         <div class="inscription-list-container" style="display: grid; grid-template-columns: 280px 1fr; width: 100%; height: calc(100vh - 140px); gap: 0;">
             <!-- Left Panel: List -->
@@ -187,35 +192,45 @@ export default {
                 </div>
 
                 <div class="list-body" style="flex: 1; overflow-y: auto; padding: var(--spacing-sm);">
-                    <div v-if="loading" class="loading-overlay">
-                        <div class="spinner"></div>
-                        <p style="margin-top: var(--spacing-md); color: var(--text-secondary);">{{ t('common.loading') }}</p>
-                    </div>
+                    <skeleton v-if="loading" variant="row" :count="6"></skeleton>
 
-                    <div v-else-if="isEmpty" class="empty-state">
-                        <div class="empty-state-icon">📭</div>
-                        <div class="empty-state-text">{{ t('common.noData') }}</div>
-                        <button v-if="!isGuest" class="btn btn-primary" @click="$emit('create')">
-                            {{ t('actions.createNew', { entity: t('entities.inscription') }) }}
-                        </button>
-                    </div>
+                    <empty-state v-else-if="isEmpty"
+                        icon="📭"
+                        :title="t('empty.noEntityTitle')"
+                        :description="t('empty.noEntityHint', { entity: t('entities.inscription') })"
+                        :action-label="!isGuest ? t('actions.createNew', { entity: t('entities.inscription') }) : ''"
+                        @action="$emit('create')"></empty-state>
 
-                    <div v-else-if="filteredInscriptions.length === 0" class="empty-state">
-                        <div class="empty-state-icon">🔍</div>
-                        <div class="empty-state-text">{{ t('common.noData') }}</div>
-                    </div>
+                    <empty-state v-else-if="filteredInscriptions.length === 0"
+                        icon="🔍"
+                        :title="t('empty.noResultsTitle')"
+                        :description="t('empty.noResultsHint')"></empty-state>
 
-                    <div v-else class="entity-cards" style="display: flex; flex-direction: column; gap: var(--spacing-sm);">
-                        <inscription-card
-                            v-for="item in filteredInscriptions"
-                            :key="item.gid"
-                            :inscription="item"
-                            :selected-gid="selectedGid"
-                            @select="$emit('select', item)"
-                            @view-detail="$emit('view-detail', item)"
-                            @edit="$emit('edit', item)"
-                            @delete="$emit('delete', item)"
-                        ></inscription-card>                    </div>
+                    <div v-else>
+                        <div v-if="selectedBulkIds.length > 0" class="bulk-action-bar" role="region" aria-live="polite">
+                            <span class="bulk-count">{{ t('actions.bulkSelected', { count: selectedBulkIds.length }) }}</span>
+                            <button class="btn btn-sm btn-danger" @click="emitBulkDelete">
+                                {{ t('actions.bulkDelete') }}
+                            </button>
+                            <button class="btn btn-sm" @click="clearBulkSelection">
+                                {{ t('actions.clearSelection') }}
+                            </button>
+                        </div>
+                        <div class="entity-cards" style="display: flex; flex-direction: column; gap: var(--spacing-sm);">
+                            <inscription-card
+                                v-for="item in filteredInscriptions"
+                                :key="item.gid"
+                                :inscription="item"
+                                :selected-gid="selectedGid"
+                                :selected-for-bulk="selectedBulkIds.includes(item.gid)"
+                                @toggle-bulk="toggleBulkSelection"
+                                @select="$emit('select', item)"
+                                @view-detail="$emit('view-detail', item)"
+                                @edit="$emit('edit', item)"
+                                @delete="$emit('delete', item)"
+                            ></inscription-card>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="list-footer" style="padding: var(--spacing-sm); border-top: 1px solid var(--border); text-align: center; color: var(--text-secondary); font-size: 0.9em;">

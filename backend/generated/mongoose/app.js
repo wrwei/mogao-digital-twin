@@ -11,18 +11,38 @@ const { v4: uuidv4 } = require('uuid');
 const app = express();
 
 // Middleware
-const corsOptions = {
+app.use(cors({
     origin: (process.env.CORS_ORIGINS || 'http://localhost:8009,http://localhost:8008,http://127.0.0.1:8009,http://127.0.0.1:8008').split(','),
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Guest-Access'],
     credentials: true
-};
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
+}));
 app.use(express.json({ limit: '10mb' }));
 
-// Serve uploaded files (fallthrough: false returns 404 instead of passing to auth middleware)
-app.use('/exhibit_models', express.static(path.join(__dirname, 'exhibit_models'), { fallthrough: false }));
+// Serve uploaded files — public, no auth required
+// Must be registered BEFORE authMiddleware so the JWT check never runs on these paths.
+app.use('/exhibit_models', express.static(path.join(__dirname, 'exhibit_models')));
+// Fallback: if the exact path isn't found, search all subdirectories for the filename.
+// This handles stale DB paths where the stored subdir doesn't match where the file landed.
+app.use('/exhibit_models', (req, res) => {
+    const filename = path.basename(req.path);
+    if (!filename || filename.includes('..')) {
+        return res.status(404).json({ error: 'Not found' });
+    }
+    const baseDir = path.join(__dirname, 'exhibit_models');
+    try {
+        const subdirs = fs.readdirSync(baseDir).filter(d =>
+            fs.statSync(path.join(baseDir, d)).isDirectory()
+        );
+        for (const sub of subdirs) {
+            const candidate = path.join(baseDir, sub, filename);
+            if (fs.existsSync(candidate)) {
+                return res.sendFile(candidate);
+            }
+        }
+    } catch (_) {}
+    res.status(404).json({ error: 'Model file not found', path: req.path });
+});
 
 // Authentication
 const { authMiddleware, requireWriteAccess } = require('./middleware/auth');
@@ -58,11 +78,20 @@ function loginRateLimiter(req, res, next) {
 // User routes (login/register are public, rest require auth)
 app.use('/users', loginRateLimiter, userRouter);
 
+// Telemetry sample-ingestion routes use sensor-API-key auth (NOT JWT), so
+// they must be mounted BEFORE the global authMiddleware.
+const { sensorRouter: telemetryIngestRouter, adminRouter: sensorAdminRouter }
+    = require('./routers/telemetryRouter');
+app.use('/telemetry', telemetryIngestRouter);
+
 // Apply auth middleware to all subsequent routes
 app.use(authMiddleware);
 
-// Restrict write operations for guests
-app.use(requireWriteAccess);
+// Restrict write operations for guests (exempt computation endpoints)
+app.use((req, res, next) => {
+    if (req.path.startsWith('/deterioration')) return next();
+    return requireWriteAccess(req, res, next);
+});
 
 // Import routers
 const caveRouter = require('./routers/caveRouter');
@@ -80,6 +109,8 @@ const humidityRouter = require('./routers/humidityRouter');
 const lightIntensityRouter = require('./routers/lightIntensityRouter');
 const deteriorationRouter = require('./routers/deteriorationRouter');
 const exhibitRouter = require('./routers/exhibitRouter');
+const maintenanceRouter = require('./routers/maintenanceRouter');
+// sensorAdminRouter is defined above (before authMiddleware) alongside telemetryIngestRouter
 
 // Mount routes (no /api prefix to match existing frontend)
 app.use('/caves', caveRouter);
@@ -97,6 +128,8 @@ app.use('/humidities', humidityRouter);
 app.use('/lightIntensities', lightIntensityRouter);
 app.use('/deterioration', deteriorationRouter);
 app.use('/exhibits', exhibitRouter);
+app.use('/sensors', sensorAdminRouter);
+app.use('/maintenance', maintenanceRouter);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -104,11 +137,15 @@ app.get('/health', (req, res) => {
 });
 
 // File upload endpoint
+// NOTE: multer's destination callback runs BEFORE req.body is parsed, so req.body.category
+// is always undefined there. We save to a fixed base dir and use req.body.category only when
+// building the returned path (which IS available by the time the route handler runs).
+const fs = require('fs');
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        const category = req.body.category || 'general';
-        const uploadDir = path.join(__dirname, 'exhibit_models', category);
-        const fs = require('fs');
+        // Always save to exhibit_models/uploads/ — category-based subdirs are handled
+        // after the fact by reading req.body.category in the route handler.
+        const uploadDir = path.join(__dirname, 'exhibit_models', 'uploads');
         fs.mkdirSync(uploadDir, { recursive: true });
         cb(null, uploadDir);
     },
@@ -137,7 +174,12 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
     if (!req.file) {
         return res.status(400).json({ error: 'No file uploaded' });
     }
-    const category = req.body.category || 'general';
+    // req.body is now available. Move the file from uploads/ into the category subdir.
+    const category = (req.body.category || 'general').replace(/[^a-zA-Z0-9_-]/g, '');
+    const destDir = path.join(__dirname, 'exhibit_models', category);
+    fs.mkdirSync(destDir, { recursive: true });
+    const destPath = path.join(destDir, req.file.filename);
+    fs.renameSync(req.file.path, destPath);
     const serverPath = '/exhibit_models/' + category + '/' + req.file.filename;
     res.json({ path: serverPath, originalName: req.file.originalname, size: req.file.size });
 });

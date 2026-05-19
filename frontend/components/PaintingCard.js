@@ -15,9 +15,13 @@ export default {
         selectedGid: {
             type: String,
             default: null
+        },
+        selectedForBulk: {
+            type: Boolean,
+            default: false
         }
     },
-    emits: ['select', 'edit', 'delete', 'view-detail'],
+    emits: ['select', 'edit', 'delete', 'view-detail', 'toggle-bulk'],
     setup() {
         const { t } = useI18n();
         const isGuest = Vue.inject('isGuest', Vue.ref(false));
@@ -25,8 +29,13 @@ export default {
     },
     template: `
         <div class="card painting-card"
-             :class="{ 'selected': isSelected }"
+             :class="{ 'selected': isSelected, 'bulk-selected': selectedForBulk }"
              @click="handleCardClick">
+            <label v-if="!isGuest" class="card-bulk-toggle" @click.stop>
+                <input type="checkbox" :checked="selectedForBulk"
+                       @change="$emit('toggle-bulk', painting)"
+                       :aria-label="t('common.select')" />
+            </label>
             <div class="card-header">
                 <h3 class="card-title">{{ painting.name || '绘画' }}</h3>
                 <span class="badge" :class="'badge-' + (painting.conservationStatus || 'unknown').toLowerCase()" :title="t('fields.conservationStatus')">

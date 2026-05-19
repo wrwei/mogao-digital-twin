@@ -14,6 +14,9 @@ const TemperatureController = require('../controllers/TemperatureController');
  * GET    /:id           - Get Temperature by ID
  * PUT    /:id           - Update Temperature by ID
  * DELETE /:id           - Delete Temperature by ID
+ *
+ * The /gid/:gid routes are registered BEFORE the /:id routes so that
+ * Express does not interpret the literal string "gid" as a Mongo ObjectId.
  */
 
 router.post('/', TemperatureController.create);

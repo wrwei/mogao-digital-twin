@@ -50,6 +50,27 @@ const SALT_DEFAULTS = {
     cyclesPerYear: 120
 };
 
+// Hygro-mechanical fatigue (HERIe / Bratasz methodology)
+// Default values calibrated for a pigment-on-clay layered system to produce
+// educational outputs across typical RH swing ranges (5-30%):
+//   beta_diff: differential hygric strain coefficient (paint vs substrate), /%RH
+//              ~5e-5 /%RH corresponds to ~0.25% strain at ±5% RH, consistent
+//              with measurements on painted-panel systems (Mecklenburg,
+//              Bratasz).
+//   E:         effective Young's modulus of the paint layer (MPa)
+//   sigma_fail: nominal monotonic-failure stress (MPa); the fatigue life
+//              scales with (sigma_fail/stress)^basquin_b so this anchors the
+//              dose-response curve.
+//   basquin_b: Basquin fatigue exponent (dimensionless; higher = more brittle)
+//   cyclesPerYear: default daily-cycle frequency
+const FATIGUE_DEFAULTS = {
+    beta_diff: 5e-5,     // per %RH
+    E: 2000,             // MPa
+    sigma_fail: 10.0,    // MPa
+    basquin_b: 6,        // dimensionless
+    cyclesPerYear: 365   // 1 daily cycle per day
+};
+
 // Paltakari-Karlsson sorption isotherm — equilibrium moisture content
 function calculateMoistureContent(RH_fraction, T_kelvin) {
     const RH_safe = Math.min(Math.max(RH_fraction, 0.01), 0.999);
@@ -205,22 +226,72 @@ function saltCrystallization(T_celsius, RH_percent, totalDays, params = {}) {
     };
 }
 
+// 5. Hygro-mechanical fatigue (HERIe / Bratasz)
+// Cyclic RH drives differential strain between paint and substrate layers.
+// Cumulative damage via Miner's rule with Basquin's fatigue life equation:
+//   strain amplitude  ε = beta_diff × ΔRH
+//   stress amplitude  σ = E × ε
+//   cycles to failure N(σ) = (sigma_fail / σ)^basquin_b
+//   damage per cycle  d = 1 / N(σ)
+//   cumulative damage D = d × (cyclesPerYear × totalYears)
+// D = 1 → first cracks appear; D > 2 → widespread cracking; D >> 3 → severe flaking.
+function fatigueDamage(RH_amplitude, totalDays, params = {}) {
+    const { beta_diff, E, sigma_fail, basquin_b, cyclesPerYear } = { ...FATIGUE_DEFAULTS, ...params };
+    const amplitude = Math.max(0, Math.min(100, RH_amplitude));
+    const totalYears = totalDays / 365.25;
+
+    let cumulativeDamage = 0;
+    let stress_MPa = 0;
+    let cyclesToFailure = Infinity;
+
+    if (amplitude > 0.1 && totalYears > 0) {
+        const strain = beta_diff * amplitude;
+        stress_MPa = E * strain;
+        // Basquin's law caps N at a high upper bound when stress is trivially small
+        cyclesToFailure = Math.min(1e12, Math.pow(sigma_fail / Math.max(stress_MPa, 1e-6), basquin_b));
+        const damagePerCycle = 1 / cyclesToFailure;
+        cumulativeDamage = damagePerCycle * cyclesPerYear * totalYears;
+    }
+
+    let label = 'low';
+    if (cumulativeDamage >= 3.0) label = 'critical';
+    else if (cumulativeDamage >= 1.0) label = 'high';
+    else if (cumulativeDamage >= 0.3) label = 'moderate';
+
+    const risk = Math.min(100, cumulativeDamage * 33);
+    const crackDensity = Math.min(1, cumulativeDamage / 3); // 0 = pristine, 1 = fully cracked
+
+    return {
+        stress_MPa: Math.round(stress_MPa * 1000) / 1000,
+        cyclesToFailure: cyclesToFailure === Infinity ? null : Math.round(cyclesToFailure),
+        cyclesApplied: Math.round(cyclesPerYear * totalYears),
+        cumulativeDamage: Math.round(cumulativeDamage * 1000) / 1000,
+        crackDensity: Math.round(crackDensity * 100) / 100,
+        risk: Math.round(risk),
+        label,
+        visualEffect: { crackDensity, type: 'fatigue' }
+    };
+}
+
 // Combined assessment
 function assess(params) {
     const {
         T_celsius, RH_percent, light_klux, totalDays,
         prevMouldIndex = 0,
+        RH_amplitude = 0,
         chemicalParams = {},
         lifetimeParams = {},
         mouldParams = {},
-        saltCrystParams = {}
+        saltCrystParams = {},
+        fatigueParams = {}
     } = params;
 
     return {
         chemical: chemicalFading(T_celsius, RH_percent, light_klux, totalDays, chemicalParams),
         lifetime: lifetimeMultiplier(T_celsius, RH_percent, lifetimeParams),
         mould: mouldGrowth(T_celsius, RH_percent, totalDays, prevMouldIndex, mouldParams),
-        saltCryst: saltCrystallization(T_celsius, RH_percent, totalDays, saltCrystParams)
+        saltCryst: saltCrystallization(T_celsius, RH_percent, totalDays, saltCrystParams),
+        fatigue: fatigueDamage(RH_amplitude, totalDays, fatigueParams)
     };
 }
 
@@ -229,6 +300,7 @@ module.exports = {
     LIFETIME_DEFAULTS,
     MOULD_DEFAULTS,
     SALT_DEFAULTS,
+    FATIGUE_DEFAULTS,
     calculateMoistureContent,
     calculateRateConstant,
     chemicalFading,
@@ -237,5 +309,6 @@ module.exports = {
     mouldGrowth,
     saltDeliquescenceRH,
     saltCrystallization,
+    fatigueDamage,
     assess
 };

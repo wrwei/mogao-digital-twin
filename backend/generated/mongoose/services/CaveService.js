@@ -11,15 +11,16 @@ const CaveService = {
      * Create a new Cave
      */
     create: async (data) => {
-        if (!data.gid) {
-            data.gid = 'cave-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
-        }
+        // Always generate gid server-side to prevent client-supplied collisions
+        data.gid = 'cave-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
+        delete data._id;
         const cave = await Cave.create(data);
         return cave;
     },
 
     /**
-     * Get all Cave documents
+     * Get all Cave documents.
+     * Optional query: { page, limit, sort } for pagination + ordering.
      */
     getAll: async (query = {}) => {
         const { page, limit, sort } = query;

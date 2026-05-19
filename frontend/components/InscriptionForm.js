@@ -37,17 +37,6 @@ export default {
                     name: '',
                     description: '',
                     timestamp: null
-                },
-                defects: this.inscription?.defects || {
-                    gid: '',
-                    name: '',
-                    description: '',
-                    defectType: '',
-                    severity: '',
-                    detectionDate: null,
-                    affectedArea: null,
-                    treatmentHistory: '',
-                    requiresImmediateAction: null
                 }
             },
             errors: {},
@@ -88,9 +77,6 @@ export default {
             }
             if (data.environmentConditions) {
                 this.form.environmentConditions = { ...data.environmentConditions };
-            }
-            if (data.defects) {
-                this.form.defects = { ...data.defects };
             }
         },
 
@@ -141,19 +127,13 @@ export default {
                     this.form[refName][attrName] = path;
                 }
 
-                // Clean empty strings to avoid validation errors
-                const data = { ...this.form };
-                delete data._id;
-                delete data.__v;
-                Object.keys(data).forEach(k => { if (data[k] === '') delete data[k]; });
-
                 if (this.mode === 'create') {
-                    const response = await api.inscriptions.create(data);
+                    const response = await api.inscriptions.create(this.form);
                     this.$emit('created', response.data);
                 } else {
                     const gid = this.inscription.gid;
-                    await api.inscriptions.update(gid, data);
-                    this.$emit('updated', { ...this.inscription, ...data });
+                    await api.inscriptions.update(gid, this.form);
+                    this.$emit('updated', { ...this.inscription, ...this.form });
                 }
                 this.resetForm();
             } catch (error) {
@@ -168,27 +148,15 @@ export default {
             this.errors = {};
             let isValid = true;
 
-            // Validate name
+            // Require a name on every artifact — the only universally
+            // mandatory field across the metamodel.
+            if (!this.form.name || !this.form.name.trim()) {
+                this.errors.name = this.t('validation.required', { field: this.t('fields.name') })
+                    || 'Name is required.';
+                this.touched.name = true;
+                isValid = false;
+            }
 
-            // Validate description
-
-            // Validate label
-
-            // Validate creationPeriod
-
-            // Validate lastInspectionDate
-
-            // Validate inspectionNotes
-
-            // Validate material
-
-            // Validate period
-
-            // Validate conservationStatus
-
-            // Validate language
-
-            // Validate content
 
             return isValid;
         },
@@ -217,17 +185,6 @@ export default {
                 name: '',
                 description: '',
                 timestamp: null
-            };
-            this.form.defects = {
-                gid: '',
-                name: '',
-                description: '',
-                defectType: '',
-                severity: '',
-                detectionDate: null,
-                affectedArea: null,
-                treatmentHistory: '',
-                requiresImmediateAction: null
             };
             this.errors = {};
             this.touched = {};
@@ -273,8 +230,8 @@ export default {
                     const category = attrName.replace('Location', '').toLowerCase();
 
                     const formData = new FormData();
-                    formData.append('category', category);
                     formData.append('file', file);
+                    formData.append('category', category);
 
                     try {
                         const response = await api.post('/api/upload', formData, {
@@ -297,9 +254,9 @@ export default {
         <form @submit.prevent="handleSubmit" class="form inscription-form">
             <h2>{{ mode === 'create' ? t('common.create') : t('common.edit') }} {{ t('entities.inscription') }}</h2>
 
-            <div class="form-group" v-if="mode === 'edit' || true">
+            <div class="form-group">
                 <label class="form-label" for="name">
-                    {{ t('fields.name') }}
+                    {{ t('fields.name') }} <span class="form-required" aria-hidden="true">*</span>
                 </label>
 
                 <input
@@ -317,7 +274,7 @@ export default {
                 </span>
             </div>
 
-            <div class="form-group" v-if="mode === 'edit' || true">
+            <div class="form-group">
                 <label class="form-label" for="description">
                     {{ t('fields.description') }}
                 </label>
@@ -338,7 +295,7 @@ export default {
                 </span>
             </div>
 
-            <div class="form-group" v-if="mode === 'edit' || true">
+            <div class="form-group">
                 <label class="form-label" for="label">
                     {{ t('fields.label') }}
                 </label>
@@ -358,7 +315,7 @@ export default {
                 </span>
             </div>
 
-            <div class="form-group" v-if="mode === 'edit' || true">
+            <div class="form-group">
                 <label class="form-label" for="creationPeriod">
                     {{ t('fields.creationPeriod') }}
                 </label>
@@ -378,13 +335,13 @@ export default {
                 </span>
             </div>
 
-            <div class="form-group" v-if="mode === 'edit' || true">
+            <div class="form-group">
                 <label class="form-label" for="lastInspectionDate">
                     {{ t('fields.lastInspectionDate') }}
                 </label>
 
                 <input
-                    type="date"
+                    type="text"
                     id="lastInspectionDate"
                     v-model="form.lastInspectionDate"
                     @blur="markTouched('lastInspectionDate')"
@@ -398,7 +355,7 @@ export default {
                 </span>
             </div>
 
-            <div class="form-group" v-if="mode === 'edit' || true">
+            <div class="form-group">
                 <label class="form-label" for="inspectionNotes">
                     {{ t('fields.inspectionNotes') }}
                 </label>
@@ -418,7 +375,7 @@ export default {
                 </span>
             </div>
 
-            <div class="form-group" v-if="mode === 'edit' || true">
+            <div class="form-group">
                 <label class="form-label" for="material">
                     {{ t('fields.material') }}
                 </label>
@@ -438,7 +395,7 @@ export default {
                 </span>
             </div>
 
-            <div class="form-group" v-if="mode === 'edit' || true">
+            <div class="form-group">
                 <label class="form-label" for="period">
                     {{ t('fields.period') }}
                 </label>
@@ -458,7 +415,7 @@ export default {
                 </span>
             </div>
 
-            <div class="form-group" v-if="mode === 'edit' || true">
+            <div class="form-group">
                 <label class="form-label" for="conservationStatus">
                     {{ t('fields.conservationStatus') }}
                 </label>
@@ -470,7 +427,7 @@ export default {
                     class="form-select"
                     :class="{ 'form-select-error': errors.conservationStatus && touched.conservationStatus }"
                 >
-                    <option value="">{{ t('common.select') || 'Select...' }}</option>
+                    <option value="">{{ t('common.loading') }}</option>
                     <option value="excellent">excellent</option>
                     <option value="good">good</option>
                     <option value="fair">fair</option>
@@ -484,7 +441,7 @@ export default {
                 </span>
             </div>
 
-            <div class="form-group" v-if="mode === 'edit' || true">
+            <div class="form-group">
                 <label class="form-label" for="language">
                     {{ t('fields.language') }}
                 </label>
@@ -504,7 +461,7 @@ export default {
                 </span>
             </div>
 
-            <div class="form-group" v-if="mode === 'edit' || true">
+            <div class="form-group">
                 <label class="form-label" for="content">
                     {{ t('fields.content') }}
                 </label>
@@ -525,7 +482,7 @@ export default {
             </div>
 
 
-            <fieldset class="form-fieldset" v-if="mode === 'edit'">
+            <fieldset class="form-fieldset">
                 <legend class="form-legend">{{ t('fields.reference') }}</legend>
                 <div class="form-group">
                     <label class="form-label" for="reference_gid">
@@ -603,7 +560,7 @@ accept=".jpg,.jpeg,.png,.bmp"                    />
                 </div>
             </fieldset>
 
-            <fieldset class="form-fieldset" v-if="mode === 'edit'">
+            <fieldset class="form-fieldset">
                 <legend class="form-legend">{{ t('fields.environmentConditions') }}</legend>
                 <div class="form-group">
                     <label class="form-label" for="environmentConditions_gid">
@@ -675,162 +632,6 @@ accept=".jpg,.jpeg,.png,.bmp"                    />
                 </div>
             </fieldset>
 
-            <fieldset class="form-fieldset" v-if="mode === 'edit'">
-                <legend class="form-legend">{{ t('fields.defects') }}</legend>
-                <div class="form-group">
-                    <label class="form-label" for="defects_gid">
-                        {{ t('fields.gid') }}
-                    </label>
-                    <input
-                        type="text"
-                        id="defects_gid"
-                        v-model="form.defects.gid"
-                        @blur="markTouched('defects.gid')"
-                        class="form-input"
-                        :class="{ 'form-input-error': errors['defects.gid'] && touched['defects.gid'] }"
-                        :placeholder="t('fields.gid')"
-                    />
-                    <span v-if="errors['defects.gid'] && touched['defects.gid']" class="form-error">
-                        {{ errors['defects.gid'] }}
-                    </span>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="defects_name">
-                        {{ t('fields.name') }}
-                    </label>
-                    <input
-                        type="text"
-                        id="defects_name"
-                        v-model="form.defects.name"
-                        @blur="markTouched('defects.name')"
-                        class="form-input"
-                        :class="{ 'form-input-error': errors['defects.name'] && touched['defects.name'] }"
-                        :placeholder="t('fields.name')"
-                    />
-                    <span v-if="errors['defects.name'] && touched['defects.name']" class="form-error">
-                        {{ errors['defects.name'] }}
-                    </span>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="defects_description">
-                        {{ t('fields.description') }}
-                    </label>
-                    <input
-                        type="text"
-                        id="defects_description"
-                        v-model="form.defects.description"
-                        @blur="markTouched('defects.description')"
-                        class="form-input"
-                        :class="{ 'form-input-error': errors['defects.description'] && touched['defects.description'] }"
-                        :placeholder="t('fields.description')"
-                    />
-                    <span v-if="errors['defects.description'] && touched['defects.description']" class="form-error">
-                        {{ errors['defects.description'] }}
-                    </span>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="defects_defectType">
-                        {{ t('fields.defectType') }}
-                    </label>
-                    <input
-                        type="text"
-                        id="defects_defectType"
-                        v-model="form.defects.defectType"
-                        @blur="markTouched('defects.defectType')"
-                        class="form-input"
-                        :class="{ 'form-input-error': errors['defects.defectType'] && touched['defects.defectType'] }"
-                        :placeholder="t('fields.defectType')"
-                    />
-                    <span v-if="errors['defects.defectType'] && touched['defects.defectType']" class="form-error">
-                        {{ errors['defects.defectType'] }}
-                    </span>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="defects_severity">
-                        {{ t('fields.severity') }}
-                    </label>
-                    <input
-                        type="text"
-                        id="defects_severity"
-                        v-model="form.defects.severity"
-                        @blur="markTouched('defects.severity')"
-                        class="form-input"
-                        :class="{ 'form-input-error': errors['defects.severity'] && touched['defects.severity'] }"
-                        :placeholder="t('fields.severity')"
-                    />
-                    <span v-if="errors['defects.severity'] && touched['defects.severity']" class="form-error">
-                        {{ errors['defects.severity'] }}
-                    </span>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="defects_detectionDate">
-                        {{ t('fields.detectionDate') }}
-                    </label>
-                    <input
-                        type="text"
-                        id="defects_detectionDate"
-                        v-model="form.defects.detectionDate"
-                        @blur="markTouched('defects.detectionDate')"
-                        class="form-input"
-                        :class="{ 'form-input-error': errors['defects.detectionDate'] && touched['defects.detectionDate'] }"
-                        :placeholder="t('fields.detectionDate')"
-                    />
-                    <span v-if="errors['defects.detectionDate'] && touched['defects.detectionDate']" class="form-error">
-                        {{ errors['defects.detectionDate'] }}
-                    </span>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="defects_affectedArea">
-                        {{ t('fields.affectedArea') }}
-                    </label>
-                    <input
-                        type="text"
-                        id="defects_affectedArea"
-                        v-model="form.defects.affectedArea"
-                        @blur="markTouched('defects.affectedArea')"
-                        class="form-input"
-                        :class="{ 'form-input-error': errors['defects.affectedArea'] && touched['defects.affectedArea'] }"
-                        :placeholder="t('fields.affectedArea')"
-                    />
-                    <span v-if="errors['defects.affectedArea'] && touched['defects.affectedArea']" class="form-error">
-                        {{ errors['defects.affectedArea'] }}
-                    </span>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="defects_treatmentHistory">
-                        {{ t('fields.treatmentHistory') }}
-                    </label>
-                    <input
-                        type="text"
-                        id="defects_treatmentHistory"
-                        v-model="form.defects.treatmentHistory"
-                        @blur="markTouched('defects.treatmentHistory')"
-                        class="form-input"
-                        :class="{ 'form-input-error': errors['defects.treatmentHistory'] && touched['defects.treatmentHistory'] }"
-                        :placeholder="t('fields.treatmentHistory')"
-                    />
-                    <span v-if="errors['defects.treatmentHistory'] && touched['defects.treatmentHistory']" class="form-error">
-                        {{ errors['defects.treatmentHistory'] }}
-                    </span>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="defects_requiresImmediateAction">
-                        {{ t('fields.requiresImmediateAction') }}
-                    </label>
-                    <input
-                        type="text"
-                        id="defects_requiresImmediateAction"
-                        v-model="form.defects.requiresImmediateAction"
-                        @blur="markTouched('defects.requiresImmediateAction')"
-                        class="form-input"
-                        :class="{ 'form-input-error': errors['defects.requiresImmediateAction'] && touched['defects.requiresImmediateAction'] }"
-                        :placeholder="t('fields.requiresImmediateAction')"
-                    />
-                    <span v-if="errors['defects.requiresImmediateAction'] && touched['defects.requiresImmediateAction']" class="form-error">
-                        {{ errors['defects.requiresImmediateAction'] }}
-                    </span>
-                </div>
-            </fieldset>
 
             <div class="form-actions">
                 <button type="button" class="btn btn-outline" @click="handleCancel" :disabled="loading">

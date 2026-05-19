@@ -14,6 +14,9 @@ const CoordinatesController = require('../controllers/CoordinatesController');
  * GET    /:id           - Get Coordinates by ID
  * PUT    /:id           - Update Coordinates by ID
  * DELETE /:id           - Delete Coordinates by ID
+ *
+ * The /gid/:gid routes are registered BEFORE the /:id routes so that
+ * Express does not interpret the literal string "gid" as a Mongo ObjectId.
  */
 
 router.post('/', CoordinatesController.create);

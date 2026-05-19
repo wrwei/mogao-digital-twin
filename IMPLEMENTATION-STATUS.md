@@ -1,104 +1,103 @@
 # Mogao Digital Twin - Implementation Status
 
-## ✅ Completed
+## Completed
 
-### Backend (Model-Driven)
-- [x] Ecore metamodel (mogao_dt.ecore)
-- [x] EGL templates for backend generation
-  - [x] GenerateDTO.egl
-  - [x] GenerateService.egl
-  - [x] GenerateController.egl
-- [x] Generated code (32 files)
-  - [x] 20 DTOs
-  - [x] 6 Services with @Singleton
-  - [x] 6 Micronaut REST Controllers
-- [x] Code generation scripts (generate-code.bat/sh, remove-code.bat/sh)
-- [x] Maven build configuration
+### Model-Driven Code Generation
+- [x] Ecore metamodel (`mogao_dt.ecore`) with full heritage domain hierarchy
+- [x] Flexmi model instance (`mogao.model`) with sample cave/exhibit/defect data
+- [x] Java CodeGenerator driver (`CodeGenerator.java`)
+- [x] EpsilonModelManager for EMF model loading
+- [x] Generation scripts (`generate-code.bat/sh`, `clean-and-regenerate.bat/sh`)
 
-### Frontend Infrastructure
-- [x] Project structure
-- [x] Vue 3 app with CDN
-- [x] A-Frame 3D integration
-- [x] API service layer (api.js)
-- [x] CSS styling system (4 files)
-- [x] Server launch scripts (start.bat/sh)
-- [x] Placeholder components (stubs)
+### Backend EGL Templates
+- [x] `GenerateDTO.egl` — Java Data Transfer Objects (design-time)
+- [x] `GenerateService.egl` — Java services (design-time)
+- [x] `GenerateController.egl` — Java REST controllers (design-time)
+- [x] `GenerateMongooseModel.egl` — Mongoose schemas (runtime)
+- [x] `GenerateExpressRouter.egl` — Express routers with CRUD + GID endpoints
+- [x] `GenerateExpressController.egl` — Express controller classes
+- [x] `GenerateExpressService.egl` — Express service classes
+- [x] `GenerateExpressApp.egl` — Express app setup with middleware
+- [x] `GenerateFileUploadController.egl` — File upload endpoints
+- [x] `GenerateHealthController.egl` — Health check endpoint
 
-### Frontend Code Generation (Model-Driven)
-- [x] Template directory structure (backend/ and frontend/ folders)
-- [x] Helper functions (FrontendHelpers.eol)
-- [x] EGL templates
-  - [x] GenerateVueCard.egl - Card components
-  - [x] GenerateVueForm.egl - CRUD forms with validation
-  - [x] GenerateVueList.egl - List components
-  - [x] GenerateComposable.egl - Vue composables
-  - [x] GenerateApp.egl - Main Vue application
-- [x] Updated CodeGenerator.java for frontend generation
-- [x] Updated generation scripts (generate-code.bat/sh, remove-code.bat/sh)
-- [x] Generated all frontend code (25 files)
-  - [x] 18 Vue components (Card, Form, List × 6 entities)
-  - [x] 6 Composables (useCaves, useDefects, useStatues, useMurals, usePaintings, useInscriptions)
-  - [x] 1 Main application (app.js - 812 lines)
+### Frontend EGL Templates
+- [x] `GenerateVueCard.egl` — Entity card components
+- [x] `GenerateVueList.egl` — Entity list components with filtering
+- [x] `GenerateVueForm.egl` — CRUD forms with file upload validation
+- [x] `GenerateVueDetailView.egl` — Detail views with 3D model support
+- [x] `GenerateComposable.egl` — Vue 3 composables for API integration
+- [x] `GenerateApp.egl` — Main Vue application with routing and auth
+- [x] `GenerateIndexHtml.egl` — HTML entry point with CDN imports
+- [x] `GenerateI18n.egl` — Internationalisation module (zh + en)
+- [x] `FrontendHelpers.eol` — Helper functions for label generation
 
-### Generated Components
-- [x] Cave components (Card, Form, List)
-- [x] Defect components (Card, Form, List)
-- [x] Statue components (Card, Form, List)
-- [x] Mural components (Card, Form, List)
-- [x] Painting components (Card, Form, List)
-- [x] Inscription components (Card, Form, List)
-- [x] Composables (useCaves, useDefects, useStatues, useMurals, usePaintings, useInscriptions)
+### Generated Runtime Backend (Node.js/Express/MongoDB)
+- [x] Express app with CORS, body parsing, static file serving
+- [x] 14 Mongoose schemas (from metamodel EClasses)
+- [x] 16 Express routers with CRUD + GID endpoints
+- [x] 16 controllers and 16 services (file upload and health check are inline in app.js)
+- [x] JWT authentication middleware with role system
+- [x] Guest read-only access mode
+- [x] Rate limiting on login endpoint
+- [x] File upload (Multer) for 3D models and textures
+- [x] Deterioration API (4 scientific models)
+- [x] Health check endpoint
 
-## 🚧 In Progress
+### Generated Frontend (Vue 3 SPA)
+- [x] 24 auto-generated Vue components (Card, List, Form, DetailView x 6 entities)
+- [x] 7 composables (6 entity composables + useEntity factory)
+- [x] Main app with sidebar navigation, dashboard, login page
+- [x] i18n with Chinese/English and reactive locale switching
+- [x] Axios API layer with JWT token management
 
-### Phase 2: Integration & Testing
-- [ ] Integrate generated components into app.js
-- [ ] Test CRUD operations in browser
-- [ ] Verify form validation
-- [ ] Test API integration
+### Hand-Written Frontend Components
+- [x] `ModelViewer.js` — Three.js 3D model viewer (OBJ/MTL loading, orbit controls)
+- [x] `SimulationPanel.js` — Deterioration simulation UI (4 models, time progression, charts)
+- [x] `SettingsView.js` — User settings (profile, 8 themes, language, notifications, admin)
+- [x] `DeteriorationEngine.js` — Client-side deterioration models (reference implementation)
+- [x] `deterioration-worker.js` — Web Worker for texture processing
+- [x] `config.js` — API URL configuration
+- [x] `useEntity.js` — Composable factory function
 
-## ⏳ Planned
+### Infrastructure
+- [x] CSS styling system (main, components, drawers, forms, simulation, login)
+- [x] Generation script backup/restore for manual components
+- [x] Backend start scripts
+- [x] Frontend start scripts
 
-### Phase 2: Component Development
-- [ ] Enhanced 3D visualization
-- [ ] Environmental monitoring charts
-- [ ] Statistics dashboard
-- [ ] Defect mapping on 3D models
+### ML Pigment Analysis System
+- [x] `PigmentDatabase.js` — 8 Dunhuang pigment classes with per-pigment Arrhenius parameters, target/faded RGB
+- [x] `PigmentIdentifier.js` — Model 1: pigment segmentation (HSV heuristic + TF.js model slot)
+- [x] `PigmentRestorer.js` — Model 2: original colour reconstruction (colour-shift heuristic + TF.js U-Net slot)
+- [x] `pigment-deterioration-worker.js` — Per-pigment texture fading Web Worker
+- [x] `PigmentAnalysisPanel.js` — Vue UI: identify pigments, restore colours, display mode toggle
+- [x] SimulationPanel integration — per-pigment Arrhenius computation, pigment data in emission payload
+- [x] ModelViewer integration — pixel data capture, display modes (current/restored/pigment-map), pigment-aware worker dispatch
+- [x] CaveList wiring — pixel-data-ready event, pixelData prop pass-through
+
+## Summary
+
+| Layer | Generated Files | Hand-Written Files |
+|-------|:-:|:-:|
+| Backend (Mongoose) | ~60 | 4 (auth, JWT, deterioration, file upload) |
+| Frontend (Vue) | ~30 | 12 (ModelViewer, SimulationPanel, SettingsView, PigmentAnalysisPanel, ML models, etc.) |
+| **Total** | **~90** | **16** |
+
+## Potential Enhancements
+
+- [ ] Docker Compose for backend + MongoDB
+- [ ] Additional languages (French, Japanese)
+- [ ] CIELAB colour space for accurate deterioration delta-E
+- [x] ~~Pigment-specific deterioration parameter sets~~ (implemented in PigmentDatabase.js)
+- [ ] Non-uniform degradation (crack patterns, moisture gradients)
+- [ ] Photo upload for exhibits and defects
+- [ ] Real-time WebSocket updates
 - [ ] Data export functionality
-
-### Phase 3: Advanced Features
-- [ ] Photo upload
-- [ ] Real-time updates
-- [ ] Advanced filtering
-- [ ] Search functionality
-- [ ] Authentication/authorization
-
-## 📊 Progress Summary
-
-**Backend**: 100% ✅ (32 files generated)
-**Frontend Infrastructure**: 100% ✅
-**Frontend Generation**: 100% ✅ (25 files generated)
-**Overall**: 98% ✅
-
-## 🎯 Next Steps
-
-1. Integrate generated components into app.js
-2. Test CRUD operations with Cave entity
-3. Verify form validation and error handling
-4. Test all entity types (Defect, Statue, Mural, Painting, Inscription)
-5. Build out advanced features (3D visualization, environmental monitoring)
-
-## 📝 Notes
-
-- Using fully model-driven approach for both backend and frontend
-- Single metamodel (mogao_dt.ecore) drives all code generation
-- Frontend uses CDN-based Vue 3 (no build tools)
-- Backend uses Micronaut with Epsilon/EMF
-- Templates organized in transformation/backend/ and transformation/frontend/
-- Total generated files: 57 (32 backend + 25 frontend)
-- All code generation tested and verified successful
-- Fully model-driven: app.js (812 lines) generated from metamodel
+- [ ] Advanced filtering and search
+- [ ] Trained TF.js models for PigmentIdentifier (MobileNet-v2 segmentation) and PigmentRestorer (U-Net)
+- [ ] XRF/Raman spectroscopy ground-truth dataset for model training
 
 ---
 
-Last Updated: 2026-02-05
+Last Updated: 2026-04-11

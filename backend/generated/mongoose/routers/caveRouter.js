@@ -14,6 +14,9 @@ const CaveController = require('../controllers/CaveController');
  * GET    /:id           - Get Cave by ID
  * PUT    /:id           - Update Cave by ID
  * DELETE /:id           - Delete Cave by ID
+ *
+ * The /gid/:gid routes are registered BEFORE the /:id routes so that
+ * Express does not interpret the literal string "gid" as a Mongo ObjectId.
  */
 
 router.post('/', CaveController.create);

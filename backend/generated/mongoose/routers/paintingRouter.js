@@ -14,6 +14,9 @@ const PaintingController = require('../controllers/PaintingController');
  * GET    /:id           - Get Painting by ID
  * PUT    /:id           - Update Painting by ID
  * DELETE /:id           - Delete Painting by ID
+ *
+ * The /gid/:gid routes are registered BEFORE the /:id routes so that
+ * Express does not interpret the literal string "gid" as a Mongo ObjectId.
  */
 
 router.post('/', PaintingController.create);

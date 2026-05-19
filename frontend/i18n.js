@@ -38,7 +38,35 @@ export const messages = {
             warning: '警告',
             info: '信息',
             detail: '详情',
-            selected: '已选择'
+            selected: '已选择',
+            select: '选择'
+        },
+
+        // Empty-state messages (shared by all list views)
+        empty: {
+            noEntityTitle: '暂无记录',
+            noEntityHint:  '点击下方按钮，添加第一个{entity}',
+            noResultsTitle: '未找到匹配项',
+            noResultsHint:  '尝试调整搜索关键词或清除筛选',
+        },
+
+        // Keyboard shortcuts cheatsheet
+        shortcuts: {
+            title: '键盘快捷键',
+            navigation: '导航',
+            actions: '操作',
+            then: '然后',
+            goDashboard: '跳转到仪表盘',
+            goCaves: '跳转到洞窟',
+            goStatues: '跳转到雕像',
+            goMurals: '跳转到壁画',
+            goPaintings: '跳转到绘画',
+            goInscriptions: '跳转到铭文',
+            goSensors: '跳转到传感器',
+            goMaintenance: '跳转到维护队列',
+            focusSearch: '聚焦搜索框',
+            openCheatsheet: '打开快捷键说明',
+            closeDialog: '关闭对话框',
         },
 
         // Entity Names
@@ -61,9 +89,52 @@ export const messages = {
         nav: {
             dashboard: '仪表盘',
             heritage: '文物资产',
+            sensors: '传感器',
             settings: '设置',
             backendOnline: '后端在线',
             backendOffline: '后端离线'
+        },
+
+        // Sensor Dashboard
+        sensorDashboard: {
+            title: '传感器管理',
+            total: '总计',
+            online: '在线',
+            warning: '警告',
+            offline: '离线',
+            inactive: '已停用',
+            new: '新建（无数据）',
+            unknown: '未知',
+            samples: '样本总数',
+            search: '按名称、型号、ID或洞窟搜索传感器…',
+            clearFilter: '清除筛选',
+            registerSensor: '+ 注册传感器',
+            cancel: '取消',
+            refresh: '↻ 刷新',
+            colStatus: '状态',
+            colName: '名称',
+            colModel: '型号',
+            colCave: '洞窟',
+            colSamples: '样本数',
+            colLastSeen: '最近数据',
+            colActions: '操作',
+            deactivate: '停用',
+            deactivateConfirm: '是否停用此传感器？它将停止接受新数据。',
+            delete: '删除',
+            deleteTitle: '永久删除传感器及其全部历史数据',
+            deleteConfirm: '永久删除传感器 "{name}"？将同时删除其全部 {samples} 条历史数据，此操作不可恢复。',
+            bulkTitle: '📦 批量CSV导入',
+            bulkHint: '同时选择多个CSV文件。文件名包含传感器ID或名称的将自动匹配，否则手动指定目标传感器。',
+            bulkColFile: '文件',
+            bulkColSize: '大小',
+            bulkColSensor: '目标传感器',
+            bulkColStatus: '状态',
+            bulkImportAll: '全部导入',
+            bulkClear: '清空',
+            bulkImporting: '导入中…',
+            noSensors: '暂无注册的传感器。',
+            noMatch: '没有符合筛选条件的传感器。',
+            never: '从未'
         },
 
         settings: {
@@ -180,7 +251,12 @@ export const messages = {
             deleteSuccess: '{entity}删除成功',
             loadError: '加载{entity}失败',
             saveError: '保存{entity}失败',
-            deleteError: '删除{entity}失败'
+            deleteError: '删除{entity}失败',
+            bulkSelected: '已选 {count} 项',
+            bulkDelete: '删除所选',
+            bulkDeleteConfirm: '确认删除选中的 {count} 个{entity}吗？',
+            bulkDeletePartialError: '已删除 {ok} 项，{fail} 项失败',
+            clearSelection: '清除选择'
         },
 
         // Conservation Status
@@ -240,6 +316,7 @@ export const messages = {
         // Simulation
         simulation: {
             title: '环境模拟',
+            pigmentRequiredHint: '请先运行颜料识别 — 模拟读取每种颜料的分类映射。',
             start: '开始模拟',
             stop: '停止模拟',
             reset: '重置',
@@ -363,12 +440,233 @@ export const messages = {
             urgent: '需要立即处理'
         },
 
+        // Live Data Panel
+        liveData: {
+            title: '环境监测',
+            sensors: '传感器',
+            samples: '采样数',
+            currentTemp: '当前温度',
+            currentRh: '当前湿度',
+            dailyRhAmplitude: '日均湿度振幅',
+            range: '时间范围',
+            interval: '采样间隔',
+            autoRefresh: '自动刷新',
+            refresh: '刷新',
+            off: '关闭',
+            last24h: '过去24小时',
+            last7d: '过去7天',
+            last30d: '过去30天',
+            last1y: '过去1年',
+            allTime: '全部',
+            raw: '原始（10分钟）',
+            hourly: '每小时',
+            daily: '每日',
+            periodSummary: '统计概览',
+            tMean: '温度均值',
+            tRange: '温度范围',
+            rhMean: '湿度均值',
+            rhRange: '湿度范围',
+            tStd: '温度标准差',
+            rhAmp: '日均Δ湿度',
+            noSensors: '当前文物或其所在洞窟尚未绑定传感器。',
+            gapDetected: '检测到{count}处数据间隔（累计{duration}）',
+            loading: '加载中…',
+            adminControls: '管理员控制',
+            registeredSensors: '已注册传感器',
+            csvUpload: 'CSV上传',
+            selectSensor: '选择传感器…',
+            upload: '上传',
+            csvHint: 'CSV必须包含字段：timestamp, temperature, humidity （lightKlux可选）。',
+            registerNewSensor: '注册新传感器',
+            register: '注册',
+            link: '绑定',
+            unlink: '解绑',
+            inactive: '已停用',
+            rotateKey: '轮换API密钥',
+            rotateConfirm: '此操作将使现有API密钥失效，使用旧密钥的所有现场记录器将停止上传数据，需重新配置。继续？',
+            keySaved: '✓ 已生成新密钥，请立即保存（仅显示一次）：',
+            apiKeyNote: '密钥秘密部分以bcrypt哈希形式存储，无法恢复。如现场部署遗失密钥，请使用"轮换"重新生成。',
+            ingestionEndpoints: '数据上传接口',
+            apiKey: 'API密钥',
+            exampleUsage: '调用示例',
+            sensorGid: '传感器标识',
+            keyPrefix: '密钥前缀',
+            channels: '通道',
+            samplesIngested: '已上传样本',
+            lastSeen: '最近上传',
+            never: '从未',
+            single: '单个',
+            batch: '批量',
+            csv: 'CSV'
+        },
+
+        // Pigment Analysis Panel
+        pigmentAnalysis: {
+            title: '颜料分析',
+            identifyBtn: '识别颜料',
+            restoreBtn: '恢复色彩',
+            identifying: '正在识别颜料…',
+            restoring: '正在恢复色彩…',
+            displayCurrent: '当前',
+            displayPigmentMap: '颜料分布',
+            displayRestored: '已恢复',
+            restorationStrength: '恢复强度',
+            detectedPigments: '已检测颜料',
+            emptyHint: '点击"识别颜料"以分析贴图',
+            errorNoPixelData: '未找到贴图数据，请先加载带贴图的模型。',
+            errorNoTexture: '无可用贴图数据。',
+            analysisFailed: '分析失败：',
+            restorationFailed: '恢复失败：'
+        },
+
         // Form Validation
         validation: {
             required: '{field}是必填项',
             invalid: '{field}格式不正确',
             tooShort: '{field}太短',
             tooLong: '{field}太长'
+        },
+
+        // Login page
+        loginPage: {
+            heroTitle: '莫高数字孪生平台',
+            heroSubtitle: '通过数字孪生技术保护莫高窟。监测、模拟并守护这一世界文化遗产。',
+            feature3D: '洞窟与文物的 3D 数字副本',
+            featureMonitoring: '实时环境监测与分析',
+            featureSimulation: '劣化模拟与保护规划',
+            featureCollaboration: '跨机构协同研究',
+            formTitle: 'M-Gemini',
+            formSubtitle: '莫高数字孪生平台',
+            usernameLabel: '用户名',
+            usernamePlaceholder: '请输入用户名',
+            passwordLabel: '密码',
+            passwordPlaceholder: '请输入密码',
+            signIn: '登录',
+            signingIn: '请稍候……',
+            or: '或',
+            visitAsGuest: '访客访问',
+            footer: '莫高数字孪生 © 2026',
+            connectionFailed: '连接失败。后端是否已启动？'
+        },
+
+        // Sidebar/topbar additions
+        navExtras: {
+            maintenance: '维护'
+        },
+
+        // Maintenance queue (admin)
+        maintenance: {
+            title: '🔧 维护队列',
+            exportPdf: '📄 导出 PDF',
+            refresh: '↻ 刷新',
+            loading: '正在评分所有文物……（每件文物运行完整劣化重放）',
+            statTotal: '合计',
+            statCritical: '紧急',
+            statHigh: '高',
+            statMedium: '中',
+            statLow: '低',
+            statAnomalies: '当前异常',
+            search: '按名称、ID 或类型搜索……',
+            clearFilter: '清除筛选',
+            noMatch: '没有符合筛选条件的文物。',
+            colPriority: '优先级',
+            colScore: '得分',
+            colArtifact: '文物',
+            colType: '类型',
+            colDamage: '损伤',
+            colNearestEta: '最近 ETA',
+            colAnomalies: '异常',
+            colHistory: '记录',
+            colTopAction: '建议',
+            openArtifact3D: '▶ 打开 3D + 预测',
+            drillUnavailable: '（无法跳转 — 该文物未关联到洞窟）',
+            scoreBreakdown: '得分构成',
+            recommendations: '建议',
+            currentCumulativeState: '当前累积状态',
+            activeAnomalies: '当前异常',
+            currentDamage: '当前损伤',
+            etaUrgency: 'ETA 紧迫度',
+            inspectionAge: '巡检年龄',
+            conservationStatusLabel: '保护状态',
+            chemicalDeltaE: '⚗️ 化学 ΔE*',
+            mouldIndex: '🦠 霉菌指数',
+            fatigueDamage: '🧱 疲劳累积 D',
+            saltCumulative: '🧂 盐累积',
+            equivYears: '⏳ 等效参考年',
+            mouldThreshold: '/ 6（阈值 3）',
+            damageThreshold: '/ 1.0',
+            noCumulative: '尚无累积数据。',
+            methodology: 'ℹ 评分：得分 = 1.0·损伤 + 1.0·(1/ETA_y) + 0.5·异常计数 + 0.3·巡检年龄 + 0.8·状态严重度。≥ 2.5 紧急、≥ 1.5 高、≥ 0.8 中，否则低。展开任意行查看分项明细、累积状态、异常和全部建议。'
+        },
+
+        // Prediction panel (per-artifact replay + threshold ETA)
+        prediction: {
+            title: '🔮 预测',
+            historyDuration: '{days} 天（{years} 年）的监测历史',
+            noSensors: '此文物未关联任何传感器。请在 "实时数据" 面板中关联一个，以启用预测功能。',
+            noSamples: '此文物尚未接收任何传感器样本。',
+            forecastForward: '向前预测（重复气候）',
+            horizon: '时间跨度',
+            years10: '10 年',
+            years50: '50 年',
+            years200: '200 年',
+            refresh: '↻ 刷新',
+            exportPdf: '📄 导出 PDF',
+            runningReplay: '正在重放……',
+            modelChemical: '化学褪色',
+            modelMould: '霉菌指数',
+            modelFatigue: '疲劳累积',
+            modelSalt: '盐累积',
+            modelLifetime: '已消耗寿命',
+            ofThreshold: '阈值的 {threshold}',
+            etaCrossed: '已超过',
+            etaPrefix: 'ETA：{eta}',
+            chartLegendChemical: '⚗️ 化学',
+            chartLegendMould: '🦠 霉菌',
+            chartLegendFatigue: '🧱 疲劳',
+            chartLegendSalt: '🧂 盐',
+            chartYAxis: '阈值占比',
+            methodology: 'ℹ 方法：历史重放将五个模型逐日积分到实测的 T/RH/ΔRH 记录上。预测（虚线）通过循环最近一年的气候向前外推 — 在没有外部气候预报时这是合理的基准。阈值：ΔE*=5，霉菌=3/6，D=1，盐累积=1。'
+        },
+
+        // Defects panel keys (replaces the t() || 'fallback' pattern)
+        defects: {
+            logNew: '+ 记录缺陷',
+            empty: '尚未记录任何缺陷。',
+            errorTypeRequired: '缺陷类型是必填项',
+            deleteConfirm: '永久删除缺陷 "{name}"？此操作不可恢复。',
+            formCreateTitle: '记录新缺陷',
+            formEditTitle: '编辑缺陷',
+            fieldName: '名称（可选）',
+            fieldType: '缺陷类型',
+            fieldSeverity: '严重程度',
+            fieldDetectionDate: '发现日期',
+            fieldAffectedArea: '受影响区域（m²）',
+            fieldUrgent: '需要紧急处理',
+            fieldDescription: '描述',
+            fieldTreatment: '处置历史'
+        },
+
+        // Sensor dashboard form keys
+        sensorDashboardForm: {
+            createTitle: '注册新传感器',
+            editTitle: '编辑传感器',
+            placeholderName: '名称 *',
+            placeholderModel: '型号（如 HOBO MX2301A）',
+            placeholderSerial: '序列号',
+            noArtifactLink: '— 未关联文物 —',
+            groupCaves: '洞窟（整窟范围）',
+            groupStatues: '雕像（按文物）',
+            groupMurals: '壁画（按文物）',
+            groupPaintings: '绘画（按文物）',
+            groupInscriptions: '铭文（按文物）',
+            activeCheckbox: '活动中（接收新样本）',
+            saveChanges: '保存修改',
+            register: '注册',
+            cancel: '取消',
+            apiKeyShown: '✓ 已注册传感器 — 请保存此 API 密钥（仅显示一次）：',
+            edit: '编辑',
+            editTitle2: '编辑传感器元数据与文物关联'
         }
     },
 
@@ -402,7 +700,35 @@ export const messages = {
             warning: 'Warning',
             info: 'Information',
             detail: 'Details',
-            selected: 'Selected'
+            selected: 'Selected',
+            select: 'Select'
+        },
+
+        // Empty-state messages (shared by all list views)
+        empty: {
+            noEntityTitle: 'Nothing here yet',
+            noEntityHint:  'Add your first {entity} using the button below',
+            noResultsTitle: 'No matches',
+            noResultsHint:  'Try a different search term or clear the filter',
+        },
+
+        // Keyboard shortcuts cheatsheet
+        shortcuts: {
+            title: 'Keyboard shortcuts',
+            navigation: 'Navigation',
+            actions: 'Actions',
+            then: 'then',
+            goDashboard: 'Go to dashboard',
+            goCaves: 'Go to caves',
+            goStatues: 'Go to statues',
+            goMurals: 'Go to murals',
+            goPaintings: 'Go to paintings',
+            goInscriptions: 'Go to inscriptions',
+            goSensors: 'Go to sensors',
+            goMaintenance: 'Go to maintenance queue',
+            focusSearch: 'Focus search box',
+            openCheatsheet: 'Open this cheatsheet',
+            closeDialog: 'Close dialog',
         },
 
         // Entity Names
@@ -423,11 +749,54 @@ export const messages = {
 
         // Navigation
         nav: {
+            sensors: 'Sensors',
             dashboard: 'Dashboard',
             heritage: 'Heritage Assets',
             settings: 'Settings',
             backendOnline: 'Backend Online',
             backendOffline: 'Backend Offline'
+        },
+
+        // Sensor Dashboard
+        sensorDashboard: {
+            title: 'Sensor Fleet',
+            total: 'Total',
+            online: 'Online',
+            warning: 'Warning',
+            offline: 'Offline',
+            inactive: 'Inactive',
+            new: 'New (no data)',
+            unknown: 'Unknown',
+            samples: 'Samples',
+            search: 'Search sensors by name, model, gid, or cave…',
+            clearFilter: 'Clear filter',
+            registerSensor: '+ Register sensor',
+            cancel: 'Cancel',
+            refresh: '↻ Refresh',
+            colStatus: 'Status',
+            colName: 'Name',
+            colModel: 'Model',
+            colCave: 'Cave',
+            colSamples: 'Samples',
+            colLastSeen: 'Last seen',
+            colActions: 'Actions',
+            deactivate: 'Deactivate',
+            deactivateConfirm: 'Deactivate this sensor? It will stop accepting new samples.',
+            delete: 'Delete',
+            deleteTitle: 'Permanently delete the sensor and all its historical samples',
+            deleteConfirm: 'Permanently delete sensor "{name}"? All {samples} historical samples will also be removed. This cannot be undone.',
+            bulkTitle: '📦 Bulk CSV import',
+            bulkHint: 'Select multiple CSV files at once. Files are auto-matched to sensors when the filename contains the sensor\'s gid or name; otherwise pick the target sensor manually.',
+            bulkColFile: 'File',
+            bulkColSize: 'Size',
+            bulkColSensor: 'Target sensor',
+            bulkColStatus: 'Status',
+            bulkImportAll: 'Import all',
+            bulkClear: 'Clear',
+            bulkImporting: 'Importing…',
+            noSensors: 'No sensors registered yet.',
+            noMatch: 'No sensors match the filter.',
+            never: 'never'
         },
 
         settings: {
@@ -544,7 +913,12 @@ export const messages = {
             deleteSuccess: '{entity} deleted successfully',
             loadError: 'Failed to load {entity}',
             saveError: 'Failed to save {entity}',
-            deleteError: 'Failed to delete {entity}'
+            deleteError: 'Failed to delete {entity}',
+            bulkSelected: '{count} selected',
+            bulkDelete: 'Delete selected',
+            bulkDeleteConfirm: 'Delete {count} selected {entity} items?',
+            bulkDeletePartialError: 'Deleted {ok}; {fail} failed',
+            clearSelection: 'Clear selection'
         },
 
         // Conservation Status
@@ -604,6 +978,7 @@ export const messages = {
         // Simulation
         simulation: {
             title: 'Environmental Simulation',
+            pigmentRequiredHint: 'Run Pigment Analysis first — the simulation reads its per-pigment class map.',
             start: 'Start Simulation',
             stop: 'Stop Simulation',
             reset: 'Reset',
@@ -727,12 +1102,233 @@ export const messages = {
             urgent: 'Requires Immediate Action'
         },
 
+        // Live Data Panel
+        liveData: {
+            title: 'Environment Monitoring',
+            sensors: 'sensors',
+            samples: 'samples',
+            currentTemp: 'Temp',
+            currentRh: 'RH',
+            dailyRhAmplitude: 'Daily ΔRH',
+            range: 'Range',
+            interval: 'Interval',
+            autoRefresh: 'Auto-refresh',
+            refresh: 'Refresh',
+            off: 'Off',
+            last24h: 'Last 24h',
+            last7d: 'Last 7 days',
+            last30d: 'Last 30 days',
+            last1y: 'Last year',
+            allTime: 'All time',
+            raw: 'Raw (10 min)',
+            hourly: 'Hourly',
+            daily: 'Daily',
+            periodSummary: 'Period Summary',
+            tMean: 'T mean',
+            tRange: 'T range',
+            rhMean: 'RH mean',
+            rhRange: 'RH range',
+            tStd: 'T stddev',
+            rhAmp: 'ΔRH / day',
+            noSensors: 'No sensors are linked to this artifact or its parent cave yet.',
+            gapDetected: '{count} data gap(s) detected (totalling {duration})',
+            loading: 'Loading…',
+            adminControls: 'Admin controls',
+            registeredSensors: 'Registered sensors',
+            csvUpload: 'CSV Upload',
+            selectSensor: 'Select sensor…',
+            upload: 'Upload',
+            csvHint: 'CSV must have columns: timestamp, temperature, humidity (lightKlux optional).',
+            registerNewSensor: 'Register new sensor',
+            register: 'Register sensor',
+            link: 'Link',
+            unlink: 'Unlink',
+            inactive: 'inactive',
+            rotateKey: 'Rotate API key',
+            rotateConfirm: 'This invalidates the current API key. Any field logger using the old key will stop being able to post data until reconfigured. Continue?',
+            keySaved: '✓ New key generated — save it now (shown once):',
+            apiKeyNote: 'The secret portion of the key is stored as a bcrypt hash and cannot be recovered. If the field deployment has lost its key, rotate it to issue a new one.',
+            ingestionEndpoints: 'Ingestion endpoints',
+            apiKey: 'API key',
+            exampleUsage: 'Example usage',
+            sensorGid: 'Sensor gid',
+            keyPrefix: 'Key prefix',
+            channels: 'Channels',
+            samplesIngested: 'Samples ingested',
+            lastSeen: 'Last seen',
+            never: 'never',
+            single: 'Single',
+            batch: 'Batch',
+            csv: 'CSV'
+        },
+
+        // Pigment Analysis Panel
+        pigmentAnalysis: {
+            title: 'Pigment Analysis',
+            identifyBtn: 'Identify Pigments',
+            restoreBtn: 'Restore Colours',
+            identifying: 'Identifying pigments…',
+            restoring: 'Restoring colours…',
+            displayCurrent: 'Current',
+            displayPigmentMap: 'Pigment Map',
+            displayRestored: 'Restored',
+            restorationStrength: 'Restoration Strength',
+            detectedPigments: 'Detected Pigments',
+            emptyHint: 'Click "Identify Pigments" to analyse the texture',
+            errorNoPixelData: 'No texture pixel data available. Load a model with a texture first.',
+            errorNoTexture: 'No texture data available.',
+            analysisFailed: 'Analysis failed: ',
+            restorationFailed: 'Restoration failed: '
+        },
+
         // Form Validation
         validation: {
             required: '{field} is required',
             invalid: '{field} is invalid',
             tooShort: '{field} is too short',
             tooLong: '{field} is too long'
+        },
+
+        // Login page
+        loginPage: {
+            heroTitle: 'Mogao Digital Twin Platform',
+            heroSubtitle: 'Preserving the Mogao Grottoes through digital twin technology. Monitor, simulate, and protect this UNESCO World Heritage site.',
+            feature3D: '3D digital replicas of cave temples and artefacts',
+            featureMonitoring: 'Real-time environmental monitoring and analysis',
+            featureSimulation: 'Deterioration simulation and conservation planning',
+            featureCollaboration: 'Collaborative research across institutions',
+            formTitle: 'M-Gemini',
+            formSubtitle: 'Mogao Digital Twin Platform',
+            usernameLabel: 'Username',
+            usernamePlaceholder: 'Enter your username',
+            passwordLabel: 'Password',
+            passwordPlaceholder: 'Enter your password',
+            signIn: 'Sign In',
+            signingIn: 'Please wait…',
+            or: 'or',
+            visitAsGuest: 'Visit as a Guest',
+            footer: 'Mogao Digital Twin © 2026',
+            connectionFailed: 'Connection failed. Is the backend running?'
+        },
+
+        // Sidebar/topbar additions
+        navExtras: {
+            maintenance: 'Maintenance'
+        },
+
+        // Maintenance queue (admin)
+        maintenance: {
+            title: '🔧 Maintenance Queue',
+            exportPdf: '📄 Export PDF',
+            refresh: '↻ Refresh',
+            loading: 'Scoring all artifacts… (runs a full deterioration replay for each)',
+            statTotal: 'Total',
+            statCritical: 'Critical',
+            statHigh: 'High',
+            statMedium: 'Medium',
+            statLow: 'Low',
+            statAnomalies: 'Active anomalies',
+            search: 'Search by name, gid or type…',
+            clearFilter: 'Clear filter',
+            noMatch: 'No artifacts match the filter.',
+            colPriority: 'Priority',
+            colScore: 'Score',
+            colArtifact: 'Artifact',
+            colType: 'Type',
+            colDamage: 'Damage',
+            colNearestEta: 'Nearest ETA',
+            colAnomalies: 'Anomalies',
+            colHistory: 'Hist.',
+            colTopAction: 'Top action',
+            openArtifact3D: '▶ Open 3D + Prediction',
+            drillUnavailable: '(Drill-in unavailable — no parent cave on record.)',
+            scoreBreakdown: 'Score breakdown',
+            recommendations: 'Recommendations',
+            currentCumulativeState: 'Current cumulative state',
+            activeAnomalies: 'Active anomalies',
+            currentDamage: 'Current damage',
+            etaUrgency: 'ETA urgency',
+            inspectionAge: 'Inspection age',
+            conservationStatusLabel: 'Conservation status',
+            chemicalDeltaE: '⚗️ Chemical ΔE*',
+            mouldIndex: '🦠 Mould index',
+            fatigueDamage: '🧱 Fatigue D',
+            saltCumulative: '🧂 Salt cumulative',
+            equivYears: '⏳ Equiv. reference-years',
+            mouldThreshold: '/ 6 (threshold 3)',
+            damageThreshold: '/ 1.0',
+            noCumulative: 'No cumulative data available yet.',
+            methodology: 'ℹ Scoring: composite = 1.0·damage + 1.0·(1/ETA_years) + 0.5·anomalyCount + 0.3·inspectionAge + 0.8·statusSeverity. Score ≥ 2.5 = critical, ≥ 1.5 = high, ≥ 0.8 = medium, else low. Expand any row for the per-index breakdown, full cumulative state, active anomalies, and all recommendations.'
+        },
+
+        // Prediction panel (per-artifact replay + threshold ETA)
+        prediction: {
+            title: '🔮 Prediction',
+            historyDuration: '{days} days ({years} y) of monitored history',
+            noSensors: 'No sensors linked to this artifact. Link one in the Live Data panel to enable prediction.',
+            noSamples: 'No sensor samples ingested yet for this artifact.',
+            forecastForward: 'Forecast forward (climate-repeat)',
+            horizon: 'Horizon',
+            years10: '10 years',
+            years50: '50 years',
+            years200: '200 years',
+            refresh: '↻ Refresh',
+            exportPdf: '📄 Export PDF',
+            runningReplay: 'Running replay…',
+            modelChemical: 'Chemical fading',
+            modelMould: 'Mould index',
+            modelFatigue: 'Fatigue damage',
+            modelSalt: 'Salt cumulative',
+            modelLifetime: 'Lifetime consumed',
+            ofThreshold: 'of {threshold} threshold',
+            etaCrossed: 'already crossed',
+            etaPrefix: 'ETA: {eta}',
+            chartLegendChemical: '⚗️ Chemical',
+            chartLegendMould: '🦠 Mould',
+            chartLegendFatigue: '🧱 Fatigue',
+            chartLegendSalt: '🧂 Salt',
+            chartYAxis: 'Fraction of threshold',
+            methodology: 'ℹ Method: historical replay integrates the five models day-by-day through the actual monitored T/RH/ΔRH record. Forecast (dashed) projects forward by looping the most recent year of climate — a defensible baseline when no external climate forecast is available. Thresholds: ΔE*=5, mould=3/6, D=1, salt-cum=1.'
+        },
+
+        // Defects panel keys
+        defects: {
+            logNew: '+ Log new defect',
+            empty: 'No defects recorded yet.',
+            errorTypeRequired: 'Defect type is required',
+            deleteConfirm: 'Delete the defect "{name}"? This cannot be undone.',
+            formCreateTitle: 'Log new defect',
+            formEditTitle: 'Edit defect',
+            fieldName: 'Name (optional)',
+            fieldType: 'Defect type',
+            fieldSeverity: 'Severity',
+            fieldDetectionDate: 'Detection date',
+            fieldAffectedArea: 'Affected area (m²)',
+            fieldUrgent: 'Requires immediate action',
+            fieldDescription: 'Description',
+            fieldTreatment: 'Treatment history'
+        },
+
+        // Sensor dashboard form keys
+        sensorDashboardForm: {
+            createTitle: 'Register new sensor',
+            editTitle: 'Edit sensor',
+            placeholderName: 'Name *',
+            placeholderModel: 'Model (e.g. HOBO MX2301A)',
+            placeholderSerial: 'Serial #',
+            noArtifactLink: '— No artifact link —',
+            groupCaves: 'Caves (whole-cave scope)',
+            groupStatues: 'Statues (per-artifact)',
+            groupMurals: 'Murals (per-artifact)',
+            groupPaintings: 'Paintings (per-artifact)',
+            groupInscriptions: 'Inscriptions (per-artifact)',
+            activeCheckbox: 'Active (receiving new samples)',
+            saveChanges: 'Save changes',
+            register: 'Register',
+            cancel: 'Cancel',
+            apiKeyShown: '✓ Sensor registered — save this API key (shown once):',
+            edit: 'Edit',
+            editTitle2: 'Edit sensor metadata and artifact link'
         }
     }
 };

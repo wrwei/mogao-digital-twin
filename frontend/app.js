@@ -10,6 +10,12 @@ const { createApp } = Vue;
 // Import i18n
 // ============================================
 import { useI18n } from './i18n.js';
+import { vFocusTrap } from './utils/a11y.js';
+import { parseHash, setHash, subscribeRoute } from './utils/router.js';
+import ConfirmDialog from './components/ConfirmDialog.js';
+import ToastStack from './components/ToastStack.js';
+import ShortcutsCheatsheet from './components/ShortcutsCheatsheet.js';
+import { installShortcuts, registerSingleKey, registerLeaderPair } from './utils/keyboard.js';
 
 // ============================================
 // Generated Component Imports
@@ -40,12 +46,9 @@ import InscriptionForm from './components/InscriptionForm.js';
 import InscriptionList from './components/InscriptionList.js';
 import InscriptionDetailView from './components/InscriptionDetailView.js';
 
-import DefectCard from './components/DefectCard.js';
-import DefectForm from './components/DefectForm.js';
-import DefectList from './components/DefectList.js';
-import DefectDetailView from './components/DefectDetailView.js';
-
 import SettingsView from './components/SettingsView.js';
+import SensorDashboard from './components/SensorDashboard.js';
+import MaintenanceQueue from './components/MaintenanceQueue.js';
 
 // ============================================
 // Generated Composable Imports
@@ -55,13 +58,16 @@ import { useStatues } from './composables/useStatues.js';
 import { useMurals } from './composables/useMurals.js';
 import { usePaintings } from './composables/usePaintings.js';
 import { useInscriptions } from './composables/useInscriptions.js';
-import { useDefects } from './composables/useDefects.js';
 
 // ============================================
 // Login Page Component
 // ============================================
 const LoginPage = {
     emits: ['login-success'],
+    setup() {
+        const { t } = useI18n();
+        return { t };
+    },
     data() {
         return {
             username: '',
@@ -87,7 +93,7 @@ const LoginPage = {
                 if (err.response && err.response.data) {
                     this.error = err.response.data.message;
                 } else {
-                    this.error = 'Connection failed. Is the backend running?';
+                    this.error = this.t('loginPage.connectionFailed');
                 }
             } finally {
                 this.loading = false;
@@ -103,27 +109,24 @@ const LoginPage = {
         <div class="login-page">
             <div class="login-hero">
                 <div class="login-hero-content">
-                    <h1>M-Gemini<span>Digital Twin Platform</span></h1>
-                    <p class="login-hero-subtitle">
-                        Preserving the Mogao Grottoes through digital twin technology.
-                        Monitor, simulate, and protect UNESCO World Heritage.
-                    </p>
+                    <h1>M-Gemini<span>{{ t('loginPage.heroTitle') }}</span></h1>
+                    <p class="login-hero-subtitle">{{ t('loginPage.heroSubtitle') }}</p>
                     <div class="login-hero-features">
                         <div class="login-hero-feature">
                             <div class="login-hero-feature-icon">🏛️</div>
-                            <span>3D digital replicas of cave temples and artefacts</span>
+                            <span>{{ t('loginPage.feature3D') }}</span>
                         </div>
                         <div class="login-hero-feature">
                             <div class="login-hero-feature-icon">📊</div>
-                            <span>Real-time environmental monitoring and analysis</span>
+                            <span>{{ t('loginPage.featureMonitoring') }}</span>
                         </div>
                         <div class="login-hero-feature">
                             <div class="login-hero-feature-icon">🔬</div>
-                            <span>Deterioration simulation and conservation planning</span>
+                            <span>{{ t('loginPage.featureSimulation') }}</span>
                         </div>
                         <div class="login-hero-feature">
                             <div class="login-hero-feature-icon">🤝</div>
-                            <span>Collaborative research across institutions</span>
+                            <span>{{ t('loginPage.featureCollaboration') }}</span>
                         </div>
                     </div>
                 </div>
@@ -133,38 +136,38 @@ const LoginPage = {
                 <div class="login-form-container">
                     <div class="login-form-header">
                         <div class="login-form-logo">🏛️</div>
-                        <h2>M-Gemini</h2>
-                        <p>Mogao Digital Twin Platform</p>
+                        <h2>{{ t('loginPage.formTitle') }}</h2>
+                        <p>{{ t('loginPage.formSubtitle') }}</p>
                     </div>
 
                     <div v-if="error" class="login-error">{{ error }}</div>
 
                     <form @submit.prevent="handleSubmit">
                         <div class="login-field">
-                            <label>Username</label>
-                            <input v-model="username" type="text" placeholder="Enter your username" required />
+                            <label>{{ t('loginPage.usernameLabel') }}</label>
+                            <input v-model="username" type="text" :placeholder="t('loginPage.usernamePlaceholder')" required />
                         </div>
 
                         <div class="login-field">
-                            <label>Password</label>
-                            <input v-model="password" type="password" placeholder="Enter your password" required />
+                            <label>{{ t('loginPage.passwordLabel') }}</label>
+                            <input v-model="password" type="password" :placeholder="t('loginPage.passwordPlaceholder')" required />
                         </div>
 
                         <button type="submit" class="login-submit-btn" :disabled="loading">
-                            {{ loading ? 'Please wait...' : 'Sign In' }}
+                            {{ loading ? t('loginPage.signingIn') : t('loginPage.signIn') }}
                         </button>
                     </form>
 
                     <div class="login-divider">
-                        <span>or</span>
+                        <span>{{ t('loginPage.or') }}</span>
                     </div>
 
                     <button class="login-guest-btn" @click="enterAsGuest">
-                        Visit as a Guest
+                        {{ t('loginPage.visitAsGuest') }}
                     </button>
 
                     <div class="login-form-footer">
-                        Mogao Digital Twin &copy; 2026
+                        {{ t('loginPage.footer') }}
                     </div>
                 </div>
             </div>
@@ -176,33 +179,45 @@ const LoginPage = {
 // Shared UI Components
 // ============================================
 const AppSidebar = {
-    props: ['currentView', 'backendOnline', 'collapsed'],
-    emits: ['change-view', 'toggle-collapse'],
+    props: ['currentView', 'backendOnline', 'isAdmin', 'anomalyCount'],
+    emits: ['change-view'],
     setup() {
         const { t } = useI18n();
         return { t };
     },
     template: `
-        <div class="app-sidebar" :class="{ 'sidebar-collapsed': collapsed }">
-            <div class="sidebar-header" @click="$emit('toggle-collapse')" style="cursor: pointer;">
+        <div class="app-sidebar">
+            <div class="sidebar-header">
                 <div class="sidebar-logo">🏛️</div>
-                <span v-if="!collapsed" class="sidebar-brand">M-Gemini</span>
+                <span class="sidebar-brand">M-Gemini</span>
             </div>
             <div class="sidebar-nav">
-                <div class="sidebar-nav-item" :class="{ active: currentView === 'dashboard' }" @click="$emit('change-view', 'dashboard')" :title="collapsed ? t('nav.dashboard') : ''">
+                <div class="sidebar-nav-item" :class="{ active: currentView === 'dashboard' }" @click="$emit('change-view', 'dashboard')">
                     <span class="sidebar-nav-icon">📊</span>
-                    <span v-if="!collapsed">{{ t('nav.dashboard') }}</span>
+                    <span>{{ t('nav.dashboard') }}</span>
                 </div>
-                <div class="sidebar-nav-item" :class="{ active: currentView === 'caves' || currentView === 'statues' || currentView === 'murals' || currentView === 'paintings' || currentView === 'inscriptions' }" @click="$emit('change-view', 'caves')" :title="collapsed ? t('entities.caves') : ''">
+                <div class="sidebar-nav-item" :class="{ active: currentView === 'caves' || currentView === 'statues' || currentView === 'murals' || currentView === 'paintings' || currentView === 'inscriptions' }" @click="$emit('change-view', 'caves')">
                     <span class="sidebar-nav-icon">🏛️</span>
-                    <span v-if="!collapsed">{{ t('entities.caves') }}</span>
+                    <span>{{ t('entities.caves') }}</span>
+                </div>
+                <div v-if="isAdmin" class="sidebar-nav-item" :class="{ active: currentView === 'sensors' }" @click="$emit('change-view', 'sensors')">
+                    <span class="sidebar-nav-icon">📡</span>
+                    <span style="flex: 1;">{{ t('nav.sensors') || 'Sensors' }}</span>
+                    <span v-if="anomalyCount > 0" class="sidebar-badge" :class="{ critical: anomalyCount >= 5 }" :title="anomalyCount + ' active anomalies'">{{ anomalyCount }}</span>
+                </div>
+                <div v-if="isAdmin" class="sidebar-nav-item" :class="{ active: currentView === 'maintenance' }" @click="$emit('change-view', 'maintenance')">
+                    <span class="sidebar-nav-icon">🔧</span>
+                    <span style="flex: 1;">{{ t('navExtras.maintenance') }}</span>
+                    <span v-if="anomalyCount > 0" class="sidebar-badge" :class="{ critical: anomalyCount >= 5 }" :title="anomalyCount + ' active anomalies'">{{ anomalyCount }}</span>
+                </div>
+                <div class="sidebar-nav-item" :class="{ active: currentView === 'settings' }" @click="$emit('change-view', 'settings')" style="margin-top: auto;">
+                    <span class="sidebar-nav-icon">&#9881;</span>
+                    <span>{{ t('nav.settings') || 'Settings' }}</span>
                 </div>
             </div>
-            <div class="sidebar-bottom">
-                <div class="sidebar-nav-item" :class="{ active: currentView === 'settings' }" @click="$emit('change-view', 'settings')" :title="collapsed ? (t('nav.settings') || 'Settings') : ''">
-                    <span class="sidebar-nav-icon">&#9881;</span>
-                    <span v-if="!collapsed">{{ t('nav.settings') || 'Settings' }}</span>
-                </div>
+            <div class="sidebar-footer">
+                <span class="status-dot" :class="backendOnline ? 'online' : 'offline'"></span>
+                <span>{{ backendOnline ? t('nav.backendOnline') : t('nav.backendOffline') }}</span>
             </div>
         </div>
     `
@@ -234,38 +249,82 @@ const AppTopbar = {
         selectTheme(themeId) {
             this.$emit('change-theme', themeId);
             this.showThemePicker = false;
+            // Restore focus to the trigger after closing.
+            this.$nextTick(() => { if (this.$refs.themeBtn) this.$refs.themeBtn.focus(); });
+        },
+        toggleThemePicker() {
+            this.showThemePicker = !this.showThemePicker;
+        },
+        closeThemePicker() {
+            this.showThemePicker = false;
+        },
+        handleThemePickerKey(ev) {
+            // Esc closes the picker; arrows navigate items.
+            if (ev.key === 'Escape') {
+                ev.stopPropagation();
+                this.showThemePicker = false;
+                if (this.$refs.themeBtn) this.$refs.themeBtn.focus();
+            }
+        },
+        handleDocClick(ev) {
+            // Click-outside dismissal — runs only while picker is open
+            // because the listener is registered/removed by a watcher below.
+            if (this.$refs.picker && !this.$refs.picker.contains(ev.target)) {
+                this.showThemePicker = false;
+            }
         }
+    },
+    watch: {
+        showThemePicker(open) {
+            if (open) {
+                document.addEventListener('mousedown', this.handleDocClick);
+            } else {
+                document.removeEventListener('mousedown', this.handleDocClick);
+            }
+        }
+    },
+    beforeUnmount() {
+        document.removeEventListener('mousedown', this.handleDocClick);
     },
     template: `
         <div class="app-topbar">
             <span class="topbar-title">{{ locale === 'zh' ? 'M-Gemini 数字孪生平台' : 'M-Gemini Digital Twin Platform' }}</span>
             <div class="topbar-actions">
                 <!-- Theme picker -->
-                <div class="theme-picker-wrapper">
-                    <button class="topbar-icon-btn" @click="showThemePicker = !showThemePicker" title="Theme">
+                <div class="theme-picker-wrapper" ref="picker" @keydown="handleThemePickerKey">
+                    <button ref="themeBtn"
+                            class="topbar-icon-btn"
+                            @click="toggleThemePicker"
+                            :aria-label="t('settings.theme') || 'Theme'"
+                            aria-haspopup="menu"
+                            :aria-expanded="showThemePicker">
                         🎨
                     </button>
-                    <div v-if="showThemePicker" class="theme-picker-dropdown">
-                        <div class="theme-picker-title">Theme</div>
-                        <div
-                            v-for="t in themes"
-                            :key="t.id"
+                    <div v-if="showThemePicker" class="theme-picker-dropdown" role="menu">
+                        <div class="theme-picker-title">{{ t('settings.theme') || 'Theme' }}</div>
+                        <button
+                            v-for="th in themes"
+                            :key="th.id"
+                            type="button"
                             class="theme-picker-item"
-                            :class="{ active: theme === t.id }"
-                            @click="selectTheme(t.id)"
+                            :class="{ active: theme === th.id }"
+                            role="menuitemradio"
+                            :aria-checked="theme === th.id"
+                            @click="selectTheme(th.id)"
                         >
-                            <span class="theme-picker-swatch" :style="{ background: t.sidebar }">
-                                <span class="theme-picker-swatch-dot" :style="{ background: t.primary }"></span>
+                            <span class="theme-picker-swatch" :style="{ background: th.sidebar }">
+                                <span class="theme-picker-swatch-dot" :style="{ background: th.primary }"></span>
                             </span>
-                            <span>{{ t.icon }} {{ t.name }}</span>
-                            <span v-if="theme === t.id" style="margin-left: auto; color: var(--primary-color);">✓</span>
-                        </div>
+                            <span>{{ th.icon }} {{ th.name }}</span>
+                            <span v-if="theme === th.id" style="margin-left: auto; color: var(--primary-color);" aria-hidden="true">✓</span>
+                        </button>
                     </div>
                 </div>
                 <!-- Locale -->
                 <select class="topbar-locale-select"
                         @change="$emit('change-locale', $event.target.value)"
-                        :value="locale">
+                        :value="locale"
+                        :aria-label="t('settings.language') || 'Language'">
                     <option value="en">🌐 English</option>
                     <option value="zh">🌐 中文</option>
                 </select>
@@ -273,7 +332,11 @@ const AppTopbar = {
                 <span v-if="user" style="color: var(--sidebar-text, #ccc); font-size: 13px; margin-left: 8px;">
                     {{ user.fullName || user.username }}
                 </span>
-                <button class="topbar-icon-btn" @click="$emit('logout')" title="Logout" style="margin-left: 4px;">
+                <button class="topbar-icon-btn"
+                        @click="$emit('logout')"
+                        :aria-label="t('actions.logout') || 'Logout'"
+                        :title="t('actions.logout') || 'Logout'"
+                        style="margin-left: 4px;">
                     ⏻
                 </button>
             </div>
@@ -367,26 +430,23 @@ const LoadingSpinner = {
     `
 };
 
-const ErrorMessage = {
-    props: ['message'],
-    emits: ['dismiss'],
-    template: `
-        <div style="background: var(--error-color); color: white; padding: var(--spacing-md); margin: var(--spacing-md); border-radius: var(--radius-md); display: flex; justify-content: space-between; align-items: center;">
-            <span>⚠️ {{ message }}</span>
-            <button @click="$emit('dismiss')" style="background: transparent; border: none; color: white; cursor: pointer; font-size: 20px;">&times;</button>
-        </div>
-    `
-};
-
 const ModalDialog = {
     props: ['title', 'show', 'wide'],
     emits: ['close'],
+    directives: { focusTrap: vFocusTrap },
+    setup() {
+        const { t } = useI18n();
+        return { t };
+    },
     template: `
-        <div v-if="show" class="modal-overlay" @click.self="$emit('close')">
+        <div v-if="show" class="modal-overlay" @click.self="$emit('close')"
+             v-focus-trap="{ onEscape: () => $emit('close') }"
+             role="dialog" aria-modal="true" aria-labelledby="modal-title">
             <div class="modal" :style="wide ? 'min-width: 500px; max-width: 95vw; width: auto;' : 'min-width: 500px;'">
                 <div class="modal-header">
-                    <h3 class="modal-title">{{ title }}</h3>
-                    <button class="modal-close" @click="$emit('close')">&times;</button>
+                    <h3 id="modal-title" class="modal-title">{{ title }}</h3>
+                    <button class="modal-close" @click="$emit('close')"
+                            :aria-label="t('common.close') || 'Close'">&times;</button>
                 </div>
                 <div class="modal-body">
                     <slot></slot>
@@ -399,18 +459,22 @@ const ModalDialog = {
 const DrawerPanel = {
     props: ['show', 'title'],
     emits: ['close'],
+    directives: { focusTrap: vFocusTrap },
     setup() {
         const { t } = useI18n();
         return { t };
     },
     template: `
-        <div v-if="show" class="drawer-overlay" @click.self="$emit('close')">
+        <div v-if="show" class="drawer-overlay" @click.self="$emit('close')"
+             v-focus-trap="{ onEscape: () => $emit('close') }"
+             role="dialog" aria-modal="true" aria-labelledby="drawer-title">
             <div class="drawer drawer-right">
                 <div class="drawer-header" style="display: flex; justify-content: space-between; align-items: center;">
-                    <h3 style="margin: 0; flex: 1;">{{ title }}</h3>
+                    <h3 id="drawer-title" style="margin: 0; flex: 1;">{{ title }}</h3>
                     <div class="drawer-header-actions" style="display: flex; align-items: center; gap: 8px;">
                         <slot name="header-actions"></slot>
-                        <button class="drawer-close" @click="$emit('close')">&times;</button>
+                        <button class="drawer-close" @click="$emit('close')"
+                                :aria-label="t('common.close') || 'Close'">&times;</button>
                     </div>
                 </div>
                 <div class="drawer-body">
@@ -434,6 +498,12 @@ const CaveView = {
         ModalDialog,
         DrawerPanel,
     },
+    props: {
+        pendingDrillIn: { type: Object, default: null },
+        initialGid:     { type: String, default: null }
+    },
+    emits: ['show-message', 'item-selected', 'drill-in-consumed'],
+    inject: ['$confirm'],
     setup() {
         const composable = useCaves();
         const { t } = useI18n();
@@ -467,29 +537,22 @@ const CaveView = {
             this.showForm = true;
         },
         async handleDelete(item) {
-            if (confirm(this.t('actions.deleteConfirm', { entity: this.t('entities.cave') }))) {
+            const ok = await this.$confirm({
+                message: this.t('actions.deleteConfirm', { entity: this.t('entities.cave') }),
+                danger: true
+            });
+            if (!ok) return;
                 try {
                     await this.deleteCave(item.gid);
                     this.$emit('show-message', this.t('actions.deleteSuccess', { entity: this.t('entities.cave') }), 'success');
                 } catch (err) {
                     this.$emit('show-message', this.t('actions.deleteError', { entity: this.t('entities.cave') }) + ': ' + err.message, 'error');
                 }
-            }
         },
-        async handleFormSubmit(data) {
-            try {
-                if (this.editMode) {
-                    await this.updateCave(this.editingItem.gid, data);
-                    this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.cave') }), 'success');
-                } else {
-                    await this.createCave(data);
-                    this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.cave') }), 'success');
-                }
-                this.showForm = false;
-                await this.fetchCaves();
-            } catch (err) {
-                this.$emit('show-message', this.t('actions.saveError', { entity: this.t('entities.cave') }) + ': ' + err.message, 'error');
-            }
+        async handleFormSubmit() {
+            this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.cave') }), 'success');
+            this.showForm = false;
+            await this.fetchCaves();
         },
         handleFormCancel() {
             this.showForm = false;
@@ -506,11 +569,28 @@ const CaveView = {
             this.selectedItem = item;
             this.detailItem = item;
             this.showDetail = true;
+            setHash('caves', item.gid);
         },
         handleCloseDetail() {
             this.showDetail = false;
             this.detailItem = null;
+            setHash('caves');
+        },
+        _syncFromUrl() {
+            const gid = this.initialGid;
+            if (!gid) {
+                if (this.showDetail) this.handleCloseDetail();
+                return;
+            }
+            if (this.showDetail && this.selectedGid === gid) return;
+            const list = this.caves || [];
+            const item = list.find(c => c.gid === gid);
+            if (item) this.handleViewDetail(item);
         }
+    },
+    watch: {
+        initialGid: { immediate: true, handler() { this._syncFromUrl(); } },
+        caves:      { handler() { this._syncFromUrl(); } }
     },
     mounted() {
         this.fetchCaves();
@@ -542,12 +622,13 @@ const CaveView = {
                 :caves="caves"
                 :loading="loading"
                 :selected-gid="selectedGid"
+                :pending-drill-in="pendingDrillIn"
                 @select="handleSelect"
                 @edit="handleEdit"
                 @delete="handleDelete"
                 @create="handleCreate"
                 @view-detail="handleViewDetail"
-                @navigate-dashboard="$emit('navigate-dashboard')"
+                @drill-in-consumed="$emit('drill-in-consumed')"
             ></cave-list>        </div>
     `
 };
@@ -561,6 +642,10 @@ const StatueView = {
         ModalDialog,
         DrawerPanel,
     },
+    props: {
+        initialGid: { type: String, default: null }
+    },
+    inject: ['$confirm'],
     setup() {
         const composable = useStatues();
         const { t } = useI18n();
@@ -594,29 +679,43 @@ const StatueView = {
             this.showForm = true;
         },
         async handleDelete(item) {
-            if (confirm(this.t('actions.deleteConfirm', { entity: this.t('entities.statue') }))) {
+            const ok = await this.$confirm({
+                message: this.t('actions.deleteConfirm', { entity: this.t('entities.statue') }),
+                danger: true
+            });
+            if (!ok) return;
                 try {
                     await this.deleteStatue(item.gid);
                     this.$emit('show-message', this.t('actions.deleteSuccess', { entity: this.t('entities.statue') }), 'success');
                 } catch (err) {
                     this.$emit('show-message', this.t('actions.deleteError', { entity: this.t('entities.statue') }) + ': ' + err.message, 'error');
                 }
-            }
         },
-        async handleFormSubmit(data) {
-            try {
-                if (this.editMode) {
-                    await this.updateStatue(this.editingItem.gid, data);
-                    this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.statue') }), 'success');
-                } else {
-                    await this.createStatue(data);
-                    this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.statue') }), 'success');
-                }
-                this.showForm = false;
-                await this.fetchStatues();
-            } catch (err) {
-                this.$emit('show-message', this.t('actions.saveError', { entity: this.t('entities.statue') }) + ': ' + err.message, 'error');
+        async handleBulkDelete(items) {
+            if (!items || items.length === 0) return;
+            const ok = await this.$confirm({
+                message: this.t('actions.bulkDeleteConfirm', { count: items.length, entity: this.t('entities.statue') }),
+                danger: true
+            });
+            if (!ok) return;
+            let okCount = 0, failCount = 0;
+            for (const item of items) {
+                try { await this.deleteStatue(item.gid); okCount++; }
+                catch (e) { failCount++; }
             }
+            if (failCount === 0) {
+                this.$emit('show-message',
+                    this.t('actions.deleteSuccess', { entity: this.t('entities.statue') }) + ` (${okCount})`, 'success');
+            } else {
+                this.$emit('show-message',
+                    this.t('actions.bulkDeletePartialError', { ok: okCount, fail: failCount }), 'error');
+            }
+            await this.fetchStatues();
+        },
+        async handleFormSubmit() {
+            this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.statue') }), 'success');
+            this.showForm = false;
+            await this.fetchStatues();
         },
         handleFormCancel() {
             this.showForm = false;
@@ -633,11 +732,28 @@ const StatueView = {
             this.selectedItem = item;
             this.detailItem = item;
             this.showDetail = true;
+            setHash('statues', item.gid);
         },
         handleCloseDetail() {
             this.showDetail = false;
             this.detailItem = null;
+            setHash('statues');
+        },
+        _syncFromUrl() {
+            const gid = this.initialGid;
+            if (!gid) {
+                if (this.showDetail) this.handleCloseDetail();
+                return;
+            }
+            if (this.showDetail && this.selectedGid === gid) return;
+            const list = this.statues || [];
+            const item = list.find(s => s.gid === gid);
+            if (item) this.handleViewDetail(item);
         }
+    },
+    watch: {
+        initialGid: { immediate: true, handler() { this._syncFromUrl(); } },
+        statues:    { handler() { this._syncFromUrl(); } }
     },
     mounted() {
         this.fetchStatues();
@@ -674,6 +790,7 @@ const StatueView = {
                 @delete="handleDelete"
                 @create="handleCreate"
                 @view-detail="handleViewDetail"
+                @bulk-delete="handleBulkDelete"
             ></statue-list>        </div>
     `
 };
@@ -687,6 +804,10 @@ const MuralView = {
         ModalDialog,
         DrawerPanel,
     },
+    props: {
+        initialGid: { type: String, default: null }
+    },
+    inject: ['$confirm'],
     setup() {
         const composable = useMurals();
         const { t } = useI18n();
@@ -720,29 +841,43 @@ const MuralView = {
             this.showForm = true;
         },
         async handleDelete(item) {
-            if (confirm(this.t('actions.deleteConfirm', { entity: this.t('entities.mural') }))) {
+            const ok = await this.$confirm({
+                message: this.t('actions.deleteConfirm', { entity: this.t('entities.mural') }),
+                danger: true
+            });
+            if (!ok) return;
                 try {
                     await this.deleteMural(item.gid);
                     this.$emit('show-message', this.t('actions.deleteSuccess', { entity: this.t('entities.mural') }), 'success');
                 } catch (err) {
                     this.$emit('show-message', this.t('actions.deleteError', { entity: this.t('entities.mural') }) + ': ' + err.message, 'error');
                 }
-            }
         },
-        async handleFormSubmit(data) {
-            try {
-                if (this.editMode) {
-                    await this.updateMural(this.editingItem.gid, data);
-                    this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.mural') }), 'success');
-                } else {
-                    await this.createMural(data);
-                    this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.mural') }), 'success');
-                }
-                this.showForm = false;
-                await this.fetchMurals();
-            } catch (err) {
-                this.$emit('show-message', this.t('actions.saveError', { entity: this.t('entities.mural') }) + ': ' + err.message, 'error');
+        async handleBulkDelete(items) {
+            if (!items || items.length === 0) return;
+            const ok = await this.$confirm({
+                message: this.t('actions.bulkDeleteConfirm', { count: items.length, entity: this.t('entities.mural') }),
+                danger: true
+            });
+            if (!ok) return;
+            let okCount = 0, failCount = 0;
+            for (const item of items) {
+                try { await this.deleteMural(item.gid); okCount++; }
+                catch (e) { failCount++; }
             }
+            if (failCount === 0) {
+                this.$emit('show-message',
+                    this.t('actions.deleteSuccess', { entity: this.t('entities.mural') }) + ` (${okCount})`, 'success');
+            } else {
+                this.$emit('show-message',
+                    this.t('actions.bulkDeletePartialError', { ok: okCount, fail: failCount }), 'error');
+            }
+            await this.fetchMurals();
+        },
+        async handleFormSubmit() {
+            this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.mural') }), 'success');
+            this.showForm = false;
+            await this.fetchMurals();
         },
         handleFormCancel() {
             this.showForm = false;
@@ -759,11 +894,28 @@ const MuralView = {
             this.selectedItem = item;
             this.detailItem = item;
             this.showDetail = true;
+            setHash('murals', item.gid);
         },
         handleCloseDetail() {
             this.showDetail = false;
             this.detailItem = null;
+            setHash('murals');
+        },
+        _syncFromUrl() {
+            const gid = this.initialGid;
+            if (!gid) {
+                if (this.showDetail) this.handleCloseDetail();
+                return;
+            }
+            if (this.showDetail && this.selectedGid === gid) return;
+            const list = this.murals || [];
+            const item = list.find(m => m.gid === gid);
+            if (item) this.handleViewDetail(item);
         }
+    },
+    watch: {
+        initialGid: { immediate: true, handler() { this._syncFromUrl(); } },
+        murals:     { handler() { this._syncFromUrl(); } }
     },
     mounted() {
         this.fetchMurals();
@@ -800,6 +952,7 @@ const MuralView = {
                 @delete="handleDelete"
                 @create="handleCreate"
                 @view-detail="handleViewDetail"
+                @bulk-delete="handleBulkDelete"
             ></mural-list>        </div>
     `
 };
@@ -813,6 +966,10 @@ const PaintingView = {
         ModalDialog,
         DrawerPanel,
     },
+    props: {
+        initialGid: { type: String, default: null }
+    },
+    inject: ['$confirm'],
     setup() {
         const composable = usePaintings();
         const { t } = useI18n();
@@ -846,29 +1003,43 @@ const PaintingView = {
             this.showForm = true;
         },
         async handleDelete(item) {
-            if (confirm(this.t('actions.deleteConfirm', { entity: this.t('entities.painting') }))) {
+            const ok = await this.$confirm({
+                message: this.t('actions.deleteConfirm', { entity: this.t('entities.painting') }),
+                danger: true
+            });
+            if (!ok) return;
                 try {
                     await this.deletePainting(item.gid);
                     this.$emit('show-message', this.t('actions.deleteSuccess', { entity: this.t('entities.painting') }), 'success');
                 } catch (err) {
                     this.$emit('show-message', this.t('actions.deleteError', { entity: this.t('entities.painting') }) + ': ' + err.message, 'error');
                 }
-            }
         },
-        async handleFormSubmit(data) {
-            try {
-                if (this.editMode) {
-                    await this.updatePainting(this.editingItem.gid, data);
-                    this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.painting') }), 'success');
-                } else {
-                    await this.createPainting(data);
-                    this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.painting') }), 'success');
-                }
-                this.showForm = false;
-                await this.fetchPaintings();
-            } catch (err) {
-                this.$emit('show-message', this.t('actions.saveError', { entity: this.t('entities.painting') }) + ': ' + err.message, 'error');
+        async handleBulkDelete(items) {
+            if (!items || items.length === 0) return;
+            const ok = await this.$confirm({
+                message: this.t('actions.bulkDeleteConfirm', { count: items.length, entity: this.t('entities.painting') }),
+                danger: true
+            });
+            if (!ok) return;
+            let okCount = 0, failCount = 0;
+            for (const item of items) {
+                try { await this.deletePainting(item.gid); okCount++; }
+                catch (e) { failCount++; }
             }
+            if (failCount === 0) {
+                this.$emit('show-message',
+                    this.t('actions.deleteSuccess', { entity: this.t('entities.painting') }) + ` (${okCount})`, 'success');
+            } else {
+                this.$emit('show-message',
+                    this.t('actions.bulkDeletePartialError', { ok: okCount, fail: failCount }), 'error');
+            }
+            await this.fetchPaintings();
+        },
+        async handleFormSubmit() {
+            this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.painting') }), 'success');
+            this.showForm = false;
+            await this.fetchPaintings();
         },
         handleFormCancel() {
             this.showForm = false;
@@ -885,11 +1056,28 @@ const PaintingView = {
             this.selectedItem = item;
             this.detailItem = item;
             this.showDetail = true;
+            setHash('paintings', item.gid);
         },
         handleCloseDetail() {
             this.showDetail = false;
             this.detailItem = null;
+            setHash('paintings');
+        },
+        _syncFromUrl() {
+            const gid = this.initialGid;
+            if (!gid) {
+                if (this.showDetail) this.handleCloseDetail();
+                return;
+            }
+            if (this.showDetail && this.selectedGid === gid) return;
+            const list = this.paintings || [];
+            const item = list.find(p => p.gid === gid);
+            if (item) this.handleViewDetail(item);
         }
+    },
+    watch: {
+        initialGid: { immediate: true, handler() { this._syncFromUrl(); } },
+        paintings:  { handler() { this._syncFromUrl(); } }
     },
     mounted() {
         this.fetchPaintings();
@@ -926,6 +1114,7 @@ const PaintingView = {
                 @delete="handleDelete"
                 @create="handleCreate"
                 @view-detail="handleViewDetail"
+                @bulk-delete="handleBulkDelete"
             ></painting-list>        </div>
     `
 };
@@ -939,6 +1128,10 @@ const InscriptionView = {
         ModalDialog,
         DrawerPanel,
     },
+    props: {
+        initialGid: { type: String, default: null }
+    },
+    inject: ['$confirm'],
     setup() {
         const composable = useInscriptions();
         const { t } = useI18n();
@@ -972,29 +1165,43 @@ const InscriptionView = {
             this.showForm = true;
         },
         async handleDelete(item) {
-            if (confirm(this.t('actions.deleteConfirm', { entity: this.t('entities.inscription') }))) {
+            const ok = await this.$confirm({
+                message: this.t('actions.deleteConfirm', { entity: this.t('entities.inscription') }),
+                danger: true
+            });
+            if (!ok) return;
                 try {
                     await this.deleteInscription(item.gid);
                     this.$emit('show-message', this.t('actions.deleteSuccess', { entity: this.t('entities.inscription') }), 'success');
                 } catch (err) {
                     this.$emit('show-message', this.t('actions.deleteError', { entity: this.t('entities.inscription') }) + ': ' + err.message, 'error');
                 }
-            }
         },
-        async handleFormSubmit(data) {
-            try {
-                if (this.editMode) {
-                    await this.updateInscription(this.editingItem.gid, data);
-                    this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.inscription') }), 'success');
-                } else {
-                    await this.createInscription(data);
-                    this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.inscription') }), 'success');
-                }
-                this.showForm = false;
-                await this.fetchInscriptions();
-            } catch (err) {
-                this.$emit('show-message', this.t('actions.saveError', { entity: this.t('entities.inscription') }) + ': ' + err.message, 'error');
+        async handleBulkDelete(items) {
+            if (!items || items.length === 0) return;
+            const ok = await this.$confirm({
+                message: this.t('actions.bulkDeleteConfirm', { count: items.length, entity: this.t('entities.inscription') }),
+                danger: true
+            });
+            if (!ok) return;
+            let okCount = 0, failCount = 0;
+            for (const item of items) {
+                try { await this.deleteInscription(item.gid); okCount++; }
+                catch (e) { failCount++; }
             }
+            if (failCount === 0) {
+                this.$emit('show-message',
+                    this.t('actions.deleteSuccess', { entity: this.t('entities.inscription') }) + ` (${okCount})`, 'success');
+            } else {
+                this.$emit('show-message',
+                    this.t('actions.bulkDeletePartialError', { ok: okCount, fail: failCount }), 'error');
+            }
+            await this.fetchInscriptions();
+        },
+        async handleFormSubmit() {
+            this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.inscription') }), 'success');
+            this.showForm = false;
+            await this.fetchInscriptions();
         },
         handleFormCancel() {
             this.showForm = false;
@@ -1011,11 +1218,28 @@ const InscriptionView = {
             this.selectedItem = item;
             this.detailItem = item;
             this.showDetail = true;
+            setHash('inscriptions', item.gid);
         },
         handleCloseDetail() {
             this.showDetail = false;
             this.detailItem = null;
+            setHash('inscriptions');
+        },
+        _syncFromUrl() {
+            const gid = this.initialGid;
+            if (!gid) {
+                if (this.showDetail) this.handleCloseDetail();
+                return;
+            }
+            if (this.showDetail && this.selectedGid === gid) return;
+            const list = this.inscriptions || [];
+            const item = list.find(i => i.gid === gid);
+            if (item) this.handleViewDetail(item);
         }
+    },
+    watch: {
+        initialGid:   { immediate: true, handler() { this._syncFromUrl(); } },
+        inscriptions: { handler() { this._syncFromUrl(); } }
     },
     mounted() {
         this.fetchInscriptions();
@@ -1052,133 +1276,8 @@ const InscriptionView = {
                 @delete="handleDelete"
                 @create="handleCreate"
                 @view-detail="handleViewDetail"
+                @bulk-delete="handleBulkDelete"
             ></inscription-list>        </div>
-    `
-};
-
-const DefectView = {
-    components: {
-        DefectList,
-        DefectForm,
-        DefectCard,
-        DefectDetailView,
-        ModalDialog,
-        DrawerPanel,
-    },
-    setup() {
-        const composable = useDefects();
-        const { t } = useI18n();
-        return {
-            ...composable,
-            t,
-        };
-    },
-    data() {
-        return {
-            showForm: false,
-            editMode: false,
-            editingItem: null,
-            showDetail: false,
-            detailItem: null,
-            selectedGid: null,
-            selectedItem: null,
-        };
-    },
-    methods: {
-        handleCreate() {
-            this.editMode = false;
-            this.editingItem = null;
-            this.showDetail = false;
-            this.showForm = true;
-        },
-        handleEdit(item) {
-            this.editMode = true;
-            this.editingItem = item;
-            this.showDetail = false;
-            this.showForm = true;
-        },
-        async handleDelete(item) {
-            if (confirm(this.t('actions.deleteConfirm', { entity: this.t('entities.defect') }))) {
-                try {
-                    await this.deleteDefect(item.gid);
-                    this.$emit('show-message', this.t('actions.deleteSuccess', { entity: this.t('entities.defect') }), 'success');
-                } catch (err) {
-                    this.$emit('show-message', this.t('actions.deleteError', { entity: this.t('entities.defect') }) + ': ' + err.message, 'error');
-                }
-            }
-        },
-        async handleFormSubmit(data) {
-            try {
-                if (this.editMode) {
-                    await this.updateDefect(this.editingItem.gid, data);
-                    this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.defect') }), 'success');
-                } else {
-                    await this.createDefect(data);
-                    this.$emit('show-message', this.t('actions.saveSuccess', { entity: this.t('entities.defect') }), 'success');
-                }
-                this.showForm = false;
-                await this.fetchDefects();
-            } catch (err) {
-                this.$emit('show-message', this.t('actions.saveError', { entity: this.t('entities.defect') }) + ': ' + err.message, 'error');
-            }
-        },
-        handleFormCancel() {
-            this.showForm = false;
-            this.editingItem = null;
-        },
-        handleSelect(item) {
-            this.selectedGid = item.gid;
-            this.selectedItem = item;
-            this.selectDefect(item);
-            this.$emit('item-selected', item);
-        },
-        handleViewDetail(item) {
-            this.selectedGid = item.gid;
-            this.selectedItem = item;
-            this.detailItem = item;
-            this.showDetail = true;
-        },
-        handleCloseDetail() {
-            this.showDetail = false;
-            this.detailItem = null;
-        }
-    },
-    mounted() {
-        this.fetchDefects();
-    },
-    template: `
-        <div class="entity-view">
-            <drawer-panel :show="showForm" :title="editMode ? t('common.edit') + ' ' + t('entities.defect') : t('actions.createNew', { entity: t('entities.defect') })" @close="handleFormCancel">
-                <defect-form
-                    :defect="editingItem"
-                    :mode="editMode ? 'edit' : 'create'"
-                    @created="handleFormSubmit"
-                    @updated="handleFormSubmit"
-                    @cancel="handleFormCancel"
-                    @error="(msg) => $emit('show-message', msg, 'error')"
-                ></defect-form>            </drawer-panel>
-
-            <drawer-panel :show="showDetail" :title="t('common.detail') + ' - ' + (detailItem ? detailItem.name || detailItem.title || detailItem.gid : '')" @close="handleCloseDetail">
-                <template #header-actions>
-                    <button class="btn btn-sm btn-primary" @click="handleEdit(detailItem)" style="margin-right: 8px;">
-                        {{ t('common.edit') }}
-                    </button>
-                </template>
-                <defect-detail-view
-                    v-if="detailItem"
-                    :defect="detailItem"
-                ></defect-detail-view>            </drawer-panel>
-
-            <defect-list
-                :defects="defects"
-                :loading="loading"
-                :selected-gid="selectedGid"
-                @select="handleSelect"
-                @edit="handleEdit"
-                @delete="handleDelete"
-                @create="handleCreate"
-                @view-detail="handleViewDetail"
-            ></defect-list>        </div>
     `
 };
 
@@ -1192,15 +1291,18 @@ const app = createApp({
         AppTopbar,
         DashboardView,
         LoadingSpinner,
-        ErrorMessage,
         ModalDialog,
         CaveView,
         StatueView,
         MuralView,
         PaintingView,
         InscriptionView,
-        DefectView,
         SettingsView,
+        SensorDashboard,
+        MaintenanceQueue,
+        ConfirmDialog,
+        ToastStack,
+        ShortcutsCheatsheet,
     },
     setup() {
         const { locale, t, setLocale } = useI18n();
@@ -1217,7 +1319,13 @@ const app = createApp({
         });
         Vue.provide('isGuest', isGuest);
 
+        const isAdmin = Vue.computed(() => {
+            const user = JSON.parse(localStorage.getItem('mgemini-user') || 'null');
+            return !!(user && user.role === 'admin');
+        });
+
         return {
+            isAdmin,
             locale, t, setLocale,
             isGuest,
             dashCaves: cavesComposable,
@@ -1233,12 +1341,19 @@ const app = createApp({
             isAuthenticated: !!localStorage.getItem('mgemini-token'),
             currentUser: JSON.parse(localStorage.getItem('mgemini-user') || 'null'),
 
-            // Application state
+            // Application state. mounted() reconciles this with the URL hash
+            // and runs the route-arrival side effects (admin guard, fetches).
             currentView: 'dashboard',
             loading: false,
-            error: null,
-            message: null,
-            messageType: 'info',
+
+            // Toast stack — replaces the single inline ErrorMessage banner.
+            // showMessage() pushes a toast with a per-toast auto-dismiss
+            // timer so two errors in a row no longer overwrite each other.
+            toasts: [],
+            _toastSeq: 0,
+
+            // Keyboard cheatsheet visibility — toggled by '?'.
+            showCheatsheet: false,
 
             // Backend connection status
             backendOnline: false,
@@ -1246,11 +1361,50 @@ const app = createApp({
             // Theme
             currentTheme: localStorage.getItem('mgemini-theme') || 'mogao',
 
-            // Sidebar
-            sidebarCollapsed: localStorage.getItem('mgemini-sidebar-collapsed') === 'true',
+            // Anomaly count (sidebar badge) — admin only
+            anomalyCount: 0,
+            _anomalyTimer: null,
+            _healthTimer:  null,
+            _onVisibility: null,
+
+            // Drill-in from MaintenanceQueue: { gid, type } pending selection
+            pendingArtifactDrillIn: null,
+
+            // gid extracted from the URL (e.g. #/caves/cave-001 → 'cave-001').
+            // _applyRoute updates this on every route change; entity views
+            // receive it via :initial-gid and reconcile their detail-drawer
+            // state against it. Single source of truth: URL drives state.
+            routeGid: null,
+
+            // Themed-confirm dialog state. Components inject('$confirm') to
+            // open it; the dialog component reads this state via prop and
+            // resolves the queued promise on confirm/cancel.
+            confirmState: {
+                open: false,
+                message: '',
+                confirmLabel: '',
+                cancelLabel: '',
+                danger: false,
+                _resolve: null
+            },
         };
     },
 
+    provide() {
+        // Expose `$confirm({ message, confirmLabel?, cancelLabel?, danger? })`
+        // to every descendant. Returns Promise<boolean>.
+        const state = this.confirmState;
+        return {
+            $confirm: (opts = {}) => new Promise(resolve => {
+                state.message      = opts.message || '';
+                state.confirmLabel = opts.confirmLabel || '';
+                state.cancelLabel  = opts.cancelLabel  || '';
+                state.danger       = !!opts.danger;
+                state._resolve     = resolve;
+                state.open         = true;
+            })
+        };
+    },
     methods: {
         handleLoginSuccess({ token, user }) {
             this.isAuthenticated = true;
@@ -1264,15 +1418,20 @@ const app = createApp({
                 delete axios.defaults.headers.common['Authorization'];
                 axios.defaults.headers.common['X-Guest-Access'] = 'true';
             }
-            this.checkBackendConnection();
-            this.dashCaves.fetchCaves();
-            this.dashStatues.fetchStatues();
-            this.dashMurals.fetchMurals();
-            this.dashPaintings.fetchPaintings();
-            this.dashInscriptions.fetchInscriptions();
+            // Start health/anomaly polling for the new session — without
+            // this, a fresh sign-in (vs. arriving with a stored token) had
+            // no background polls until the user refreshed.
+            this._startBackgroundPolls();
+
+            // Land on the URL view (a deep-link still works after a session
+            // expiry → re-auth round trip). _applyRoute fetches dashboard
+            // counts when view='dashboard' and admin-guards otherwise.
+            this._applyRoute(parseHash().view);
+            setHash(this.currentView);
         },
 
         handleLogout() {
+            this._stopBackgroundPolls();
             this.isAuthenticated = false;
             this.currentUser = null;
             localStorage.removeItem('mgemini-token');
@@ -1281,7 +1440,35 @@ const app = createApp({
         },
 
         changeView(view) {
+            // Push the hash; the subscribeRoute handler installed in mounted()
+            // will set currentView and run any view-specific work. This keeps
+            // a single source of truth (the URL) for the active view.
+            if (!setHash(view)) {
+                // No URL change (already on this view) — apply side effects
+                // directly so refreshes on /dashboard still refetch counts.
+                this._applyRoute(view);
+            }
+        },
+
+        // Side effects of arriving at a view, regardless of how we got here
+        // (sidebar click, back button, deep-link, programmatic transition).
+        _applyRoute(view) {
+            // Bounce admin-only views back to the dashboard when the user
+            // isn't admin — otherwise the content pane renders blank because
+            // every <admin-view v-if="... && isAdmin"> branch is false.
+            if ((view === 'sensors' || view === 'maintenance') && !this.isAdmin) {
+                setHash('dashboard');
+                return;
+            }
             this.currentView = view;
+            this.routeGid = parseHash().gid;
+            if (view === 'dashboard') {
+                this.dashCaves.fetchCaves();
+                this.dashStatues.fetchStatues();
+                this.dashMurals.fetchMurals();
+                this.dashPaintings.fetchPaintings();
+                this.dashInscriptions.fetchInscriptions();
+            }
         },
 
         changeLocale(newLocale) {
@@ -1298,31 +1485,23 @@ const app = createApp({
             document.documentElement.setAttribute('data-theme', themeId);
         },
 
-        showMessage(message, type = 'info') {
-            this.message = message;
-            this.messageType = type;
-            setTimeout(() => {
-                this.message = null;
-            }, 5000);
+        showMessage(message, type = 'info', duration = 5000) {
+            const id = ++this._toastSeq;
+            this.toasts.push({ id, message, type });
+            if (duration > 0) {
+                setTimeout(() => this.dismissToast(id), duration);
+            }
+            return id;
         },
 
-        dismissError() {
-            this.error = null;
-            this.message = null;
+        dismissToast(id) {
+            const idx = this.toasts.findIndex(t => t.id === id);
+            if (idx !== -1) this.toasts.splice(idx, 1);
         },
 
         handlePreferencesChanged(prefs) {
             if (prefs.theme) this.changeTheme(prefs.theme);
             if (prefs.language) this.changeLocale(prefs.language);
-            if (prefs.sidebarCollapsed !== undefined) {
-                this.sidebarCollapsed = prefs.sidebarCollapsed;
-                localStorage.setItem('mgemini-sidebar-collapsed', prefs.sidebarCollapsed);
-            }
-        },
-
-        toggleSidebar() {
-            this.sidebarCollapsed = !this.sidebarCollapsed;
-            localStorage.setItem('mgemini-sidebar-collapsed', this.sidebarCollapsed);
         },
 
         handleProfileUpdated(user) {
@@ -1331,19 +1510,133 @@ const app = createApp({
         },
 
         async checkBackendConnection() {
+            // Skip when the tab is hidden — saves an idle request every 30 s
+            // and avoids piling up backlog when the user comes back to the tab.
+            if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
             try {
                 const response = await window.api.health.check();
                 this.backendOnline = response.data.status !== 'offline';
             } catch (error) {
                 this.backendOnline = false;
+                if (error.response?.status === 401) this._stopBackgroundPolls();
                 console.warn('Backend connection check failed:', error.message);
             }
+        },
+
+        async fetchAnomalyCount() {
+            if (!this.isAdmin) return;
+            // Skip when the tab is hidden, the JWT is gone, or the user has
+            // become a guest mid-session — those are silent failure modes.
+            if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+            if (!localStorage.getItem('mgemini-token')) return;
+            try {
+                const res = await window.api.maintenance.anomalies();
+                const list = Array.isArray(res.data) ? res.data
+                    : Array.isArray(res.data?.anomalies) ? res.data.anomalies
+                    : [];
+                this.anomalyCount = list.length;
+            } catch (err) {
+                this.anomalyCount = 0;
+                // 401 means the token expired or the role no longer has admin
+                // privileges; stop hammering the endpoint until the next sign-in.
+                if (err.response?.status === 401) this._stopBackgroundPolls();
+            }
+        },
+
+        /**
+         * Start the background polls + visibility listener. Idempotent: safe
+         * to call from mounted() (token in localStorage) and from
+         * handleLoginSuccess (fresh sign-in). Without this, a user who
+         * landed on the login screen and then signed in had no health or
+         * anomaly polling until they refreshed.
+         */
+        _startBackgroundPolls() {
+            this.checkBackendConnection();
+
+            if (!this._healthTimer) {
+                this._healthTimer = setInterval(() => this.checkBackendConnection(), 30000);
+            }
+
+            if (this.isAdmin && !this._anomalyTimer) {
+                this.fetchAnomalyCount();
+                this._anomalyTimer = setInterval(() => this.fetchAnomalyCount(), 60000);
+            }
+
+            if (!this._onVisibility) {
+                this._onVisibility = () => {
+                    if (document.visibilityState !== 'visible') return;
+                    this.checkBackendConnection();
+                    if (this.isAdmin) this.fetchAnomalyCount();
+                };
+                document.addEventListener('visibilitychange', this._onVisibility);
+            }
+        },
+
+        /** Tear down all background polls + the visibility listener. Used on
+         *  auth-loss (401) and on explicit logout. */
+        _stopBackgroundPolls() {
+            if (this._anomalyTimer) { clearInterval(this._anomalyTimer); this._anomalyTimer = null; }
+            if (this._healthTimer)  { clearInterval(this._healthTimer);  this._healthTimer  = null; }
+            if (this._onVisibility) {
+                document.removeEventListener('visibilitychange', this._onVisibility);
+                this._onVisibility = null;
+            }
+        },
+
+        /**
+         * Invoked by MaintenanceQueue when a row is clicked. Navigates to the
+         * caves view and queues the drill-in so CaveList can auto-open the
+         * matching cave + artifact with the Prediction panel active.
+         */
+        handleArtifactDrillIn({ gid, type, caveGid }) {
+            if (!gid || !type) return;
+            if (!caveGid) {
+                this.showMessage('Cannot open 3D view: this artifact is not linked to a parent cave.', 'warning');
+                return;
+            }
+            this.pendingArtifactDrillIn = { gid, type, caveGid };
+            this.changeView('caves');
+        },
+
+        clearPendingDrillIn() {
+            this.pendingArtifactDrillIn = null;
+        },
+
+        _registerShortcuts() {
+            // '/' focuses the most relevant search box on the current view.
+            // We pick the first visible .search-input or .page-search-input
+            // (CaveList uses the latter for its full-page layout).
+            registerSingleKey('/', () => {
+                const sel = document.querySelector(
+                    '.page-search-input, .search-input, input[type="search"]'
+                );
+                if (sel) sel.focus();
+            });
+
+            // '?' toggles the cheatsheet. The keyboard module lets '?' through
+            // even when an overlay is open, so pressing it again while open
+            // is a no-op (this.showCheatsheet stays true).
+            registerSingleKey('?', () => { this.showCheatsheet = true; });
+
+            // 'g <letter>' jumps between top-level views. The leader-pair
+            // helper handles the 1.2s timeout and the followup matching.
+            const goto = (view) => () => this.changeView(view);
+            registerLeaderPair('g', 'd', goto('dashboard'));
+            registerLeaderPair('g', 'c', goto('caves'));
+            registerLeaderPair('g', 's', goto('statues'));
+            registerLeaderPair('g', 'm', goto('murals'));
+            registerLeaderPair('g', 'p', goto('paintings'));
+            registerLeaderPair('g', 'i', goto('inscriptions'));
+            registerLeaderPair('g', 'e', goto('sensors'));      // e for "environment"
+            registerLeaderPair('g', 'q', goto('maintenance'));  // q for "queue"
         },
     },
 
     mounted() {
         this.applyTheme(this.currentTheme);
-        // Restore auth header from stored token or guest mode
+
+        // Restore auth header BEFORE the initial route applies, so dashboard
+        // fetches issued by _applyRoute carry Authorization.
         const token = localStorage.getItem('mgemini-token');
         if (token) {
             axios.defaults.headers.common['Authorization'] = 'Bearer ' + token;
@@ -1351,19 +1644,34 @@ const app = createApp({
             axios.defaults.headers.common['X-Guest-Access'] = 'true';
         }
 
-        if (this.isAuthenticated) {
-            // Check backend connection and fetch dashboard counts
-            this.checkBackendConnection();
-            this.dashCaves.fetchCaves();
-            this.dashStatues.fetchStatues();
-            this.dashMurals.fetchMurals();
-            this.dashPaintings.fetchPaintings();
-            this.dashInscriptions.fetchInscriptions();
+        // Hash router: subscribe always (so back/forward works across the
+        // login boundary). When already authenticated, apply the URL route
+        // now — _applyRoute runs the admin guard and any view-specific
+        // fetches. handleLoginSuccess does the same after a fresh sign-in.
+        this._unsubscribeRoute = subscribeRoute(({ view }) => this._applyRoute(view));
 
-            // Set up periodic backend health check
-            setInterval(() => {
-                this.checkBackendConnection();
-            }, 30000);
+        if (this.isAuthenticated) {
+            this._applyRoute(parseHash().view);
+            setHash(this.currentView);
+            this._startBackgroundPolls();
+        }
+
+        // Keyboard shortcuts. Registered once at root; registry survives
+        // re-mounts because the maps live at module scope. installed=true
+        // is module-scoped so re-installing is a no-op.
+        this._registerShortcuts();
+        this._uninstallShortcuts = installShortcuts();
+    },
+
+    beforeUnmount() {
+        this._stopBackgroundPolls();
+        if (this._unsubscribeRoute) {
+            this._unsubscribeRoute();
+            this._unsubscribeRoute = null;
+        }
+        if (this._uninstallShortcuts) {
+            this._uninstallShortcuts();
+            this._uninstallShortcuts = null;
         }
     },
 
@@ -1377,9 +1685,9 @@ const app = createApp({
             <app-sidebar
                 :current-view="currentView"
                 :backend-online="backendOnline"
-                :collapsed="sidebarCollapsed"
+                :is-admin="isAdmin"
+                :anomaly-count="anomalyCount"
                 @change-view="changeView"
-                @toggle-collapse="toggleSidebar"
             ></app-sidebar>
 
             <div class="app-main">
@@ -1392,11 +1700,6 @@ const app = createApp({
                     @logout="handleLogout"
                 ></app-topbar>
 
-                <error-message
-                    v-if="error || message"
-                    :message="error || message"
-                    @dismiss="dismissError"
-                ></error-message>
 
                 <div class="main-content">
                     <loading-spinner v-if="loading"></loading-spinner>
@@ -1413,35 +1716,36 @@ const app = createApp({
                         ></dashboard-view>
                         <cave-view
                             v-if="currentView === 'caves'"
+                            :pending-drill-in="pendingArtifactDrillIn"
+                            :initial-gid="routeGid"
+                            @drill-in-consumed="clearPendingDrillIn"
                             @show-message="showMessage"
                             @item-selected="() => {}"
-                            @navigate-dashboard="changeView('dashboard')"
                         ></cave-view>
                         <statue-view
                             v-if="currentView === 'statues'"
+                            :initial-gid="routeGid"
                             @show-message="showMessage"
                             @item-selected="() => {}"
                         ></statue-view>
                         <mural-view
                             v-if="currentView === 'murals'"
+                            :initial-gid="routeGid"
                             @show-message="showMessage"
                             @item-selected="() => {}"
                         ></mural-view>
                         <painting-view
                             v-if="currentView === 'paintings'"
+                            :initial-gid="routeGid"
                             @show-message="showMessage"
                             @item-selected="() => {}"
                         ></painting-view>
                         <inscription-view
                             v-if="currentView === 'inscriptions'"
+                            :initial-gid="routeGid"
                             @show-message="showMessage"
                             @item-selected="() => {}"
                         ></inscription-view>
-                        <defect-view
-                            v-if="currentView === 'defects'"
-                            @show-message="showMessage"
-                            @item-selected="() => {}"
-                        ></defect-view>
                         <settings-view
                             v-if="currentView === 'settings'"
                             :user="currentUser"
@@ -1449,10 +1753,31 @@ const app = createApp({
                             @preferences-changed="handlePreferencesChanged"
                             @profile-updated="handleProfileUpdated"
                         ></settings-view>
+                        <sensor-dashboard
+                            v-if="currentView === 'sensors' && isAdmin"
+                        ></sensor-dashboard>
+                        <maintenance-queue
+                            v-if="currentView === 'maintenance' && isAdmin"
+                            @drill-in="handleArtifactDrillIn"
+                        ></maintenance-queue>
                     </div>
                 </div>
+
             </div>
         </div>
+
+        <!-- Themed replacement for window.confirm() — mounted once at root,
+             driven by the $confirm injection. -->
+        <confirm-dialog :state="confirmState"></confirm-dialog>
+
+        <!-- Bottom-right toast stack. showMessage() pushes; each toast has
+             its own auto-dismiss timer so consecutive errors stack instead
+             of overwriting. -->
+        <toast-stack :toasts="toasts" @dismiss="dismissToast"></toast-stack>
+
+        <!-- Keyboard-shortcut cheatsheet, opened with '?'. -->
+        <shortcuts-cheatsheet :open="showCheatsheet" :is-admin="isAdmin"
+                              @close="showCheatsheet = false"></shortcuts-cheatsheet>
     `
 });
 

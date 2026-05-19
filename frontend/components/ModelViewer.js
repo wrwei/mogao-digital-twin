@@ -28,10 +28,12 @@ export default {
             default: null
         }
     },
+    emits: ['update:autoRotate', 'pixel-data-ready', 'processing-changed'],
     data() {
         return {
             loading: true,
             error: null,
+            pigmentDeteriorationWorker: null,
             // Deterioration simulation parameters
             simTemp: 20,           // Temperature in °C
             simRH: 50,             // Relative humidity in %
@@ -42,11 +44,13 @@ export default {
             degradationEnabled: false,
             showAdvanced: false,   // Show/hide advanced settings
             originalTexture: null,  // Store original texture for reset
+            originalPixelData: null, // Raw RGBA pixels captured at load time (avoids canvas CORS taint)
+            originalPixelWidth: 0,
+            originalPixelHeight: 0,
             textureCanvas: null,    // Canvas for texture manipulation
             textureContext: null,   // Canvas 2D context
             // Multi-model deterioration results
             mouldResult: null,      // VTT mould growth model output
-            lifetimeResult: null,   // Michalski lifetime multiplier output
             enabledChemical: true,  // Whether chemical fading model is active
             chemicalDegradationFactor: 1.0,  // Pre-computed from SimulationPanel
             chemicalRateConstant: 0,         // Pre-computed from SimulationPanel
@@ -78,12 +82,17 @@ export default {
         this.deteriorationWorker.onmessage = (e) => {
             this.handleWorkerResult(e.data);
         };
+        this.deteriorationWorker.onerror = (err) => this._handleWorkerError('uniform', err);
     },
     beforeUnmount() {
         if (this.deteriorationWorker) this.deteriorationWorker.terminate();
+        if (this.pigmentDeteriorationWorker) this.pigmentDeteriorationWorker.terminate();
         this.cleanup();
     },
     watch: {
+        isProcessing(v) {
+            this.$emit('processing-changed', v);
+        },
         autoRotate(newVal) {
             if (this.controls) {
                 this.controls.autoRotate = newVal;
@@ -106,20 +115,44 @@ export default {
                     this.simMonths = newData.deterioration.months;
                     this.simYears = newData.deterioration.years;
                     this.simLight = newData.deterioration.lightIntensity;
-                    // Store per-model results if available (null = disabled)
                     this.mouldResult = newData.deterioration.mould || null;
-                    this.lifetimeResult = newData.deterioration.lifetime || null;
                     this.enabledChemical = newData.deterioration.chemical !== null;
-                    // Store pre-computed degradation factor from SimulationPanel
                     this.chemicalDegradationFactor = newData.deterioration.degradationFactor;
                     this.chemicalRateConstant = newData.deterioration.rateConstant;
                     this.degradationEnabled = true;
-                    this.applyDeteriorationToTexture();
+
+                    // Handle display mode from PigmentAnalysisPanel
+                    const displayMode = newData.deterioration.pigmentDisplayMode || 'current';
+                    const activeModel = newData.activeModel || 'chemical';
+
+                    // Reset to original when no exposure time and showing current view
+                    if (newData.deterioration.totalDays === 0 && displayMode === 'current') {
+                        this.resetTexture();
+                        return;
+                    }
+
+                    if (displayMode === 'pigment-map' && newData.deterioration.pigmentMap) {
+                        this._applyPigmentOverlay(newData.deterioration.pigmentMap);
+                    } else if (activeModel === 'chemical') {
+                        // Per-pigment chemical fading (Arrhenius)
+                        this.applyDeteriorationToTexture(
+                            newData.deterioration.pigmentMap || null,
+                            newData.deterioration.perPigmentParams || null
+                        );
+                    } else if (activeModel === 'mould' && newData.deterioration.mould) {
+                        this._applyMouldEffect(newData.deterioration.mould);
+                    } else if (activeModel === 'salt' && newData.deterioration.saltCryst) {
+                        this._applySaltEffect(newData.deterioration.saltCryst);
+                    } else if (activeModel === 'lifetime' && newData.deterioration.lifetime) {
+                        this._applyLifetimeEffect(newData.deterioration.lifetime, newData.deterioration.totalDays);
+                    } else if (activeModel === 'fatigue' && newData.deterioration.fatigue) {
+                        this._applyFatigueEffect(newData.deterioration.fatigue);
+                    } else {
+                        this.applyDeteriorationToTexture(null, null);
+                    }
                 } else if (newData === null || !newData) {
-                    // Reset to original texture when simulation stops
                     this.degradationEnabled = false;
                     this.mouldResult = null;
-                    this.lifetimeResult = null;
                     this.resetTexture();
                 }
             }
@@ -143,34 +176,30 @@ export default {
             ));
             this.camera.position.set(0, 0, 5);
 
-            // Create renderer with high-quality settings
+            // Create renderer
             this.renderer = markRaw(new THREE.WebGLRenderer({
                 antialias: true,
                 alpha: true,
                 powerPreference: 'high-performance',
-                precision: 'highp'
             }));
             this.renderer.setSize(this.width, this.height);
             this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            this.renderer.shadowMap.enabled = true;
-            this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
             this.renderer.outputEncoding = THREE.sRGBEncoding;
-            this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-            this.renderer.toneMappingExposure = 0.75;  // Darker for museum-style lighting
+            // No tone mapping — avoids colour shifts on UV-mapped museum textures
+            this.renderer.toneMapping = THREE.NoToneMapping;
             container.appendChild(this.renderer.domElement);
 
-            // Add museum-style warm lighting - slightly darker
-            // Soft ambient base light
-            const ambientLight = markRaw(new THREE.AmbientLight(0xfff5e6, 0.35));  // Warm white, softer
+            // Museum-style neutral lighting
+            const ambientLight = markRaw(new THREE.AmbientLight(0xffffff, 0.6));
             this.scene.add(ambientLight);
 
-            // Main key light - warm from upper right
-            const directionalLight1 = markRaw(new THREE.DirectionalLight(0xfff8f0, 0.45));  // Warm key light
+            // Key light from upper right
+            const directionalLight1 = markRaw(new THREE.DirectionalLight(0xffffff, 0.5));
             directionalLight1.position.set(5, 5, 5);
             this.scene.add(directionalLight1);
 
-            // Fill light - softer from left
-            const directionalLight2 = markRaw(new THREE.DirectionalLight(0xffeedd, 0.2));  // Subtle warm fill
+            // Fill light from left
+            const directionalLight2 = markRaw(new THREE.DirectionalLight(0xffffff, 0.25));
             directionalLight2.position.set(-5, 3, -5);
             this.scene.add(directionalLight2);
 
@@ -261,52 +290,97 @@ export default {
                     // Apply basic material if no MTL
                     this.model.traverse((child) => {
                         if (child instanceof THREE.Mesh) {
-                            child.material = new THREE.MeshPhongMaterial({
+                            child.material = new THREE.MeshStandardMaterial({
                                 color: 0xcccccc,
-                                shininess: 30
+                                roughness: 0.85,
+                                metalness: 0.0,
                             });
                         }
                     });
                 }
 
-                // Apply texture if available
-                if (texturePath && this.model) {
-                    const textureLoader = new THREE.TextureLoader();
-                    const fullTexturePath = texturePath.startsWith('http') ? texturePath : baseURL + texturePath;
-
-                    // Enable CORS for canvas manipulation
-                    textureLoader.setCrossOrigin('anonymous');
-
-                    try {
-                        const texture = await new Promise((resolve, reject) => {
-                            textureLoader.load(fullTexturePath, resolve, undefined, reject);
-                        });
-
-                        // Store original texture for deterioration simulation
-                        this.originalTexture = texture;
-
-                        console.log('Texture loaded:', {
-                            path: fullTexturePath,
-                            width: texture.image?.width,
-                            height: texture.image?.height
-                        });
-
-                        this.model.traverse((child) => {
-                            if (child instanceof THREE.Mesh) {
+                // Force light-responsive materials — MTL illum 0 creates
+                // MeshBasicMaterial which ignores scene lights and looks flat.
+                // Replace with MeshStandardMaterial for proper shading.
+                this.model.traverse((child) => {
+                    if (child instanceof THREE.Mesh) {
+                        const mats = Array.isArray(child.material) ? child.material : [child.material];
+                        mats.forEach((mat, idx) => {
+                            if (mat.isMeshBasicMaterial || (mat.type === 'MeshBasicMaterial')) {
+                                const replacement = new THREE.MeshStandardMaterial({
+                                    map: mat.map || null,
+                                    color: mat.color ? mat.color.clone() : new THREE.Color(0xcccccc),
+                                    roughness: 0.85,
+                                    metalness: 0.0,
+                                });
                                 if (Array.isArray(child.material)) {
-                                    child.material.forEach(mat => {
-                                        mat.map = texture;
-                                        mat.needsUpdate = true;
-                                    });
+                                    child.material[idx] = replacement;
                                 } else {
-                                    child.material.map = texture;
-                                    child.material.needsUpdate = true;
+                                    child.material = replacement;
                                 }
+                                mat.dispose();
                             }
                         });
-                    } catch (texErr) {
-                        console.warn('Texture not available, model will use material colors:', texErr.message || texErr);
                     }
+                });
+
+                // Apply texture if available
+                if (texturePath && this.model) {
+                    const fullTexturePath = texturePath.startsWith('http') ? texturePath : baseURL + texturePath;
+
+                    // ── Step 1: Fetch image as blob and decode to ImageBitmap ──────────
+                    // Using fetch+blob bypasses the canvas "CORS taint" issue that would
+                    // prevent getImageData() when the image is cross-origin.
+                    let imageBitmap = null;
+                    try {
+                        const resp = await fetch(fullTexturePath);
+                        const blob = await resp.blob();
+                        imageBitmap = await createImageBitmap(blob);
+                    } catch (fetchErr) {
+                        console.warn('Could not fetch texture as blob, falling back to TextureLoader:', fetchErr.message);
+                    }
+
+                    // ── Step 2: Capture raw pixels into originalPixelData ─────────────
+                    if (imageBitmap) {
+                        const capCanvas = document.createElement('canvas');
+                        capCanvas.width = imageBitmap.width;
+                        capCanvas.height = imageBitmap.height;
+                        const capCtx = capCanvas.getContext('2d');
+                        capCtx.drawImage(imageBitmap, 0, 0);
+                        const captured = capCtx.getImageData(0, 0, imageBitmap.width, imageBitmap.height);
+                        this.originalPixelData = new Uint8ClampedArray(captured.data);
+                        this.originalPixelWidth = imageBitmap.width;
+                        this.originalPixelHeight = imageBitmap.height;
+                        console.log(`Pixel data captured: ${imageBitmap.width}×${imageBitmap.height} (${this.originalPixelData.length} bytes)`);
+                        // Notify parent so SimulationPanel / PigmentAnalysisPanel can use the pixel data
+                        this.$emit('pixel-data-ready', { data: this.originalPixelData, width: imageBitmap.width, height: imageBitmap.height });
+                    }
+
+                    // ── Step 3: Load Three.js texture for rendering ───────────────────
+                    const textureLoader = new THREE.TextureLoader();
+                    textureLoader.setCrossOrigin('anonymous');
+                    const texture = await new Promise((resolve, reject) => {
+                        textureLoader.load(fullTexturePath, resolve, undefined, reject);
+                    });
+                    this.originalTexture = texture;
+
+                    // Apply texture to all mesh materials.
+                    // Also unify material type so all face groups render consistently
+                    // (the MTL may split faces across "Solid" and a named material).
+                    this.model.traverse((child) => {
+                        if (child instanceof THREE.Mesh) {
+                            const applyTex = (mat) => {
+                                mat.map = texture;
+                                mat.color = new THREE.Color(0xffffff);
+                                mat.needsUpdate = true;
+                            };
+                            if (Array.isArray(child.material)) {
+                                child.material.forEach(applyTex);
+                            } else {
+                                applyTex(child.material);
+                            }
+                        }
+                    });
                 }
 
                 // Center and scale model
@@ -382,164 +456,401 @@ export default {
          * Apply deterioration to texture using dose-response model
          * Simulates color fading, yellowing, and darkening
          */
-        applyDeteriorationToTexture() {
+        applyDeteriorationToTexture(pigmentMap, perPigmentParams) {
             if (!this.model) {
-                console.warn('No model available for deterioration');
+                // Model still loading — silently skip; watcher will re-fire when ready
+                return;
+            }
+            if (!this.originalPixelData || !this.originalPixelWidth || !this.originalPixelHeight) {
+                console.warn('Pixel data not ready — texture may not have loaded yet');
+                this.showToast('⚠️ Texture pixel data not ready. Try reloading the model.', 'warning', 4000);
                 return;
             }
 
-            let degradationFactor = this.enabledChemical ? (this.chemicalDegradationFactor || 1.0) : 1.0;
+            const w = this.originalPixelWidth;
+            const h = this.originalPixelHeight;
 
-            // If no texture, apply deterioration via material color
-            if (!this.originalTexture) {
-                this.applyDeteriorationToMaterial(degradationFactor);
-                return;
-            }
-
-            const img = this.originalTexture.image;
-
-            // Check if image is loaded and has valid dimensions
-            if (!img || !img.width || !img.height) {
-                console.error('Texture image not ready or invalid dimensions:', img);
-                return;
-            }
-
-            // Skip if already processing
-            if (this.isProcessing) return;
-
-            // Show notification that texture processing is starting
             this.isProcessing = true;
-            this.showToast('⚙️ Applying texture deterioration...', 'info', 0); // No auto-hide
+            this.showToast('⚙️ Applying texture deterioration...', 'info', 0);
 
-            try {
-                let k = this.enabledChemical ? (this.chemicalRateConstant || 0) : 0;
-                const t_days = this.simDays + (this.simMonths * 30.44) + (this.simYears * 365.25);
+            const degradationFactor = this.enabledChemical ? (this.chemicalDegradationFactor ?? 1.0) : 1.0;
 
-                // Downscale large textures for simulation (cap at 2048px)
-                const maxSimSize = 2048;
-                const scale = Math.min(1, maxSimSize / Math.max(img.width, img.height));
-                const simW = Math.round(img.width * scale);
-                const simH = Math.round(img.height * scale);
-
-                // Create canvas for texture manipulation if not exists
-                if (!this.textureCanvas) {
-                    this.textureCanvas = document.createElement('canvas');
-                    this.textureContext = this.textureCanvas.getContext('2d');
+            if (pigmentMap && perPigmentParams) {
+                // ── Per-pigment deterioration via pigment worker ──────────
+                if (!this.pigmentDeteriorationWorker) {
+                    this.pigmentDeteriorationWorker = new Worker('workers/pigment-deterioration-worker.js');
+                    this.pigmentDeteriorationWorker.onmessage = (e) => this.handleWorkerResult(e.data);
+                    this.pigmentDeteriorationWorker.onerror = (err) => this._handleWorkerError('per-pigment', err);
                 }
-
-                this.textureCanvas.width = simW;
-                this.textureCanvas.height = simH;
-
-                // Clear canvas first
-                this.textureContext.clearRect(0, 0, simW, simH);
-
-                // Draw original image (downscaled if needed)
-                this.textureContext.drawImage(img, 0, 0, simW, simH);
-
-                // Get pixel data
-                const imageData = this.textureContext.getImageData(0, 0, simW, simH);
-                const data = imageData.data;
-
-                if (data.length === 0) {
-                    console.error('No pixel data retrieved from canvas');
-                    return;
+                const pixelCopy = new Uint8ClampedArray(this.originalPixelData).buffer;
+                const mapCopy = new Uint8Array(pigmentMap).buffer;
+                // Deep-copy perPigmentParams to a plain object (Vue reactive proxies can't be cloned by postMessage)
+                const plainParams = {};
+                for (const key of Object.keys(perPigmentParams)) {
+                    const p = perPigmentParams[key];
+                    plainParams[key] = {
+                        degradationFactor: p.degradationFactor,
+                        fadedRGB: p.fadedRGB ? [...p.fadedRGB] : null,
+                        targetRGB: p.targetRGB ? [...p.targetRGB] : null
+                    };
                 }
-
-                // Compute lifetime aging factor:
-                // multiplier < 1 means faster aging; effective age = exposure / multiplier
-                // Normalize to a 0-1 aging intensity over a 500-year reference lifespan
-                let lifetimeAgingFactor = 0;
-                if (this.lifetimeResult && this.lifetimeResult.multiplier > 0) {
-                    const effectiveYears = (t_days / 365.25) / this.lifetimeResult.multiplier;
-                    lifetimeAgingFactor = Math.min(1, effectiveYears / 500);
-                }
-
-                // Post pixel data to Web Worker for off-main-thread processing
-                this.deteriorationWorker.postMessage({
-                    pixelData: imageData.data.buffer,
-                    width: simW,
-                    height: simH,
-                    degradationFactor: degradationFactor,
-                    amplification: 3,
-                    lifetimeAgingFactor: lifetimeAgingFactor
-                }, [imageData.data.buffer]);
-
-                console.log(`Sent texture to worker: k=${k.toExponential(3)}, degradationFactor=${degradationFactor.toFixed(6)}`);
-
-            } catch (error) {
-                console.error('Error applying deterioration:', error);
-                this.error = 'Deterioration simulation failed: ' + error.message;
-                this.isProcessing = false;
-                this.showToast(`❌ Error: ${error.message}`, 'error', 5000);
+                console.log(`Per-pigment deterioration: ${Object.keys(plainParams).length} classes, size=${w}×${h}`);
+                this.pigmentDeteriorationWorker.postMessage(
+                    { pixelData: pixelCopy, pigmentMap: mapCopy, pigmentParams: plainParams, width: w, height: h, amplification: 3 },
+                    [pixelCopy, mapCopy]
+                );
+            } else {
+                // ── Uniform deterioration (existing behaviour) ────────────
+                const pixelCopy = new Uint8ClampedArray(this.originalPixelData).buffer;
+                console.log(`Uniform deterioration: degradationFactor=${degradationFactor.toFixed(4)}, size=${w}×${h}`);
+                this.deteriorationWorker.postMessage(
+                    { pixelData: pixelCopy, width: w, height: h, degradationFactor, amplification: 10 },
+                    [pixelCopy]
+                );
             }
         },
 
-        /**
-         * Apply deterioration directly to material color (for models without textures)
-         */
-        applyDeteriorationToMaterial(degradationFactor) {
-            const amplification = 3;
-            const visualDeg = 1 - Math.pow(degradationFactor, amplification);
-            const fadeFactor = 1 - visualDeg;
-
-            // Warm gray target for fading
-            const targetR = 180 / 255, targetG = 170 / 255, targetB = 155 / 255;
-            const yellowShift = visualDeg * 0.06; // Normalized yellowing
-
-            // Lifetime aging factor
-            const t_days = this.simDays + (this.simMonths * 30.44) + (this.simYears * 365.25);
-            let aging = 0;
-            if (this.lifetimeResult && this.lifetimeResult.multiplier > 0) {
-                const effectiveYears = (t_days / 365.25) / this.lifetimeResult.multiplier;
-                aging = Math.min(1, effectiveYears / 500);
+        /** Render a translucent pigment-class overlay on the 3D model */
+        _applyPigmentOverlay(pigmentMap) {
+            if (!this.model || !pigmentMap || !this.originalPixelData) return;
+            const w = this.originalPixelWidth;
+            const h = this.originalPixelHeight;
+            const overlayColors = [
+                [200,180,150], [0,80,180], [0,140,60], [200,30,15],
+                [245,240,230], [212,175,55], [180,70,30], [15,15,15]
+            ];
+            const out = new Uint8ClampedArray(this.originalPixelData);
+            for (let i = 0; i < w * h; i++) {
+                const cls = pigmentMap[i];
+                const c = overlayColors[cls] || overlayColors[0];
+                const off = i * 4;
+                // 50% blend of original with pigment colour overlay
+                out[off]     = Math.round(out[off] * 0.5 + c[0] * 0.5);
+                out[off + 1] = Math.round(out[off + 1] * 0.5 + c[1] * 0.5);
+                out[off + 2] = Math.round(out[off + 2] * 0.5 + c[2] * 0.5);
             }
-
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            canvas.getContext('2d').putImageData(new ImageData(out, w, h), 0, 0);
             this.model.traverse((child) => {
                 if (child.isMesh && child.material) {
-                    const mats = Array.isArray(child.material) ? child.material : [child.material];
-                    mats.forEach(mat => {
-                        // Store original color on first application
-                        if (!mat.userData.originalColor) {
-                            mat.userData.originalColor = mat.color.clone();
-                        }
-                        const orig = mat.userData.originalColor;
-
-                        // Chemical: fading toward warm gray
-                        let r = orig.r * fadeFactor + targetR * (1 - fadeFactor);
-                        let g = orig.g * fadeFactor + targetG * (1 - fadeFactor);
-                        let b = orig.b * fadeFactor + targetB * (1 - fadeFactor);
-
-                        // Yellowing
-                        r = Math.min(1, r + yellowShift);
-                        g = Math.min(1, g + yellowShift * 0.7);
-                        b = Math.max(0, b - yellowShift * 0.5);
-
-                        // Lifetime aging
-                        if (aging > 0) {
-                            const gray = 0.299 * r + 0.587 * g + 0.114 * b;
-                            const desatAmount = aging * 0.6;
-                            r = r + (gray - r) * desatAmount;
-                            g = g + (gray - g) * desatAmount;
-                            b = b + (gray - b) * desatAmount;
-
-                            const darken = 1 - aging * 0.35;
-                            r *= darken; g *= darken; b *= darken;
-
-                            const patina = aging * 0.08;
-                            r = Math.min(1, r + patina * 0.5);
-                            g = Math.min(1, g + patina * 0.15);
-                            b = Math.max(0, b - patina * 0.6);
-                        }
-
-                        mat.color.setRGB(r, g, b);
-                        mat.needsUpdate = true;
-                    });
+                    const tex = new THREE.CanvasTexture(canvas);
+                    if (child.material.map) { tex.flipY = child.material.map.flipY; tex.wrapS = child.material.map.wrapS; tex.wrapT = child.material.map.wrapT; }
+                    child.material.map = tex;
+                    child.material.needsUpdate = true;
                 }
             });
+            this.showToast('🎨 Pigment map overlay applied', 'info', 3000);
+        },
 
-            const degradationPercent = (100 * (1 - degradationFactor)).toFixed(1);
-            const totalDays = (this.simDays + (this.simMonths * 30.44) + (this.simYears * 365.25)).toFixed(0);
-            this.showToast(`✅ Material updated: ${degradationPercent}% degradation after ${totalDays} days`, 'success', 3000);
+        /** Mould growth visualisation (VTT Hukka-Viitanen): spatially-coherent
+         *  green/brown patches biased toward shadowed texture regions where
+         *  moisture retention is higher. Patch density scales with mould index. */
+        _applyMouldEffect(mouldResult) {
+            if (!this.model || !this.originalPixelData) return;
+            this.isProcessing = true;
+            const w = this.originalPixelWidth;
+            const h = this.originalPixelHeight;
+            const out = new Uint8ClampedArray(this.originalPixelData);
+            const mouldIndex = mouldResult.mouldIndex || 0;
+            const coverage = Math.min(1, mouldIndex / 6);
+
+            if (coverage <= 0) {
+                this._applyPixelDataToModel(out, w, h);
+                this.showToast('🦠 Mould index: 0 — below critical RH, no growth', 'info', 3000);
+                return;
+            }
+
+            // Low-resolution noise grid for spatial coherence (32×32 patches)
+            const G = 32;
+            const noiseField = new Float32Array(G * G);
+            for (let i = 0; i < G * G; i++) {
+                noiseField[i] = ((i * 2654435761 + 42) >>> 0) / 4294967296;
+            }
+            // 3×3 box blur for soft patch edges
+            const smoothed = new Float32Array(G * G);
+            for (let y = 0; y < G; y++) {
+                for (let x = 0; x < G; x++) {
+                    let sum = 0, count = 0;
+                    for (let dy = -1; dy <= 1; dy++) {
+                        for (let dx = -1; dx <= 1; dx++) {
+                            const nx = x + dx, ny = y + dy;
+                            if (nx >= 0 && nx < G && ny >= 0 && ny < G) {
+                                sum += noiseField[ny * G + nx];
+                                count++;
+                            }
+                        }
+                    }
+                    smoothed[y * G + x] = sum / count;
+                }
+            }
+
+            const scaleX = (G - 1) / w;
+            const scaleY = (G - 1) / h;
+            const threshold = 1 - coverage;
+
+            for (let y = 0; y < h; y++) {
+                for (let x = 0; x < w; x++) {
+                    const pixIdx = y * w + x;
+                    const off = pixIdx * 4;
+
+                    // Bilinear lookup into smoothed noise field
+                    const gx = x * scaleX, gy = y * scaleY;
+                    const gx0 = Math.floor(gx), gy0 = Math.floor(gy);
+                    const fx = gx - gx0, fy = gy - gy0;
+                    const gx1 = Math.min(G - 1, gx0 + 1), gy1 = Math.min(G - 1, gy0 + 1);
+                    const n00 = smoothed[gy0 * G + gx0];
+                    const n01 = smoothed[gy0 * G + gx1];
+                    const n10 = smoothed[gy1 * G + gx0];
+                    const n11 = smoothed[gy1 * G + gx1];
+                    const ny0 = n00 * (1 - fx) + n01 * fx;
+                    const ny1 = n10 * (1 - fx) + n11 * fx;
+                    let noise = ny0 * (1 - fy) + ny1 * fy;
+
+                    // Bias toward darker (shadowed, moisture-retentive) regions
+                    const r = out[off], g = out[off + 1], b = out[off + 2];
+                    const brightness = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+                    noise += (0.5 - brightness) * 0.3;
+
+                    if (noise > threshold) {
+                        const patchStrength = Math.min(1, (noise - threshold) / Math.max(0.05, 1 - threshold));
+                        const intensity = 0.35 + patchStrength * 0.55;
+
+                        // Hue variation: mix of green-brown shades
+                        const hueNoise = (((x * 37 + y * 41 + 17) >>> 0) % 100) / 100;
+                        const mouldR = 40 + hueNoise * 35;
+                        const mouldG = 55 + hueNoise * 30;
+                        const mouldB = 25 + hueNoise * 20;
+
+                        out[off]     = Math.round(r * (1 - intensity) + mouldR * intensity);
+                        out[off + 1] = Math.round(g * (1 - intensity) + mouldG * intensity);
+                        out[off + 2] = Math.round(b * (1 - intensity) + mouldB * intensity);
+                    }
+                }
+            }
+
+            this._applyPixelDataToModel(out, w, h);
+            const growthNote = mouldResult.isAboveThreshold
+                ? ` (RH ${(mouldResult.rhCritical).toFixed(0)}% threshold exceeded)`
+                : '';
+            this.showToast(
+                `🦠 Mould index ${mouldIndex.toFixed(1)}/6${growthNote}`,
+                'info', 3000
+            );
+        },
+
+        /** Salt crystallisation visualisation: white efflorescence patches */
+        _applySaltEffect(saltResult) {
+            if (!this.model || !this.originalPixelData) return;
+            this.isProcessing = true;
+            const w = this.originalPixelWidth;
+            const h = this.originalPixelHeight;
+            const out = new Uint8ClampedArray(this.originalPixelData);
+            const damageRatio = saltResult.damageRatio || 0;
+            const coverage = Math.min(1, damageRatio / 5);
+            if (coverage <= 0) {
+                this._applyPixelDataToModel(out, w, h);
+                this.showToast('🧂 No salt crystallisation at current conditions', 'info', 3000);
+                return;
+            }
+            const seed = 137;
+            for (let i = 0; i < w * h; i++) {
+                const noise = ((i * 2654435761 + seed) >>> 0) / 4294967296;
+                if (noise < coverage) {
+                    const off = i * 4;
+                    const intensity = 0.4 + noise * 0.5;
+                    // Blend towards white/grey salt efflorescence
+                    out[off]     = Math.round(out[off] * (1 - intensity) + 230 * intensity);
+                    out[off + 1] = Math.round(out[off + 1] * (1 - intensity) + 225 * intensity);
+                    out[off + 2] = Math.round(out[off + 2] * (1 - intensity) + 220 * intensity);
+                }
+            }
+            this._applyPixelDataToModel(out, w, h);
+            this.showToast('🧂 Salt efflorescence applied (damage ratio: ' + damageRatio.toFixed(2) + '×)', 'info', 3000);
+        },
+
+        /** Lifetime multiplier visualisation: converts elapsed time into
+         *  reference-condition years via the Michalski multiplier, then
+         *  applies proportional desaturation + slight warm cast. */
+        _applyLifetimeEffect(lifetimeResult, totalDays) {
+            if (!this.model || !this.originalPixelData) return;
+            this.isProcessing = true;
+            const w = this.originalPixelWidth;
+            const h = this.originalPixelHeight;
+            const out = new Uint8ClampedArray(this.originalPixelData);
+
+            const multiplier = Math.max(0.01, lifetimeResult.multiplier || 1);
+            const actualYears = Math.max(0, (totalDays || 0) / 365.25);
+            // Convert to equivalent ageing at reference conditions (20°C, 50% RH)
+            const effectiveYears = actualYears / multiplier;
+            // Fade intensity saturates at 200 reference-years
+            const referenceSpan = 200;
+            const fadeIntensity = Math.min(1, effectiveYears / referenceSpan);
+
+            const desaturate = fadeIntensity * 0.75;
+            const yellowing = fadeIntensity * 0.18; // slight warm cast from binder ageing
+
+            for (let i = 0; i < w * h; i++) {
+                const off = i * 4;
+                const r = out[off], g = out[off + 1], b = out[off + 2];
+                const grey = 0.299 * r + 0.587 * g + 0.114 * b;
+                let nr = r * (1 - desaturate) + grey * desaturate;
+                let ng = g * (1 - desaturate) + grey * desaturate;
+                let nb = b * (1 - desaturate) + grey * desaturate;
+                // Warm cast: +R/+G, -B
+                nr += yellowing * 22;
+                ng += yellowing * 10;
+                nb -= yellowing * 22;
+                out[off]     = Math.max(0, Math.min(255, Math.round(nr)));
+                out[off + 1] = Math.max(0, Math.min(255, Math.round(ng)));
+                out[off + 2] = Math.max(0, Math.min(255, Math.round(nb)));
+            }
+            this._applyPixelDataToModel(out, w, h);
+            this.showToast(
+                `⏳ ${multiplier.toFixed(2)}× lifetime → ${actualYears.toFixed(0)}y ≈ ${effectiveYears.toFixed(0)}y at reference conditions`,
+                'info', 3000
+            );
+        },
+
+        /** Hygro-mechanical fatigue visualisation (HERIe / Bratasz):
+         *  cumulativeDamage drives the density and length of crack lines
+         *  drawn as darker streaks across the texture. Uses a deterministic
+         *  pseudo-random field so the same damage value produces the same
+         *  crack pattern every time. */
+        _applyFatigueEffect(fatigueResult) {
+            if (!this.model || !this.originalPixelData) return;
+            this.isProcessing = true;
+            const w = this.originalPixelWidth;
+            const h = this.originalPixelHeight;
+            const out = new Uint8ClampedArray(this.originalPixelData);
+            const D = fatigueResult.cumulativeDamage || 0;
+            const density = Math.min(1, fatigueResult.crackDensity || (D / 3));
+
+            if (density <= 0.01) {
+                this._applyPixelDataToModel(out, w, h);
+                this.showToast(`🧱 D = ${D.toFixed(3)} — no cracking yet`, 'info', 3000);
+                return;
+            }
+
+            // Seeded hash function (Weyl sequence)
+            const rand = (i) => ((i * 2654435761) >>> 0) / 4294967296;
+
+            // Craquelure approach: draw many thin wandering cracks that
+            // curve and occasionally branch, forming an interconnected
+            // network rather than isolated blobs. Single-pixel wide lines
+            // read as cracks; thicker bands read as paint loss which is
+            // reserved for the highest damage stage.
+            const minDim = Math.min(w, h);
+            const totalCrackPixels = Math.round(density * w * h * 0.02); // target ~2% coverage at D=1
+            // Each crack is longer (wandering), covering ~400 linear px on 8192 texture
+            const crackLen = Math.max(40, Math.round(minDim * 0.08));
+            const numCracks = Math.max(30, Math.round(totalCrackPixels / crackLen));
+            // Subtle, semi-transparent dark line — not a black blob
+            const darkness = 0.35 + density * 0.25; // 0.35 → 0.60 range
+
+            for (let k = 0; k < numCracks; k++) {
+                // Seed position and initial direction
+                let x = rand(k * 5 + 1) * w;
+                let y = rand(k * 5 + 2) * h;
+                let angle = rand(k * 5 + 3) * Math.PI * 2;
+                // Slight curvature per step gives organic wandering paths
+                const curveFreq = 0.04 + rand(k * 5 + 4) * 0.06;
+                const curveAmp = 0.08 + rand(k * 5 + 7) * 0.12;
+
+                for (let t = 0; t < crackLen; t++) {
+                    // Wander the angle gently so the crack curves naturally
+                    angle += Math.sin(t * curveFreq + k) * curveAmp - curveAmp * 0.5;
+                    x += Math.cos(angle);
+                    y += Math.sin(angle);
+                    const px = Math.round(x);
+                    const py = Math.round(y);
+                    if (px < 0 || px >= w || py < 0 || py >= h) break;
+                    const off = (py * w + px) * 4;
+                    out[off]     = Math.max(0, Math.round(out[off]     * (1 - darkness)));
+                    out[off + 1] = Math.max(0, Math.round(out[off + 1] * (1 - darkness)));
+                    out[off + 2] = Math.max(0, Math.round(out[off + 2] * (1 - darkness)));
+
+                    // Occasional short branch so the network has Y/T junctions
+                    if (t > 10 && t < crackLen - 10 && rand(k * 1009 + t) < 0.004) {
+                        const branchAngle = angle + (rand(k * 2003 + t) - 0.5) * 1.6;
+                        const branchLen = Math.round(crackLen * 0.15);
+                        let bx = x, by = y;
+                        for (let s = 0; s < branchLen; s++) {
+                            bx += Math.cos(branchAngle);
+                            by += Math.sin(branchAngle);
+                            const bpx = Math.round(bx);
+                            const bpy = Math.round(by);
+                            if (bpx < 0 || bpx >= w || bpy < 0 || bpy >= h) break;
+                            const boff = (bpy * w + bpx) * 4;
+                            out[boff]     = Math.max(0, Math.round(out[boff]     * (1 - darkness)));
+                            out[boff + 1] = Math.max(0, Math.round(out[boff + 1] * (1 - darkness)));
+                            out[boff + 2] = Math.max(0, Math.round(out[boff + 2] * (1 - darkness)));
+                        }
+                    }
+                }
+            }
+
+            // At severe damage (D >= 2.5), add small paint-loss patches on top
+            // to represent actual flaking off the substrate.
+            if (D >= 2.5) {
+                const lossFactor = Math.min(1, (D - 2.5) / 1.5);
+                const numPatches = Math.round(lossFactor * 40);
+                const patchRadius = Math.max(3, Math.round(minDim / 200));
+                // Pale clay substrate colour showing through flaked-off paint
+                const substrateR = 190, substrateG = 170, substrateB = 145;
+                for (let p = 0; p < numPatches; p++) {
+                    const cx = Math.floor(rand(p * 11 + 7) * w);
+                    const cy = Math.floor(rand(p * 11 + 13) * h);
+                    const radius = patchRadius + Math.round(rand(p * 11 + 17) * patchRadius);
+                    for (let dy = -radius; dy <= radius; dy++) {
+                        for (let dx = -radius; dx <= radius; dx++) {
+                            const d2 = dx * dx + dy * dy;
+                            if (d2 > radius * radius) continue;
+                            const px = cx + dx, py = cy + dy;
+                            if (px < 0 || px >= w || py < 0 || py >= h) continue;
+                            const edgeFade = 1 - Math.sqrt(d2) / radius;
+                            const blend = edgeFade * 0.85;
+                            const off = (py * w + px) * 4;
+                            out[off]     = Math.round(out[off]     * (1 - blend) + substrateR * blend);
+                            out[off + 1] = Math.round(out[off + 1] * (1 - blend) + substrateG * blend);
+                            out[off + 2] = Math.round(out[off + 2] * (1 - blend) + substrateB * blend);
+                        }
+                    }
+                }
+            }
+
+            this._applyPixelDataToModel(out, w, h);
+            const stageLabel = D >= 3 ? 'severe flaking'
+                             : D >= 2 ? 'widespread cracks'
+                             : D >= 1 ? 'first cracks appearing'
+                             : 'early fatigue';
+            this.showToast(`🧱 D = ${D.toFixed(2)} — ${stageLabel}`, 'info', 3000);
+        },
+
+        /** Clear processing state and surface worker failures so the UI unlocks. */
+        _handleWorkerError(kind, err) {
+            console.error(`${kind} deterioration worker failed:`, err);
+            this.isProcessing = false;
+            const msg = (err && err.message) ? err.message : 'unknown error';
+            this.showToast(`⚠️ Texture processing failed (${kind}): ${msg}`, 'error', 5000);
+        },
+
+        /** Helper: apply raw pixel data to the 3D model texture */
+        _applyPixelDataToModel(pixelData, w, h) {
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            canvas.getContext('2d').putImageData(new ImageData(pixelData, w, h), 0, 0);
+            this.model.traverse((child) => {
+                if (child.isMesh && child.material) {
+                    const tex = new THREE.CanvasTexture(canvas);
+                    if (child.material.map) { tex.flipY = child.material.map.flipY; tex.wrapS = child.material.map.wrapS; tex.wrapT = child.material.map.wrapT; }
+                    child.material.map = tex;
+                    child.material.needsUpdate = true;
+                }
+            });
+            this.isProcessing = false;
         },
 
         /**
@@ -548,19 +859,14 @@ export default {
         handleWorkerResult(result) {
             const { pixelData, width, height } = result;
             const imageData = new ImageData(new Uint8ClampedArray(pixelData), width, height);
-            const data = imageData.data;
 
-            // ── Phase 2: Apply mould spots (VTT model) ─────────────────
-            if (this.mouldResult && this.mouldResult.mouldIndex > 0.1) {
-                this.applyMouldEffect(data, width, height, this.mouldResult);
-            }
-
-            if (!this.textureCanvas) {
+            // Ensure canvas exists and matches texture dimensions
+            if (!this.textureCanvas || this.textureCanvas.width !== width || this.textureCanvas.height !== height) {
                 this.textureCanvas = document.createElement('canvas');
                 this.textureContext = this.textureCanvas.getContext('2d');
+                this.textureCanvas.width = width;
+                this.textureCanvas.height = height;
             }
-            this.textureCanvas.width = width;
-            this.textureCanvas.height = height;
             this.textureContext.putImageData(imageData, 0, 0);
 
             // Update Three.js texture
@@ -587,22 +893,19 @@ export default {
          * Reset to original texture
          */
         resetTexture() {
-            if (!this.model) return;
+            if (!this.originalTexture || !this.model) return;
 
             this.model.traverse((child) => {
-                if (child.isMesh && child.material) {
-                    const mats = Array.isArray(child.material) ? child.material : [child.material];
-                    mats.forEach(mat => {
-                        // Restore original texture if available
-                        if (this.originalTexture) {
+                if (child instanceof THREE.Mesh) {
+                    if (Array.isArray(child.material)) {
+                        child.material.forEach(mat => {
                             mat.map = this.originalTexture;
-                        }
-                        // Restore original material color
-                        if (mat.userData.originalColor) {
-                            mat.color.copy(mat.userData.originalColor);
-                        }
-                        mat.needsUpdate = true;
-                    });
+                            mat.needsUpdate = true;
+                        });
+                    } else {
+                        child.material.map = this.originalTexture;
+                        child.material.needsUpdate = true;
+                    }
                 }
             });
         },
@@ -630,23 +933,20 @@ export default {
                 return ((h ^ (h >> 16)) & 0x7fffffff) / 0x7fffffff; // 0-1
             };
 
-            // Sparse, isolated colonies — wide grid, small spots, no overlap
-            const gridSize = 64;
-            const spotRadius = 8;
+            // Generate spots at a grid resolution (every 8px)
+            const gridSize = 8;
+            const spotRadius = 12; // pixels
 
             // Mould colour: dark green-black
-            const mouldR = 30, mouldG = 50, mouldB = 20;
-
-            // At max coverage only ~20% of grid cells get a colony
-            const threshold = coverage * 0.2;
+            const mouldR = 20, mouldG = 40, mouldB = 15;
 
             for (let gy = 0; gy < height; gy += gridSize) {
                 for (let gx = 0; gx < width; gx += gridSize) {
                     // Decide if this grid cell has a mould spot
                     const spotChance = hash(gx, gy, 42);
-                    if (spotChance > threshold) continue;
+                    if (spotChance > coverage * 1.5) continue; // More spots as coverage grows
 
-                    // Spot center with jitter within grid cell
+                    // Spot center with slight jitter
                     const cx = gx + hash(gx, gy, 7) * gridSize;
                     const cy = gy + hash(gx, gy, 13) * gridSize;
 
@@ -668,11 +968,11 @@ export default {
                             const falloff = 1 - Math.sqrt(dist2) / spotRadius;
                             const idx = (py * width + px) * 4;
 
-                            // Bias: darker/damper recesses get more mould
+                            // Bias: darker original pixels are more susceptible
                             const brightness = (data[idx] + data[idx + 1] + data[idx + 2]) / (3 * 255);
-                            const darkBias = 1 - brightness * 0.5;
+                            const darkBias = 1 - brightness * 0.6; // 0.4 - 1.0
 
-                            const blend = Math.min(0.35, falloff * intensity * darkBias * 0.35);
+                            const blend = falloff * intensity * darkBias * 0.8;
 
                             data[idx]     = Math.round(data[idx]     * (1 - blend) + mouldR * blend);
                             data[idx + 1] = Math.round(data[idx + 1] * (1 - blend) + mouldG * blend);

@@ -37,29 +37,6 @@ export default {
                     name: '',
                     description: '',
                     timestamp: null
-                },
-                defects: this.cave?.defects || {
-                    gid: '',
-                    name: '',
-                    description: '',
-                    defectType: '',
-                    severity: '',
-                    detectionDate: null,
-                    affectedArea: null,
-                    treatmentHistory: '',
-                    requiresImmediateAction: null
-                },
-                exhibits: this.cave?.exhibits || {
-                    gid: '',
-                    name: '',
-                    description: '',
-                    label: '',
-                    creationPeriod: '',
-                    lastInspectionDate: null,
-                    inspectionNotes: '',
-                    material: '',
-                    period: '',
-                    conservationStatus: ''
                 }
             },
             errors: {},
@@ -95,12 +72,6 @@ export default {
             }
             if (data.environmentConditions) {
                 this.form.environmentConditions = { ...data.environmentConditions };
-            }
-            if (data.defects) {
-                this.form.defects = { ...data.defects };
-            }
-            if (data.exhibits) {
-                this.form.exhibits = { ...data.exhibits };
             }
         },
 
@@ -157,7 +128,6 @@ export default {
                 }
 
                 if (this.mode === 'create') {
-                    this.form.gid = 'cave-' + Date.now();
                     const response = await api.caves.create(this.form);
                     this.$emit('created', response.data);
                 } else {
@@ -178,17 +148,15 @@ export default {
             this.errors = {};
             let isValid = true;
 
-            // Validate name
+            // Require a name on every artifact — the only universally
+            // mandatory field across the metamodel.
+            if (!this.form.name || !this.form.name.trim()) {
+                this.errors.name = this.t('validation.required', { field: this.t('fields.name') })
+                    || 'Name is required.';
+                this.touched.name = true;
+                isValid = false;
+            }
 
-            // Validate description
-
-            // Validate label
-
-            // Validate creationPeriod
-
-            // Validate lastInspectionDate
-
-            // Validate inspectionNotes
 
             return isValid;
         },
@@ -212,29 +180,6 @@ export default {
                 name: '',
                 description: '',
                 timestamp: null
-            };
-            this.form.defects = {
-                gid: '',
-                name: '',
-                description: '',
-                defectType: '',
-                severity: '',
-                detectionDate: null,
-                affectedArea: null,
-                treatmentHistory: '',
-                requiresImmediateAction: null
-            };
-            this.form.exhibits = {
-                gid: '',
-                name: '',
-                description: '',
-                label: '',
-                creationPeriod: '',
-                lastInspectionDate: null,
-                inspectionNotes: '',
-                material: '',
-                period: '',
-                conservationStatus: ''
             };
             this.errors = {};
             this.touched = {};
@@ -280,8 +225,8 @@ export default {
                     const category = attrName.replace('Location', '').toLowerCase();
 
                     const formData = new FormData();
-                    formData.append('category', category);
                     formData.append('file', file);
+                    formData.append('category', category);
 
                     try {
                         const response = await api.post('/api/upload', formData, {
@@ -304,9 +249,9 @@ export default {
         <form @submit.prevent="handleSubmit" class="form cave-form">
             <h2>{{ mode === 'create' ? t('common.create') : t('common.edit') }} {{ t('entities.cave') }}</h2>
 
-            <div class="form-group" v-if="mode === 'edit' || true">
+            <div class="form-group">
                 <label class="form-label" for="name">
-                    {{ t('fields.name') }}
+                    {{ t('fields.name') }} <span class="form-required" aria-hidden="true">*</span>
                 </label>
 
                 <input
@@ -324,7 +269,7 @@ export default {
                 </span>
             </div>
 
-            <div class="form-group" v-if="mode === 'edit' || true">
+            <div class="form-group">
                 <label class="form-label" for="description">
                     {{ t('fields.description') }}
                 </label>
@@ -345,7 +290,7 @@ export default {
                 </span>
             </div>
 
-            <div class="form-group" v-if="mode === 'edit' || true">
+            <div class="form-group">
                 <label class="form-label" for="label">
                     {{ t('fields.label') }}
                 </label>
@@ -365,7 +310,7 @@ export default {
                 </span>
             </div>
 
-            <div class="form-group" v-if="mode === 'edit' || true">
+            <div class="form-group">
                 <label class="form-label" for="creationPeriod">
                     {{ t('fields.creationPeriod') }}
                 </label>
@@ -384,6 +329,198 @@ export default {
                     {{ errors.creationPeriod }}
                 </span>
             </div>
+
+            <div class="form-group">
+                <label class="form-label" for="lastInspectionDate">
+                    {{ t('fields.lastInspectionDate') }}
+                </label>
+
+                <input
+                    type="text"
+                    id="lastInspectionDate"
+                    v-model="form.lastInspectionDate"
+                    @blur="markTouched('lastInspectionDate')"
+                    class="form-input"
+                    :class="{ 'form-input-error': errors.lastInspectionDate && touched.lastInspectionDate }"
+                    :placeholder="t('fields.lastInspectionDate')"
+                />
+
+                <span v-if="errors.lastInspectionDate && touched.lastInspectionDate" class="form-error">
+                    {{ errors.lastInspectionDate }}
+                </span>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="inspectionNotes">
+                    {{ t('fields.inspectionNotes') }}
+                </label>
+
+                <input
+                    type="text"
+                    id="inspectionNotes"
+                    v-model="form.inspectionNotes"
+                    @blur="markTouched('inspectionNotes')"
+                    class="form-input"
+                    :class="{ 'form-input-error': errors.inspectionNotes && touched.inspectionNotes }"
+                    :placeholder="t('fields.inspectionNotes')"
+                />
+
+                <span v-if="errors.inspectionNotes && touched.inspectionNotes" class="form-error">
+                    {{ errors.inspectionNotes }}
+                </span>
+            </div>
+
+
+            <fieldset class="form-fieldset">
+                <legend class="form-legend">{{ t('fields.reference') }}</legend>
+                <div class="form-group">
+                    <label class="form-label" for="reference_gid">
+                        {{ t('fields.gid') }}
+                    </label>
+                    <input
+                        type="text"
+                        id="reference_gid"
+                        v-model="form.reference.gid"
+                        @blur="markTouched('reference.gid')"
+                        class="form-input"
+                        :class="{ 'form-input-error': errors['reference.gid'] && touched['reference.gid'] }"
+                        :placeholder="t('fields.gid')"
+                    />
+                    <span v-if="errors['reference.gid'] && touched['reference.gid']" class="form-error">
+                        {{ errors['reference.gid'] }}
+                    </span>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="reference_modelLocation">
+                        {{ t('fields.modelLocation') }}
+                    </label>
+                    <input
+                        type="file"
+                        id="reference_modelLocation"
+                        @change="handleFileSelect($event, 'reference', 'modelLocation')"
+                        @blur="markTouched('reference.modelLocation')"
+                        class="form-input form-input-file"
+                        :class="{ 'form-input-error': errors['reference.modelLocation'] && touched['reference.modelLocation'] }"
+accept=".obj,.fbx,.gltf,.glb"                    />
+                    <small v-if="form.reference.modelLocation" class="form-help">
+                        {{ t('common.selected') }}: {{ form.reference.modelLocation }}
+                    </small>
+                    <span v-if="errors['reference.modelLocation'] && touched['reference.modelLocation']" class="form-error">
+                        {{ errors['reference.modelLocation'] }}
+                    </span>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="reference_metadataLocation">
+                        {{ t('fields.metadataLocation') }}
+                    </label>
+                    <input
+                        type="file"
+                        id="reference_metadataLocation"
+                        @change="handleFileSelect($event, 'reference', 'metadataLocation')"
+                        @blur="markTouched('reference.metadataLocation')"
+                        class="form-input form-input-file"
+                        :class="{ 'form-input-error': errors['reference.metadataLocation'] && touched['reference.metadataLocation'] }"
+accept=".json,.xml,.txt"                    />
+                    <small v-if="form.reference.metadataLocation" class="form-help">
+                        {{ t('common.selected') }}: {{ form.reference.metadataLocation }}
+                    </small>
+                    <span v-if="errors['reference.metadataLocation'] && touched['reference.metadataLocation']" class="form-error">
+                        {{ errors['reference.metadataLocation'] }}
+                    </span>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="reference_textureLocation">
+                        {{ t('fields.textureLocation') }}
+                    </label>
+                    <input
+                        type="file"
+                        id="reference_textureLocation"
+                        @change="handleFileSelect($event, 'reference', 'textureLocation')"
+                        @blur="markTouched('reference.textureLocation')"
+                        class="form-input form-input-file"
+                        :class="{ 'form-input-error': errors['reference.textureLocation'] && touched['reference.textureLocation'] }"
+accept=".jpg,.jpeg,.png,.bmp"                    />
+                    <small v-if="form.reference.textureLocation" class="form-help">
+                        {{ t('common.selected') }}: {{ form.reference.textureLocation }}
+                    </small>
+                    <span v-if="errors['reference.textureLocation'] && touched['reference.textureLocation']" class="form-error">
+                        {{ errors['reference.textureLocation'] }}
+                    </span>
+                </div>
+            </fieldset>
+
+            <fieldset class="form-fieldset">
+                <legend class="form-legend">{{ t('fields.environmentConditions') }}</legend>
+                <div class="form-group">
+                    <label class="form-label" for="environmentConditions_gid">
+                        {{ t('fields.gid') }}
+                    </label>
+                    <input
+                        type="text"
+                        id="environmentConditions_gid"
+                        v-model="form.environmentConditions.gid"
+                        @blur="markTouched('environmentConditions.gid')"
+                        class="form-input"
+                        :class="{ 'form-input-error': errors['environmentConditions.gid'] && touched['environmentConditions.gid'] }"
+                        :placeholder="t('fields.gid')"
+                    />
+                    <span v-if="errors['environmentConditions.gid'] && touched['environmentConditions.gid']" class="form-error">
+                        {{ errors['environmentConditions.gid'] }}
+                    </span>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="environmentConditions_name">
+                        {{ t('fields.name') }}
+                    </label>
+                    <input
+                        type="text"
+                        id="environmentConditions_name"
+                        v-model="form.environmentConditions.name"
+                        @blur="markTouched('environmentConditions.name')"
+                        class="form-input"
+                        :class="{ 'form-input-error': errors['environmentConditions.name'] && touched['environmentConditions.name'] }"
+                        :placeholder="t('fields.name')"
+                    />
+                    <span v-if="errors['environmentConditions.name'] && touched['environmentConditions.name']" class="form-error">
+                        {{ errors['environmentConditions.name'] }}
+                    </span>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="environmentConditions_description">
+                        {{ t('fields.description') }}
+                    </label>
+                    <input
+                        type="text"
+                        id="environmentConditions_description"
+                        v-model="form.environmentConditions.description"
+                        @blur="markTouched('environmentConditions.description')"
+                        class="form-input"
+                        :class="{ 'form-input-error': errors['environmentConditions.description'] && touched['environmentConditions.description'] }"
+                        :placeholder="t('fields.description')"
+                    />
+                    <span v-if="errors['environmentConditions.description'] && touched['environmentConditions.description']" class="form-error">
+                        {{ errors['environmentConditions.description'] }}
+                    </span>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="environmentConditions_timestamp">
+                        {{ t('fields.timestamp') }}
+                    </label>
+                    <input
+                        type="text"
+                        id="environmentConditions_timestamp"
+                        v-model="form.environmentConditions.timestamp"
+                        @blur="markTouched('environmentConditions.timestamp')"
+                        class="form-input"
+                        :class="{ 'form-input-error': errors['environmentConditions.timestamp'] && touched['environmentConditions.timestamp'] }"
+                        :placeholder="t('fields.timestamp')"
+                    />
+                    <span v-if="errors['environmentConditions.timestamp'] && touched['environmentConditions.timestamp']" class="form-error">
+                        {{ errors['environmentConditions.timestamp'] }}
+                    </span>
+                </div>
+            </fieldset>
+
 
 
             <div class="form-actions">

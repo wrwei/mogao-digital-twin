@@ -1,134 +1,165 @@
 # Mogao Digital Twin - Frontend
 
-Vue.js-based frontend for the Mogao Digital Twin system.
+Vue 3 single-page application for the Mogao Digital Twin system, with 3D visualisation and deterioration simulation.
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 - Python 3.x (for local development server)
-- Backend server running on `http://localhost:8008`
+- Backend running on `http://localhost:8008` (see `../backend/README.md`)
 
-### Running the Frontend
+### Running
 
 **Windows:**
 ```bash
-start.bat
+start-frontend.bat
 ```
 
 **Linux/Mac:**
 ```bash
-./start.sh
+./start-frontend.sh
 ```
 
-The frontend will be available at: **http://localhost:8002**
+Frontend available at: **http://localhost:8009**
 
-## 📁 Project Structure
+## Technology Stack
+
+- **Vue 3** (CDN) — progressive framework, no build step
+- **Three.js 0.147.0** — 3D OBJ/MTL model rendering
+- **Chart.js 4.4.1** — time-series deterioration charts
+- **Axios 1.6.2** — HTTP client with JWT token management
+- **ES Modules** — native browser modules, no bundler
+
+## Project Structure
 
 ```
 frontend/
-├── index.html              # Main HTML file
-├── app.js                  # Vue app initialization
-├── api.js                  # API service layer
+├── index.html                    # Entry point (CDN imports)
+├── config.js                     # API_BASE_URL configuration
+├── api.js                        # Axios wrapper (all endpoints, auth interceptors)
+├── app.js                        # Main Vue app (routing, auth, views, sidebar)
+├── i18n.js                       # Internationalisation (zh + en)
 │
-├── components/             # Vue components
-│   ├── Cave/              # Cave management components
-│   ├── Exhibit/           # Exhibit management components
-│   ├── Defect/            # Defect tracking components
-│   ├── Environment/       # Environmental monitoring
-│   ├── Statistics/        # Analytics dashboard
-│   ├── Layout/            # Layout components
-│   └── Common/            # Reusable components
+├── components/                   # 27 Vue components
+│   ├── CaveCard.js              #   ┐
+│   ├── CaveList.js              #   │ Generated CRUD components
+│   ├── CaveForm.js              #   │ (6 entities x 4 types = 24)
+│   ├── CaveDetailView.js        #   ┘
+│   ├── Defect*, Statue*, Mural*, Painting*, Inscription*
+│   ├── ModelViewer.js           # Hand-written: Three.js 3D viewer
+│   ├── SimulationPanel.js       # Hand-written: Deterioration simulation UI
+│   └── SettingsView.js          # Hand-written: Profile, themes, admin
 │
-├── composables/           # Vue composition functions
-├── store/                 # State management (optional)
-├── css/                   # Stylesheets
-├── models/                # 3D models
-├── images/                # Icons and textures
-└── utils/                 # Utility functions
+├── composables/                  # Vue 3 composables
+│   ├── useEntity.js             # Factory function (shared CRUD logic)
+│   ├── useCaves.js              # ┐
+│   ├── useDefects.js            # │ Generated entity composables
+│   ├── useStatues.js            # │ (delegate to useEntity factory)
+│   ├── useMurals.js             # │
+│   ├── usePaintings.js          # │
+│   └── useInscriptions.js       # ┘
+│
+├── deterioration/
+│   └── DeteriorationEngine.js   # Client-side deterioration models (reference)
+│
+├── workers/
+│   └── deterioration-worker.js  # Web Worker for texture processing
+│
+├── css/
+│   ├── main.css                 # Theme, layout, sidebar
+│   ├── components.css           # Component styles
+│   ├── forms.css                # Form styles
+│   ├── drawers.css              # Drawer/modal styles
+│   ├── simulation.css           # Simulation panel
+│   └── login.css                # Login page hero
+│
+└── styles/
+    ├── model-viewer.css         # 3D viewer styles
+    ├── detail-view.css          # Detail view layout
+    └── simulation-panel.css     # Advanced simulation panel
 ```
 
-## 🛠️ Technology Stack
+## Key Features
 
-- **Vue 3** - Progressive JavaScript framework (CDN-based, no build step)
-- **A-Frame 1.7.0** - 3D/VR visualization
-- **Chart.js 4.4.0** - Data visualization
-- **Axios 1.6.2** - HTTP client
-- **Python HTTP Server** - Development server
+### Authentication
+- JWT-based login with username/password
+- Guest access (read-only, no login required)
+- Token stored in localStorage, auto-attached via Axios interceptor
+- Automatic logout on 401 response
 
-## 🔌 Backend Integration
+### UI
+- Collapsible sidebar navigation (M-Gemini branding)
+- Dashboard with entity counts and quick actions
+- 8 colour themes (Mogao Sand default)
+- Bilingual (Chinese/English) with reactive switching
+- Responsive layout
 
-The frontend connects to the Micronaut backend REST API:
+### 3D Viewer (`ModelViewer.js`)
+- Three.js OBJ/MTL loading with texture support
+- Orbit controls (rotate, zoom, pan)
+- Automatic camera framing based on model bounding box
+- Real-time deterioration texture effects via Web Worker
 
-- **Base URL**: `http://localhost:8008`
-- **Endpoints**: `/caves`, `/defects`, `/statues`, `/murals`, `/paintings`, `/inscriptions`
+### Deterioration Simulation (`SimulationPanel.js`)
+- Four peer-reviewed conservation science models
+- Environmental controls (temperature, humidity, light, exposure time)
+- Time progression with play/pause
+- Chart.js time-series visualisation
+- Per-model toggle, configuration, and risk indicators
+- Server-side computation via `POST /deterioration/assess`
 
-## 📝 Development Notes
+### Settings (`SettingsView.js`)
+- Profile management (name, email, avatar upload)
+- Appearance (8 themes, font size, sidebar collapse)
+- Language switching
+- Notification preferences
+- Admin panel (user management, database statistics)
 
-### CDN-Based Approach
-- No build tools required (npm, webpack, etc.)
-- All dependencies loaded via CDN
-- Components use inline templates
-- Modules loaded with `<script type="module">`
+## Generated vs Hand-Written
 
-### Component Development
-- Components are defined as plain JavaScript objects
-- Use Vue 3 Composition API or Options API
-- Export as ES modules
+| Component | Source |
+|-----------|--------|
+| `[Entity]Card.js` (6) | Generated from `GenerateVueCard.egl` |
+| `[Entity]List.js` (6) | Generated from `GenerateVueList.egl` |
+| `[Entity]Form.js` (6) | Generated from `GenerateVueForm.egl` |
+| `[Entity]DetailView.js` (6) | Generated from `GenerateVueDetailView.egl` |
+| `use[Entity].js` (6) | Generated from `GenerateComposable.egl` |
+| `app.js` | Generated from `GenerateApp.egl` |
+| `i18n.js` | Generated from `GenerateI18n.egl` |
+| `index.html` | Generated from `GenerateIndexHtml.egl` |
+| `ModelViewer.js` | Hand-written |
+| `SimulationPanel.js` | Hand-written |
+| `SettingsView.js` | Hand-written |
+| `useEntity.js` | Hand-written |
+| `DeteriorationEngine.js` | Hand-written |
+| `deterioration-worker.js` | Hand-written |
+| `config.js` | Hand-written |
+| All CSS | Hand-written |
 
-### API Usage
+## API Integration
+
+The frontend connects to the Express backend via `api.js`:
+
 ```javascript
-// Using the API service
 import api from './api.js';
 
 // Fetch all caves
 const caves = await api.caves.getAll();
 
-// Create a new cave
+// Get by GID
+const cave = await api.caves.getByGid('cave-001');
+
+// Create
 const newCave = await api.caves.create({ name: 'Cave 001', ... });
+
+// Update
+await api.caves.update('cave-001', updatedData);
+
+// Delete
+await api.caves.delete('cave-001');
 ```
 
-## 🎨 Styling
+## Backend Connection
 
-- **CSS Variables** - Customizable theme colors
-- **Responsive Design** - Mobile, tablet, desktop support
-- **Component Styles** - Modular CSS organization
-
-## 📚 Features
-
-### Implemented
-- ✅ Basic project structure
-- ✅ Vue 3 app initialization
-- ✅ API service layer
-- ✅ 3D scene with A-Frame
-- ✅ Responsive layout
-- ✅ CSS styling system
-
-### In Progress
-- 🚧 Cave management components
-- 🚧 Exhibit management components
-- 🚧 Defect tracking system
-- 🚧 Environmental monitoring
-- 🚧 Statistics dashboard
-
-### Planned
-- ⏳ 3D model loading
-- ⏳ Real-time updates
-- ⏳ Data export functionality
-- ⏳ Photo upload support
-- ⏳ Advanced filtering
-
-## 🤝 Contributing
-
-1. Create feature components in appropriate directories
-2. Follow Vue 3 best practices
-3. Use composition API for new components
-4. Maintain consistent styling
-
-## 📄 License
-
-Part of the Mogao Digital Twin project.
-
-## 🔗 Links
-
-- Backend: `../backend/`
-- Proposal: `../frontend-proposal.md`
+- **API URL**: Configured in `config.js` (default: `http://localhost:8008`)
+- **CORS**: Backend allows requests from `http://localhost:8009`

@@ -14,6 +14,9 @@ const AssetReferenceController = require('../controllers/AssetReferenceControlle
  * GET    /:id           - Get AssetReference by ID
  * PUT    /:id           - Update AssetReference by ID
  * DELETE /:id           - Delete AssetReference by ID
+ *
+ * The /gid/:gid routes are registered BEFORE the /:id routes so that
+ * Express does not interpret the literal string "gid" as a Mongo ObjectId.
  */
 
 router.post('/', AssetReferenceController.create);

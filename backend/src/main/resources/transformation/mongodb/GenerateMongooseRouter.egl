@@ -20,16 +20,23 @@ const [%=controllerName%] = require('../controllers/[%=controllerName%]');
  *
  * POST   /              - Create a new [%=className%]
  * GET    /              - Get all [%=className%] documents
- * GET    /:id           - Get [%=className%] by ID
  * GET    /gid/:gid      - Get [%=className%] by GID
+ * PUT    /gid/:gid      - Update [%=className%] by GID
+ * DELETE /gid/:gid      - Delete [%=className%] by GID
+ * GET    /:id           - Get [%=className%] by ID
  * PUT    /:id           - Update [%=className%] by ID
  * DELETE /:id           - Delete [%=className%] by ID
+ *
+ * The /gid/:gid routes are registered BEFORE the /:id routes so that
+ * Express does not interpret the literal string "gid" as a Mongo ObjectId.
  */
 
 router.post('/', [%=controllerName%].create);
 router.get('/', [%=controllerName%].getAll);
-router.get('/:id', [%=controllerName%].getById);
 router.get('/gid/:gid', [%=controllerName%].getByGid);
+router.put('/gid/:gid', [%=controllerName%].updateByGid);
+router.delete('/gid/:gid', [%=controllerName%].deleteByGid);
+router.get('/:id', [%=controllerName%].getById);
 router.put('/:id', [%=controllerName%].update);
 router.delete('/:id', [%=controllerName%].delete);
 

@@ -14,6 +14,9 @@ const StatueController = require('../controllers/StatueController');
  * GET    /:id           - Get Statue by ID
  * PUT    /:id           - Update Statue by ID
  * DELETE /:id           - Delete Statue by ID
+ *
+ * The /gid/:gid routes are registered BEFORE the /:id routes so that
+ * Express does not interpret the literal string "gid" as a Mongo ObjectId.
  */
 
 router.post('/', StatueController.create);

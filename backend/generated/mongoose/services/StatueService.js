@@ -11,17 +11,16 @@ const StatueService = {
      * Create a new Statue
      */
     create: async (data) => {
+        // Always generate gid server-side to prevent client-supplied collisions
+        data.gid = 'statue-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
         delete data._id;
-        delete data.__v;
-        if (!data.gid) {
-            data.gid = 'statue-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
-        }
         const statue = await Statue.create(data);
         return statue;
     },
 
     /**
-     * Get all Statue documents
+     * Get all Statue documents.
+     * Optional query: { page, limit, sort } for pagination + ordering.
      */
     getAll: async (query = {}) => {
         const { page, limit, sort } = query;

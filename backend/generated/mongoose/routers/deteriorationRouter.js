@@ -15,6 +15,7 @@ router.post('/chemical', DeteriorationController.chemical);
 router.post('/lifetime', DeteriorationController.lifetime);
 router.post('/mould', DeteriorationController.mould);
 router.post('/salt', DeteriorationController.salt);
+router.post('/fatigue', DeteriorationController.fatigue);
 
 // Default parameter sets
 router.get('/defaults', DeteriorationController.defaults);

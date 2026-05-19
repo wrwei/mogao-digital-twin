@@ -27,16 +27,26 @@ const [%=serviceName%] = {
      * Create a new [%=className%]
      */
     create: async (data) => {
+        // Always generate gid server-side to prevent client-supplied collisions
+        data.gid = '[%=varName%]-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
+        delete data._id;
         const [%=varName%] = await [%=modelName%].create(data);
         return [%=varName%];
     },
 
     /**
-     * Get all [%=className%] documents
+     * Get all [%=className%] documents.
+     * Optional query: { page, limit, sort } for pagination + ordering.
      */
-    getAll: async () => {
-        const [%=varName%]s = await [%=modelName%].find();
-        return [%=varName%]s;
+    getAll: async (query = {}) => {
+        const { page, limit, sort } = query;
+        let q = [%=modelName%].find();
+        if (sort) q = q.sort(sort);
+        if (page && limit) {
+            const skip = (parseInt(page) - 1) * parseInt(limit);
+            q = q.skip(skip).limit(parseInt(limit));
+        }
+        return q.exec();
     },
 
     /**
@@ -68,6 +78,22 @@ const [%=serviceName%] = {
      */
     delete: async (id) => {
         const [%=varName%] = await [%=modelName%].findByIdAndDelete(id);
+        return [%=varName%];
+    },
+
+    /**
+     * Update [%=className%] by GID
+     */
+    updateByGid: async (gid, data) => {
+        const [%=varName%] = await [%=modelName%].findOneAndUpdate({ gid }, data, { new: true, runValidators: true });
+        return [%=varName%];
+    },
+
+    /**
+     * Delete [%=className%] by GID
+     */
+    deleteByGid: async (gid) => {
+        const [%=varName%] = await [%=modelName%].findOneAndDelete({ gid });
         return [%=varName%];
     },
 };

@@ -14,6 +14,9 @@ const MuralController = require('../controllers/MuralController');
  * GET    /:id           - Get Mural by ID
  * PUT    /:id           - Update Mural by ID
  * DELETE /:id           - Delete Mural by ID
+ *
+ * The /gid/:gid routes are registered BEFORE the /:id routes so that
+ * Express does not interpret the literal string "gid" as a Mongo ObjectId.
  */
 
 router.post('/', MuralController.create);

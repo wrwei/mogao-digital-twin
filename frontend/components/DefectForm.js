@@ -99,19 +99,13 @@ export default {
                     this.form[refName][attrName] = path;
                 }
 
-                // Clean empty strings to avoid validation errors
-                const data = { ...this.form };
-                delete data._id;
-                delete data.__v;
-                Object.keys(data).forEach(k => { if (data[k] === '') delete data[k]; });
-
                 if (this.mode === 'create') {
-                    const response = await api.defects.create(data);
+                    const response = await api.defects.create(this.form);
                     this.$emit('created', response.data);
                 } else {
                     const gid = this.defect.gid;
-                    await api.defects.update(gid, data);
-                    this.$emit('updated', { ...this.defect, ...data });
+                    await api.defects.update(gid, this.form);
+                    this.$emit('updated', { ...this.defect, ...this.form });
                 }
                 this.resetForm();
             } catch (error) {
@@ -126,21 +120,15 @@ export default {
             this.errors = {};
             let isValid = true;
 
-            // Validate name
+            // Require a name on every artifact — the only universally
+            // mandatory field across the metamodel.
+            if (!this.form.name || !this.form.name.trim()) {
+                this.errors.name = this.t('validation.required', { field: this.t('fields.name') })
+                    || 'Name is required.';
+                this.touched.name = true;
+                isValid = false;
+            }
 
-            // Validate description
-
-            // Validate defectType
-
-            // Validate severity
-
-            // Validate detectionDate
-
-            // Validate affectedArea
-
-            // Validate treatmentHistory
-
-            // Validate requiresImmediateAction
 
             return isValid;
         },
@@ -205,8 +193,8 @@ export default {
                     const category = attrName.replace('Location', '').toLowerCase();
 
                     const formData = new FormData();
-                    formData.append('category', category);
                     formData.append('file', file);
+                    formData.append('category', category);
 
                     try {
                         const response = await api.post('/api/upload', formData, {
@@ -229,9 +217,9 @@ export default {
         <form @submit.prevent="handleSubmit" class="form defect-form">
             <h2>{{ mode === 'create' ? t('common.create') : t('common.edit') }} {{ t('entities.defect') }}</h2>
 
-            <div class="form-group" v-if="mode === 'edit' || true">
+            <div class="form-group">
                 <label class="form-label" for="name">
-                    {{ t('fields.name') }}
+                    {{ t('fields.name') }} <span class="form-required" aria-hidden="true">*</span>
                 </label>
 
                 <input
@@ -249,7 +237,7 @@ export default {
                 </span>
             </div>
 
-            <div class="form-group" v-if="mode === 'edit' || true">
+            <div class="form-group">
                 <label class="form-label" for="description">
                     {{ t('fields.description') }}
                 </label>
@@ -270,7 +258,7 @@ export default {
                 </span>
             </div>
 
-            <div class="form-group" v-if="mode === 'edit' || true">
+            <div class="form-group">
                 <label class="form-label" for="defectType">
                     {{ t('fields.defectType') }}
                 </label>
@@ -282,7 +270,7 @@ export default {
                     class="form-select"
                     :class="{ 'form-select-error': errors.defectType && touched.defectType }"
                 >
-                    <option value="">{{ t('common.select') || 'Select...' }}</option>
+                    <option value="">{{ t('common.loading') }}</option>
                     <option value="cracking">cracking</option>
                     <option value="flaking">flaking</option>
                     <option value="blistering">blistering</option>
@@ -311,7 +299,7 @@ export default {
                 </span>
             </div>
 
-            <div class="form-group" v-if="mode === 'edit' || true">
+            <div class="form-group">
                 <label class="form-label" for="severity">
                     {{ t('fields.severity') }}
                 </label>
@@ -323,7 +311,7 @@ export default {
                     class="form-select"
                     :class="{ 'form-select-error': errors.severity && touched.severity }"
                 >
-                    <option value="">{{ t('common.select') || 'Select...' }}</option>
+                    <option value="">{{ t('common.loading') }}</option>
                     <option value="minor">minor</option>
                     <option value="moderate">moderate</option>
                     <option value="severe">severe</option>
@@ -336,7 +324,7 @@ export default {
                 </span>
             </div>
 
-            <div class="form-group" v-if="mode === 'edit' || true">
+            <div class="form-group">
                 <label class="form-label" for="detectionDate">
                     {{ t('fields.detectionDate') }}
                 </label>
@@ -356,7 +344,7 @@ export default {
                 </span>
             </div>
 
-            <div class="form-group" v-if="mode === 'edit' || true">
+            <div class="form-group">
                 <label class="form-label" for="affectedArea">
                     {{ t('fields.affectedArea') }}
                 </label>
@@ -376,7 +364,7 @@ export default {
                 </span>
             </div>
 
-            <div class="form-group" v-if="mode === 'edit' || true">
+            <div class="form-group">
                 <label class="form-label" for="treatmentHistory">
                     {{ t('fields.treatmentHistory') }}
                 </label>
@@ -396,7 +384,7 @@ export default {
                 </span>
             </div>
 
-            <div class="form-group" v-if="mode === 'edit' || true">
+            <div class="form-group">
                 <label class="form-label" for="requiresImmediateAction">
                     {{ t('fields.requiresImmediateAction') }}
                 </label>
@@ -417,7 +405,7 @@ export default {
             </div>
 
 
-            <fieldset class="form-fieldset" v-if="mode === 'edit'">
+            <fieldset class="form-fieldset">
                 <legend class="form-legend">{{ t('fields.reference') }}</legend>
                 <div class="form-group">
                     <label class="form-label" for="reference_gid">

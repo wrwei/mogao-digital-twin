@@ -11,15 +11,16 @@ const TemperatureService = {
      * Create a new Temperature
      */
     create: async (data) => {
-        if (!data.gid) {
-            data.gid = 'temp-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
-        }
+        // Always generate gid server-side to prevent client-supplied collisions
+        data.gid = 'temperature-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
+        delete data._id;
         const temperature = await Temperature.create(data);
         return temperature;
     },
 
     /**
-     * Get all Temperature documents
+     * Get all Temperature documents.
+     * Optional query: { page, limit, sort } for pagination + ordering.
      */
     getAll: async (query = {}) => {
         const { page, limit, sort } = query;

@@ -1,136 +1,84 @@
-# Mogao Digital Twin - Backend
+# Mogao Digital Twin — Backend
 
-Model-based backend using Eclipse Modeling Framework (EMF) and Epsilon for code generation.
+Model-driven backend for the Mogao Digital Twin. Source of truth is the
+Ecore metamodel at
+[src/main/resources/metamodel/mogao_dt.ecore](src/main/resources/metamodel/mogao_dt.ecore);
+the runtime is **Node.js + Express + Mongoose** at
+[generated/mongoose/](generated/mongoose/).
 
-## Quick Start
+For a deep dive into the code generation pipeline (templates, what is /
+isn't generated, how to add a new entity, common pitfalls), see
+[CODEGEN.md](CODEGEN.md).
 
-### 1. Build the Project
-
-```bash
-mvn clean install
-```
-
-This downloads all EMF and Epsilon dependencies.
-
-### 2. Generate Code from Metamodel
-
-**Windows:**
-```bash
-generate-code.bat
-```
-
-**Linux/Mac:**
-```bash
-./generate-code.sh
-```
-
-**Or using Maven directly:**
-```bash
-mvn clean compile
-mvn exec:java
-```
-
-This generates:
-- DTOs in `src/main/java/digital/twin/mogao/dto/`
-- Service classes in `src/main/java/digital/twin/mogao/service/`
-
-## Project Structure
+## Layout
 
 ```
 backend/
-├── src/main/
-│   ├── java/
-│   │   └── digital/twin/mogao/
-│   │       ├── codegen/         # Code generation programs
-│   │       ├── example/         # Usage examples
-│   │       └── util/            # EpsilonModelManager
+├── src/main/                       Build-time generator (Java + Maven + Epsilon)
+│   ├── java/digital/twin/mogao/
+│   │   ├── codegen/CodeGenerator.java   Entry point for `mvn exec:java@codegen`
+│   │   └── util/EpsilonModelManager.java Epsilon façade
 │   └── resources/
-│       ├── metamodel/           # mogao_dt.ecore
-│       ├── models/              # Model instances
-│       │   └── instances/       # example.flexmi
-│       ├── transformation/      # EGL templates
-│       │   ├── GenerateDTO.egl
-│       │   └── GenerateService.egl
-│       └── eol-scripts/         # EOL helper operations
-│           ├── cave/            # Cave operations
-│           ├── defect/          # Defect operations
-│           ├── exhibit/         # Exhibit operations
-│           └── common/          # Model helpers
-├── pom.xml
-├── generate-code.bat           # Windows script
-└── generate-code.sh            # Linux/Mac script
+│       ├── metamodel/              Ecore metamodel (source of truth)
+│       ├── models/instances/       Flexmi sample model instances
+│       └── transformation/
+│           ├── mongodb/            Mongoose backend EGL templates
+│           └── eol/                EOL operation script template (legacy)
+├── generated/mongoose/             Runtime backend (Node.js)
+├── exhibit_models/                 3D model + texture assets served at /exhibit_models
+├── pom.xml                         Maven config — Epsilon/EMF deps only
+├── generate-code.bat / .sh         Run the codegen
+└── clean-and-regenerate.bat / .sh  DISABLED — would clobber hand-written code
 ```
 
-## Key Components
+## Runtime backend (Node.js)
 
-### Metamodel
-- Location: [src/main/resources/metamodel/mogao_dt.ecore](src/main/resources/metamodel/mogao_dt.ecore)
-- Defines the structure of the Mogao Digital Twin domain model
-- Contains classes: Cave, Exhibit, Defect, etc.
+The Mongoose backend at [generated/mongoose/](generated/mongoose/) is what
+serves the application. Some of it is auto-generated from the metamodel
+(models, per-entity CRUD services, controllers, routers); a substantial
+hand-written tier sits alongside the generated CRUD and consumes it
+(telemetry ingestion, sensor admin, anomaly detection, the maintenance
+triage queue, deterioration replay with caching, the per-exhibit defect
+log, the validation harness, JWT auth, file upload). The directory name
+reflects history, not current state — see [CODEGEN.md](CODEGEN.md) for
+the precise scope of "generated".
 
-### EGL Templates
-Model-to-text transformations for code generation:
-- [GenerateDTO.egl](src/main/resources/transformation/GenerateDTO.egl) - Generates Data Transfer Objects
-- [GenerateService.egl](src/main/resources/transformation/GenerateService.egl) - Generates Service classes
-
-### EOL Scripts
-Helper operations for model manipulation:
-- **Cave**: CRUD operations, get exhibits/defects, environment readings
-- **Defect**: Filter by type/severity, mark urgent, update treatment
-- **Exhibit**: Operations for all exhibit types (Statue, Mural, Painting, Inscription)
-- **Common**: Statistics, validation, utilities
-
-### Code Generator
-- Main class: [CodeGenerator.java](src/main/java/digital/twin/mogao/codegen/CodeGenerator.java)
-- Loads metamodel and generates DTOs and Services
-- Configured in POM with exec-maven-plugin
-
-## Usage Examples
-
-### Generate Code
-```bash
-./generate-code.sh
-```
-
-### Run Example Program
-```java
-// See: src/main/java/digital/twin/mogao/example/TransformationExample.java
-EpsilonModelManager manager = new EpsilonModelManager();
-
-// Execute EOL operation
-Object caves = manager.executeEolOperation(
-    "eol-scripts/cave/CaveOperations.eol",
-    "getAllCaves"
-);
-
-// Generate DTO using EGL template
-Map<String, Object> params = Map.of(
-    "eClass", caveClass,
-    "packageName", "digital.twin.mogao.dto"
-);
-String dtoCode = manager.executeEglTemplate(
-    "transformation/GenerateDTO.egl",
-    params
-);
-```
-
-## Documentation
-
-- [RUN_TRANSFORMATIONS.md](src/main/resources/transformation/RUN_TRANSFORMATIONS.md) - Detailed transformation guide
-- [Models README](src/main/resources/models/README.md) - Model instance creation guide
-
-## Dependencies
-
-- Eclipse EMF 2.23.0
-- Epsilon 2.8.0 (EOL, EGL, ETL, EVL engines)
-- SLF4J / Logback for logging
-- Java 17
-
-## Maven Goals
+Run it directly:
 
 ```bash
-mvn clean compile      # Compile the project
-mvn exec:java          # Run code generator
-mvn test               # Run tests
-mvn clean install      # Full build
+cd generated/mongoose
+npm install
+node server.js                    # listens on http://localhost:8008
 ```
+
+Tests:
+
+```bash
+cd generated/mongoose
+npm test                          # Jest suites against the live backend
+```
+
+## Code generator (Maven, build-time only)
+
+```bash
+cd backend
+./generate-code.bat               # Windows
+./generate-code.sh                # macOS/Linux
+```
+
+Both scripts run `mvn -q compile && mvn -q exec:java@codegen`. The
+generator reads
+[src/main/resources/metamodel/mogao_dt.ecore](src/main/resources/metamodel/mogao_dt.ecore)
+and emits Mongoose models, services, controllers, and routers under
+[generated/mongoose/](generated/mongoose/). It does **not** start the
+server. After regen, inspect the diff with
+
+```bash
+git status generated/mongoose/
+```
+
+before committing — the generator overwrites unconditionally.
+
+For the full pipeline description (templates, type mappings, inheritance
+flattening, what's generated vs hand-written, how to add a new entity),
+read [CODEGEN.md](CODEGEN.md).

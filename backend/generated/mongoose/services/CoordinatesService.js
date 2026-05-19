@@ -11,15 +11,16 @@ const CoordinatesService = {
      * Create a new Coordinates
      */
     create: async (data) => {
-        if (!data.gid) {
-            data.gid = 'coord-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
-        }
+        // Always generate gid server-side to prevent client-supplied collisions
+        data.gid = 'coordinates-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
+        delete data._id;
         const coordinates = await Coordinates.create(data);
         return coordinates;
     },
 
     /**
-     * Get all Coordinates documents
+     * Get all Coordinates documents.
+     * Optional query: { page, limit, sort } for pagination + ordering.
      */
     getAll: async (query = {}) => {
         const { page, limit, sort } = query;
