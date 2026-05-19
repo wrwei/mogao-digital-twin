@@ -1,26 +1,18 @@
 /**
  * Web Worker for texture deterioration processing
- * Offloads per-pixel operations from the main thread
+ * Offloads per-pixel operations from the main thread.
  *
- * Two deterioration effects applied per pixel:
+ * Chemical pigment fading (Strlič framework), pigment-aware:
+ * saturated pixels (intact pigment) degrade faster than
+ * desaturated pixels (bare clay/stone substrate).
  *
- * 1. Chemical pigment fading (Strlič framework)
- *    Pigment-aware: saturated pixels (intact pigment) degrade faster
- *    than desaturated pixels (bare clay/stone substrate).
- *
- * 2. Lifetime aging (Michalski eLM)
- *    General surface weathering: contrast loss, overall darkening,
- *    and warm patina accumulation proportional to effective age.
+ * The lifetime / mould / salt / fatigue models render in
+ * ModelViewer's dedicated _apply*Effect methods, not here.
  */
 self.onmessage = function(e) {
-    const { pixelData, width, height, degradationFactor, amplification,
-            lifetimeAgingFactor } = e.data;
+    const { pixelData, width, height, degradationFactor, amplification } = e.data;
 
-    // Chemical: base visual degradation level
     const visualDeg = 1 - Math.pow(degradationFactor, amplification);
-
-    // Lifetime: aging intensity (0 = no aging, 1 = max weathering)
-    const aging = lifetimeAgingFactor || 0;
 
     const data = new Uint8ClampedArray(pixelData);
 
@@ -51,32 +43,6 @@ self.onmessage = function(e) {
         r = Math.min(255, r + yellowShift);
         g = Math.min(255, g + yellowShift * 0.7);
         b = Math.max(0, b - yellowShift * 0.5);
-
-        // ── Lifetime aging (Michalski) — pigment-aware ───────────
-        if (aging > 0) {
-            // Pigmented areas age more visibly; bare clay/stone is inert
-            // pigmentFactor already computed above: 0.1 (clay) to 1.0 (pigment)
-            const lifetimeEffect = aging * pigmentFactor;
-
-            // 1. Desaturation — pigments lose vibrancy over time
-            const gray = 0.299 * r + 0.587 * g + 0.114 * b;
-            const desatAmount = lifetimeEffect * 0.6;
-            r = r + (gray - r) * desatAmount;
-            g = g + (gray - g) * desatAmount;
-            b = b + (gray - b) * desatAmount;
-
-            // 2. Overall darkening — grime accumulates more on pigmented surfaces
-            const darken = 1 - lifetimeEffect * 0.35;
-            r *= darken;
-            g *= darken;
-            b *= darken;
-
-            // 3. Warm patina — oxidation tint on pigmented areas
-            const patina = lifetimeEffect * 20;
-            r = Math.min(255, r + patina * 0.5);
-            g = Math.min(255, g + patina * 0.15);
-            b = Math.max(0, b - patina * 0.6);
-        }
 
         data[i] = Math.round(r);
         data[i + 1] = Math.round(g);
