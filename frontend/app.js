@@ -334,8 +334,8 @@ const AppTopbar = {
                 </span>
                 <button class="topbar-icon-btn"
                         @click="$emit('logout')"
-                        :aria-label="t('actions.logout') || 'Logout'"
-                        :title="t('actions.logout') || 'Logout'"
+                        :aria-label="t('actions.logout')"
+                        :title="t('actions.logout')"
                         style="margin-left: 4px;">
                     ⏻
                 </button>
