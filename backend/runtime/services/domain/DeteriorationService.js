@@ -23,7 +23,12 @@ const R = 8.314; // Universal gas constant, J/(mol·K)
 const CHEMICAL_DEFAULTS = {
     Ea_dark: 70000,
     Ea_light: 25000,
-    k0_dark: 25000,
+    // k0_dark calibrated so that the mogao200 preset (T=13°C, RH=35%,
+    // light=2 klux, 200 y) yields ~48% scientific degradation — see
+    // DeteriorationService.test.js. Earlier value 25000 was a copy-paste
+    // from Ea_light and pushed all chemical results into the 'critical'
+    // band.
+    k0_dark: 0.0001,
     k0_light: 0.001,
     q: 0.8,
     p: 0.9
