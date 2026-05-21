@@ -1,0 +1,142 @@
+/**
+ * AppearanceSection — theme / font size / language / sidebar collapse.
+ * Initial state from localStorage; server-side preferences (when received
+ * from SettingsView via the serverPreferences prop) override on arrival.
+ * Each interaction writes through to /users/preferences.
+ */
+import { useI18n } from '../i18n.js';
+
+const { ref, watch } = Vue;
+
+const THEMES = [
+    { id: 'mogao', name: 'Mogao Sand', sidebar: '#5C3D2E', primary: '#D4A574', accent: '#8B4513' },
+    { id: 'ocean', name: 'Ocean Blue', sidebar: '#1e3a5f', primary: '#5b9bd5', accent: '#2c5f8a' },
+    { id: 'forest', name: 'Forest Green', sidebar: '#2d4a3e', primary: '#6db58a', accent: '#3a7d5c' },
+    { id: 'slate', name: 'Modern Slate', sidebar: '#2d3748', primary: '#a0aec0', accent: '#4a5568' },
+    { id: 'plum', name: 'Royal Plum', sidebar: '#3d2b4e', primary: '#b39ddb', accent: '#6a4c93' },
+    { id: 'ember', name: 'Warm Ember', sidebar: '#4a2020', primary: '#e07a5f', accent: '#8b3a3a' },
+    { id: 'midnight', name: 'Midnight Dark', sidebar: '#1a1a2e', primary: '#7c83db', accent: '#3a3a5c' },
+    { id: 'sakura', name: 'Sakura Blossom', sidebar: '#4a3040', primary: '#e8a0bf', accent: '#8b4f6e' }
+];
+
+export default {
+    name: 'AppearanceSection',
+    props: {
+        serverPreferences: { type: Object, default: null }
+    },
+    emits: ['preferences-changed'],
+    setup(props, { emit }) {
+        const { t, locale, setLocale } = useI18n();
+
+        const currentTheme = ref(localStorage.getItem('mgemini-theme') || 'mogao');
+        const fontSize = ref(parseInt(localStorage.getItem('mgemini-font-size') || '14'));
+        const sidebarCollapsed = ref(localStorage.getItem('mgemini-sidebar-collapsed') === 'true');
+
+        watch(() => props.serverPreferences, (prefs) => {
+            if (!prefs) return;
+            if (prefs.theme) currentTheme.value = prefs.theme;
+            if (prefs.fontSize) fontSize.value = prefs.fontSize;
+            sidebarCollapsed.value = prefs.sidebarCollapsed || false;
+        });
+
+        async function savePrefs() {
+            try {
+                await window.api.put('/users/preferences', {
+                    theme: currentTheme.value,
+                    fontSize: fontSize.value,
+                    language: locale.value,
+                    sidebarCollapsed: sidebarCollapsed.value
+                });
+            } catch (err) { /* saved locally already */ }
+        }
+
+        function selectTheme(id) {
+            currentTheme.value = id;
+            localStorage.setItem('mgemini-theme', id);
+            document.documentElement.setAttribute('data-theme', id);
+            emit('preferences-changed', { theme: id });
+            savePrefs();
+        }
+
+        function updateFontSize(e) {
+            fontSize.value = parseInt(e.target.value);
+            localStorage.setItem('mgemini-font-size', fontSize.value);
+            document.documentElement.style.fontSize = fontSize.value + 'px';
+            savePrefs();
+        }
+
+        function changeLanguage(e) {
+            setLocale(e.target.value);
+            emit('preferences-changed', { language: e.target.value });
+            savePrefs();
+        }
+
+        function toggleSidebar() {
+            sidebarCollapsed.value = !sidebarCollapsed.value;
+            localStorage.setItem('mgemini-sidebar-collapsed', sidebarCollapsed.value);
+            emit('preferences-changed', { sidebarCollapsed: sidebarCollapsed.value });
+            savePrefs();
+        }
+
+        return {
+            t, locale,
+            themes: THEMES,
+            currentTheme, fontSize, sidebarCollapsed,
+            selectTheme, updateFontSize, changeLanguage, toggleSidebar
+        };
+    },
+    template: `
+    <div>
+        <div class="settings-section-title">{{ t('settings.appearance') }}</div>
+
+        <div class="settings-card">
+            <div class="settings-card-title">{{ t('settings.theme') }}</div>
+            <div class="themes-grid">
+                <div v-for="theme in themes" :key="theme.id"
+                    class="theme-card" :class="{ active: currentTheme === theme.id }"
+                    @click="selectTheme(theme.id)">
+                    <div class="theme-colors">
+                        <div class="theme-color-dot" :style="{ background: theme.sidebar }"></div>
+                        <div class="theme-color-dot" :style="{ background: theme.primary }"></div>
+                        <div class="theme-color-dot" :style="{ background: theme.accent }"></div>
+                    </div>
+                    <div class="theme-name">{{ theme.name }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="settings-card">
+            <div class="settings-card-title">{{ t('settings.fontSize') }}</div>
+            <div class="font-size-row">
+                <span>A</span>
+                <input type="range" min="12" max="20" :value="fontSize" @input="updateFontSize" />
+                <span style="font-size: 18px;">A</span>
+                <span class="font-size-preview" :style="{ fontSize: fontSize + 'px' }">{{ fontSize }}px</span>
+            </div>
+        </div>
+
+        <div class="settings-card">
+            <div class="settings-card-title">{{ t('settings.language') }}</div>
+            <div class="settings-form-group">
+                <select :value="locale" @change="changeLanguage">
+                    <option value="en">English</option>
+                    <option value="zh">中文</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="settings-card">
+            <div class="settings-toggle-row">
+                <div>
+                    <div class="settings-toggle-label">{{ t('settings.sidebarCollapsed') }}</div>
+                    <div class="settings-toggle-desc">{{ t('settings.sidebarCollapsedDesc') || 'Minimize the sidebar to icons only' }}</div>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" :checked="sidebarCollapsed" @change="toggleSidebar" />
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+        </div>
+    </div>
+    `
+};
