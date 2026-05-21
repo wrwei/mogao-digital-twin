@@ -3,6 +3,7 @@
  * Three.js-based 3D model viewer for OBJ/MTL files with textures
  */
 import { runDeteriorationWorker as runPigmentDeteriorationWorker } from '../ml/PigmentAnalysis.js';
+import * as Sim from '../services/SimulationEngine.js';
 
 const { markRaw } = Vue;
 
@@ -24,10 +25,6 @@ export default {
         autoRotate: {
             type: Boolean,
             default: false
-        },
-        simulationData: {
-            type: Object,
-            default: null
         }
     },
     emits: ['update:autoRotate', 'pixel-data-ready', 'processing-changed'],
@@ -84,8 +81,19 @@ export default {
             this.handleWorkerResult(e.data);
         };
         this.deteriorationWorker.onerror = (err) => this._handleWorkerError('uniform', err);
+
+        // Subscribe to the SimulationEngine's render command. The engine
+        // resolves activeModel + displayMode + pigmentMap into a single
+        // mode + payload; this watcher dispatches to the matching _apply*
+        // method.
+        this._unwatchRenderCommand = this.$watch(
+            () => Sim.renderCommand.value,
+            (cmd) => this.handleRenderCommand(cmd),
+            { immediate: true }
+        );
     },
     beforeUnmount() {
+        if (this._unwatchRenderCommand) this._unwatchRenderCommand();
         if (this.deteriorationWorker) this.deteriorationWorker.terminate();
         this.cleanup();
     },
@@ -102,59 +110,6 @@ export default {
             deep: true,
             handler() {
                 this.loadModel();
-            }
-        },
-        simulationData: {
-            deep: true,
-            handler(newData) {
-                if (newData && newData.deterioration) {
-                    // Update local deterioration parameters from external simulation panel
-                    this.simTemp = newData.temperature.celsius;
-                    this.simRH = newData.humidity.value;
-                    this.simDays = newData.deterioration.days;
-                    this.simMonths = newData.deterioration.months;
-                    this.simYears = newData.deterioration.years;
-                    this.simLight = newData.deterioration.lightIntensity;
-                    this.mouldResult = newData.deterioration.mould || null;
-                    this.enabledChemical = newData.deterioration.chemical !== null;
-                    this.chemicalDegradationFactor = newData.deterioration.degradationFactor;
-                    this.chemicalRateConstant = newData.deterioration.rateConstant;
-                    this.degradationEnabled = true;
-
-                    // Handle display mode from PigmentAnalysisPanel
-                    const displayMode = newData.deterioration.pigmentDisplayMode || 'current';
-                    const activeModel = newData.activeModel || 'chemical';
-
-                    // Reset to original when no exposure time and showing current view
-                    if (newData.deterioration.totalDays === 0 && displayMode === 'current') {
-                        this.resetTexture();
-                        return;
-                    }
-
-                    if (displayMode === 'pigment-map' && newData.deterioration.pigmentMap) {
-                        this._applyPigmentOverlay(newData.deterioration.pigmentMap);
-                    } else if (activeModel === 'chemical') {
-                        // Per-pigment chemical fading (Arrhenius)
-                        this.applyDeteriorationToTexture(
-                            newData.deterioration.pigmentMap || null,
-                            newData.deterioration.perPigmentParams || null
-                        );
-                    } else if (activeModel === 'mould' && newData.deterioration.mould) {
-                        this._applyMouldEffect(newData.deterioration.mould);
-                    } else if (activeModel === 'salt' && newData.deterioration.saltCryst) {
-                        this._applySaltEffect(newData.deterioration.saltCryst);
-                    } else if (activeModel === 'lifetime' && newData.deterioration.lifetime) {
-                        this._applyLifetimeEffect(newData.deterioration.lifetime, newData.deterioration.totalDays);
-                    } else if (activeModel === 'fatigue' && newData.deterioration.fatigue) {
-                        this._applyFatigueEffect(newData.deterioration.fatigue);
-                    } else {
-                        this.applyDeteriorationToTexture(null, null);
-                    }
-                } else if (newData === null || !newData) {
-                    this.degradationEnabled = false;
-                    this.mouldResult = null;
-                    this.resetTexture();
-                }
             }
         }
     },
@@ -449,6 +404,52 @@ export default {
                 this.controls.target.copy(this.initialControlsTarget);
                 this.camera.lookAt(this.initialControlsTarget);
                 this.controls.update();
+            }
+        },
+
+        /**
+         * Dispatch a SimulationEngine renderCommand to the right _apply*
+         * method. The command shape is documented on Sim.renderCommand.
+         * Local fields (simTemp/simRH/simDays/...) stay in sync so the
+         * toast notification can show the current exposure.
+         */
+        handleRenderCommand(cmd) {
+            if (!cmd || !this.model) return;
+
+            this.simTemp = Sim.env.temperature;
+            this.simRH = Sim.env.humidity;
+            this.simDays = Sim.exposure.days;
+            this.simMonths = Sim.exposure.months;
+            this.simYears = Sim.exposure.years;
+            this.simLight = Sim.env.simLight;
+            this.mouldResult = Sim.enabledModels.mould ? Sim.assessmentResults.value.mould : null;
+
+            switch (cmd.mode) {
+                case 'reset':
+                    this.degradationEnabled = false;
+                    this.resetTexture();
+                    break;
+                case 'pigment-overlay':
+                    this._applyPigmentOverlay(cmd.pigmentMap);
+                    break;
+                case 'chemical-fade':
+                    this.degradationEnabled = true;
+                    this.enabledChemical = true;
+                    this.chemicalDegradationFactor = cmd.degradationFactor;
+                    this.applyDeteriorationToTexture(cmd.pigmentMap, cmd.perPigmentParams);
+                    break;
+                case 'mould':
+                    this._applyMouldEffect(cmd.mould);
+                    break;
+                case 'salt':
+                    this._applySaltEffect(cmd.salt);
+                    break;
+                case 'lifetime':
+                    this._applyLifetimeEffect(cmd.lifetime, cmd.totalDays);
+                    break;
+                case 'fatigue':
+                    this._applyFatigueEffect(cmd.fatigue);
+                    break;
             }
         },
 

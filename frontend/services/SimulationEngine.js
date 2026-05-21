@@ -93,6 +93,7 @@ const _presetGeneration = ref(0);
 export const assessmentResults = ref(defaultResults());
 export const mouldIndex = ref(0);
 export const pigmentMap = ref(null);
+export const pigmentRegionSummary = ref(null);
 export const perPigmentParams = ref(null);
 export const pigmentDisplayMode = ref('current');
 
@@ -313,6 +314,17 @@ export function clearHistory() {
 // ── Pigment integration ─────────────────────────────────────────────────────
 export function setPigmentMap(map) {
     pigmentMap.value = map;
+    if (!map) {
+        perPigmentParams.value = null;
+        pigmentRegionSummary.value = null;
+    }
+    _scheduleAssessment();
+}
+
+/** Set both the segmentation map and the per-region summary from an identifier result. */
+export function setPigmentAnalysisResult({ pigmentMap: map, regionSummary }) {
+    pigmentMap.value = map || null;
+    pigmentRegionSummary.value = regionSummary || null;
     if (!map) perPigmentParams.value = null;
     _scheduleAssessment();
 }

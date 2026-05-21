@@ -6,6 +6,7 @@ import CaveCard from './CaveCard.js';
 import ModelViewer from './ModelViewer.js';
 import SimulationPanel from './SimulationPanel.js';
 import PigmentAnalysisPanel from './PigmentAnalysisPanel.js';
+import * as Sim from '../services/SimulationEngine.js';
 import LiveDataPanel from './LiveDataPanel.js';
 import PredictionPanel from './PredictionPanel.js';
 import StatueForm from './StatueForm.js';
@@ -46,7 +47,6 @@ export default {
         return {
             searchQuery: '',
             autoRotate: false,
-            simulationData: null,
             texturePixelData: null,
             windowWidth: window.innerWidth,
             windowHeight: window.innerHeight,
@@ -68,10 +68,7 @@ export default {
             // Panel busy state
             panelBusy: false,
             textureProcessing: false,
-            simDisabledMsg: null,
-            // Shared pigment analysis state
-            pigmentMap: null,
-            pigmentDisplayMode: 'current'   // 'current' | 'pigment-map'
+            simDisabledMsg: null
         };
     },
     mounted() {
@@ -162,32 +159,10 @@ export default {
             this.simDisabledMsg = null;
             this.activePanel = 'simulation';
         },
-        handleSimulationChanged(data) { this.simulationData = data; },
         handlePixelDataReady(data) { this.texturePixelData = data; },
         handleTextureProcessing(v) { this.textureProcessing = v; },
         handleResetTexture() {
             if (this.$refs.modelViewer) this.$refs.modelViewer.resetTexture();
-        },
-        handlePigmentAnalyzed(result) { this.pigmentMap = result.pigmentMap; },
-        handlePigmentDisplayModeChanged(mode) {
-            this.pigmentDisplayMode = mode;
-            this._pushDisplayMode(mode);
-        },
-        /** Forward display mode (current / pigment-map) into ModelViewer via simulationData. */
-        _pushDisplayMode(mode) {
-            this.simulationData = {
-                ...(this.simulationData || {}),
-                activeModel: 'chemical',
-                temperature: this.simulationData?.temperature || { celsius: 20, value: 293.15, unit: 'K' },
-                humidity: this.simulationData?.humidity || { value: 50, unit: 'RH' },
-                deterioration: {
-                    ...(this.simulationData?.deterioration || {}),
-                    totalDays: this.simulationData?.deterioration?.totalDays || 0,
-                    pigmentMap: this.pigmentMap,
-                    perPigmentParams: this.simulationData?.deterioration?.perPigmentParams || null,
-                    pigmentDisplayMode: mode
-                }
-            };
         },
         statusColor(status) {
             return { excellent: '#10b981', good: '#3b82f6', fair: '#f59e0b', poor: '#ef4444', critical: '#dc2626' }[status] || '#6b7280';
@@ -249,9 +224,8 @@ export default {
          *  simulation results from the previous exhibit bleeding into the new one. */
         selectedExhibit(newVal, oldVal) {
             if (newVal !== oldVal) {
-                this.pigmentMap = null;
-                this.pigmentDisplayMode = 'current';
-                this.simulationData = null;
+                Sim.setPigmentMap(null);
+                Sim.setPigmentDisplayMode('current');
                 this.texturePixelData = null;
                 this.activePanel = 'pigment';
                 this.panelBusy = false;
@@ -259,12 +233,11 @@ export default {
                 this.simDisabledMsg = null;
             }
         },
-        /** Re-push display mode when returning to the Pigment panel so any
-         *  Simulation effect from the prior tab is replaced. */
+        /** Force the pigment-map overlay off whenever the user is on the
+         *  Simulation panel so its effect (chemical/mould/etc.) wins. The
+         *  toggle on the Pigment panel itself sets it back. */
         activePanel(newVal) {
-            if (newVal === 'pigment' && this.pigmentMap) {
-                this._pushDisplayMode(this.pigmentDisplayMode || 'current');
-            }
+            if (newVal === 'simulation') Sim.setPigmentDisplayMode('current');
         }
     },
     computed: {
@@ -523,7 +496,7 @@ export default {
                 <div style="flex: 1; display: flex; flex-direction: row; padding: 16px; overflow: hidden;">
                     <div style="flex: 1; display: flex; flex-direction: column; align-items: center; padding-right: 8px; overflow-y: auto;">
                         <div style="flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; margin: auto 0;">
-                            <model-viewer ref="modelViewer" :asset-reference="selectedExhibit.reference" v-model:autoRotate="autoRotate" :width="viewerWidth" :height="viewerHeight" :simulation-data="simulationData" @pixel-data-ready="handlePixelDataReady" @processing-changed="handleTextureProcessing"></model-viewer>
+                            <model-viewer ref="modelViewer" :asset-reference="selectedExhibit.reference" v-model:autoRotate="autoRotate" :width="viewerWidth" :height="viewerHeight" @pixel-data-ready="handlePixelDataReady" @processing-changed="handleTextureProcessing"></model-viewer>
                             <div style="margin-top: 12px; padding: 8px 16px; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
                                 <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 13px; font-weight: 500;">
                                     <input type="checkbox" v-model="autoRotate" style="cursor: pointer; width: 16px; height: 16px; accent-color: #8B4513;" />
@@ -536,8 +509,8 @@ export default {
                         <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 3px; height: 32px; background: white; border-radius: 2px; opacity: 0.6;"></div>
                     </div>
                     <div :style="{ width: simulationPanelWidth + 'px', flexShrink: 0, display: 'flex', flexDirection: 'column', height: '100%', overflowY: 'auto', scrollBehavior: 'smooth', paddingLeft: '8px' }">
-                        <simulation-panel v-show="activePanel === 'simulation'" :entity="selectedExhibit" :pixel-data="texturePixelData" :external-pigment-map="pigmentMap" :external-pigment-display-mode="pigmentDisplayMode" :texture-processing="textureProcessing" @simulation-changed="handleSimulationChanged" @reset-texture="handleResetTexture" @busy-changed="panelBusy = $event"></simulation-panel>
-                        <pigment-analysis-panel v-show="activePanel === 'pigment'" :pixel-data="texturePixelData" @pigment-analyzed="handlePigmentAnalyzed" @display-mode-changed="handlePigmentDisplayModeChanged" @busy-changed="panelBusy = $event"></pigment-analysis-panel>
+                        <simulation-panel v-show="activePanel === 'simulation'" :entity="selectedExhibit" :pixel-data="texturePixelData" :texture-processing="textureProcessing" @reset-texture="handleResetTexture" @busy-changed="panelBusy = $event"></simulation-panel>
+                        <pigment-analysis-panel v-show="activePanel === 'pigment'" :pixel-data="texturePixelData" @busy-changed="panelBusy = $event"></pigment-analysis-panel>
                         <live-data-panel v-if="activePanel === 'live'" :entity="selectedExhibit" :is-admin="isAdmin" @busy-changed="panelBusy = $event"></live-data-panel>
                         <prediction-panel v-if="activePanel === 'prediction'" :entity="selectedExhibit" @busy-changed="panelBusy = $event"></prediction-panel>
                     </div>

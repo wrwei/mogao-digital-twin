@@ -46,7 +46,6 @@ export default {
             sortBy: 'name',
             sortDesc: false,
             autoRotate: false,
-            simulationData: null,
             windowWidth: window.innerWidth,
             windowHeight: window.innerHeight,
             simulationPanelWidth: 480,
@@ -99,12 +98,6 @@ export default {
         emitBulkDelete() {
             const items = (this.statues || []).filter(s => this.selectedBulkIds.includes(s.gid));
             if (items.length) this.$emit('bulk-delete', items);
-        },
-        handleSimulationChanged(data) {
-            this.simulationData = data;
-            console.log('=== Statue Simulation Data ===', data);
-            // Emit to parent or update environmental conditions
-            // Future: Apply visual effects to 3D model based on simulation data
         },
         startDrag(event) {
             this.isDragging = true;
@@ -254,7 +247,6 @@ export default {
                                 v-model:autoRotate="autoRotate"
                                 :width="viewerWidth"
                                 :height="viewerHeight"
-                                :simulation-data="simulationData"
                             ></model-viewer>
                             <!-- Auto Rotate Control (styled button below viewer) -->
                             <div style="margin-top: 16px; padding: 10px 20px; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
@@ -294,7 +286,6 @@ export default {
                     }">
                         <simulation-panel
                             :entity="selectedItem"
-                            @simulation-changed="handleSimulationChanged"
                         ></simulation-panel>
                     </div>
                 </div>

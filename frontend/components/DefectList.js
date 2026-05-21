@@ -41,7 +41,6 @@ export default {
             sortBy: 'name',
             sortDesc: false,
             autoRotate: false,
-            simulationData: null,
             windowWidth: window.innerWidth,
             windowHeight: window.innerHeight,
             simulationPanelWidth: 480,
@@ -64,12 +63,6 @@ export default {
         }
     },
     methods: {
-        handleSimulationChanged(data) {
-            this.simulationData = data;
-            console.log('=== Defect Simulation Data ===', data);
-            // Emit to parent or update environmental conditions
-            // Future: Apply visual effects to 3D model based on simulation data
-        },
         startDrag(event) {
             this.isDragging = true;
             this.dragStartX = event.clientX;
@@ -277,7 +270,6 @@ export default {
                     }">
                         <simulation-panel
                             :entity="selectedItem"
-                            @simulation-changed="handleSimulationChanged"
                         ></simulation-panel>
                     </div>
                 </div>

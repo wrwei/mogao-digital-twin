@@ -1,10 +1,12 @@
 /**
  * Simulation Panel
  * UI for environmental simulation: sliders bind to SimulationEngine state,
- * results render from engine.assessmentResults. Chart rendering, unit
- * conversion (°C/°F), and the legacy `simulation-changed` emit live here;
- * deterioration state, the assess API, presets, playback, and the time
- * series have moved to frontend/services/SimulationEngine.js.
+ * results render from engine.assessmentResults. Chart rendering and the
+ * °C/°F unit toggle live here; deterioration state, the assess API,
+ * presets, playback, and the time series have moved to
+ * frontend/services/SimulationEngine.js. ModelViewer reads
+ * SimulationEngine.renderCommand directly — no event chain through this
+ * component.
  */
 import { useI18n } from '../i18n.js';
 import * as Sim from '../services/SimulationEngine.js';
@@ -16,11 +18,9 @@ export default {
     props: {
         entity: { type: Object, default: null },
         pixelData: { type: Object, default: null },
-        externalPigmentMap: { type: Object, default: null },
-        externalPigmentDisplayMode: { type: String, default: null },
         textureProcessing: { type: Boolean, default: false }
     },
-    emits: ['simulation-changed', 'reset-texture', 'busy-changed'],
+    emits: ['reset-texture', 'busy-changed'],
     setup(props, { emit }) {
         const { t } = useI18n();
 
@@ -170,57 +170,6 @@ export default {
         function applyPreset(key) { Sim.applyPreset(key); }
         function toggleSimulation() { /* always-active in current UI */ }
 
-        function handlePigmentAnalyzed(result) { Sim.setPigmentMap(result.pigmentMap); }
-        function handleDisplayModeChanged(mode) { Sim.setPigmentDisplayMode(mode); }
-
-        // ── External pigment-map prop sync (CaveList → engine) ────────────
-        watch(() => props.externalPigmentMap, (val) => {
-            Sim.setPigmentMap(val || null);
-        });
-
-        // ── Legacy `simulation-changed` emit ──────────────────────────────
-        // ModelViewer still consumes this payload via the :simulation-data
-        // prop. Commit 2 of the #2 refactor wires ModelViewer to the engine
-        // directly and removes this emit.
-        function _emitCurrent() {
-            const r = assessmentResults.value;
-            emit('simulation-changed', {
-                temperature: { value: temperatureK.value, unit: 'K', celsius: temperatureCelsius.value },
-                humidity: { value: humidity.value, unit: 'RH' },
-                activeModel: activeTab.value,
-                deterioration: {
-                    days: simDays.value,
-                    months: simMonths.value,
-                    years: simYears.value,
-                    lightIntensity: simLight.value,
-                    totalDays: Sim.totalDays.value,
-                    rateConstant: enabledModels.chemical ? r.chemical.rateConstant : 0,
-                    degradationFactor: enabledModels.chemical ? r.chemical.degradationFactor : 1.0,
-                    scientificDegradation: enabledModels.chemical ? r.chemical.scientificDegradation : 0,
-                    chemical:  enabledModels.chemical  ? r.chemical  : null,
-                    lifetime:  enabledModels.lifetime  ? r.lifetime  : null,
-                    mould:     enabledModels.mould     ? r.mould     : null,
-                    saltCryst: enabledModels.saltCryst ? r.saltCryst : null,
-                    fatigue:   enabledModels.fatigue   ? r.fatigue   : null,
-                    RH_amplitude: simRHAmplitude.value,
-                    pigmentMap: Sim.pigmentMap.value,
-                    perPigmentParams: Sim.perPigmentParams.value,
-                    // Always 'current' so the simulation effect is rendered —
-                    // PigmentAnalysisPanel controls the pigment-map overlay independently.
-                    pigmentDisplayMode: 'current'
-                },
-                timestamp: Date.now(),
-                speed: simulationSpeed.value
-            });
-        }
-
-        // Re-emit on any change that affects the payload. assessmentResults
-        // updates after the debounced /deterioration/assess; the other watches
-        // catch state changes that happen before/between fetches.
-        watch(assessmentResults, _emitCurrent);
-        watch([activeTab, Sim.pigmentMap, Sim.perPigmentParams], _emitCurrent);
-        watch([simDays, simMonths, simYears], _emitCurrent);
-
         // ── Chart.js (DOM-coupled, stays in the panel) ───────────────────
         function initChart() {
             const canvas = timeSeriesCanvas.value;
@@ -272,10 +221,7 @@ export default {
         // ── Lifecycle ─────────────────────────────────────────────────────
         onMounted(() => {
             Sim.loadDefaults();
-            nextTick(() => {
-                initChart();
-                _emitCurrent();
-            });
+            nextTick(initChart);
         });
 
         onBeforeUnmount(() => {
@@ -306,8 +252,7 @@ export default {
             // Methods
             getTotalDays, calculateRateConstant, convertTemperature,
             toggleTimeProgression, resetDefaults, resetModelParams,
-            onPresetChange, applyPreset, toggleSimulation,
-            handlePigmentAnalyzed, handleDisplayModeChanged, clearHistory
+            onPresetChange, applyPreset, toggleSimulation, clearHistory
         };
     },
     template: `

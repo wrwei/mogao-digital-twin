@@ -46,7 +46,6 @@ export default {
             sortBy: 'name',
             sortDesc: false,
             autoRotate: false,
-            simulationData: null,
             windowWidth: window.innerWidth,
             windowHeight: window.innerHeight,
             simulationPanelWidth: 480,
@@ -95,12 +94,6 @@ export default {
         emitBulkDelete() {
             const items = (this.paintings || []).filter(p => this.selectedBulkIds.includes(p.gid));
             if (items.length) this.$emit('bulk-delete', items);
-        },
-        handleSimulationChanged(data) {
-            this.simulationData = data;
-            console.log('=== Painting Simulation Data ===', data);
-            // Emit to parent or update environmental conditions
-            // Future: Apply visual effects to 3D model based on simulation data
         },
         startDrag(event) {
             this.isDragging = true;
@@ -292,7 +285,6 @@ export default {
                     }">
                         <simulation-panel
                             :entity="selectedItem"
-                            @simulation-changed="handleSimulationChanged"
                         ></simulation-panel>
                     </div>
                 </div>

@@ -4,6 +4,7 @@
  * per-pigment Arrhenius extension of the chemical fading model.
  */
 import { identifyPigments } from '../ml/PigmentAnalysis.js';
+import * as Sim from '../services/SimulationEngine.js';
 import { useI18n } from '../i18n.js';
 
 export default {
@@ -12,7 +13,7 @@ export default {
         /** Original (current) RGBA pixel data from ModelViewer */
         pixelData: { type: Object, default: null }, // { data: Uint8ClampedArray, width, height }
     },
-    emits: ['pigment-analyzed', 'display-mode-changed', 'busy-changed'],
+    emits: ['busy-changed'],
     setup() {
         const { t, locale } = useI18n();
         return { t, locale };
@@ -50,11 +51,9 @@ export default {
                 if (gen !== this._taskGeneration) return;
                 this.pigmentMap = result.pigmentMap;
                 this.regionSummary = result.regionSummary;
-                this.$emit('pigment-analyzed', {
+                Sim.setPigmentAnalysisResult({
                     pigmentMap: result.pigmentMap,
-                    regionSummary: result.regionSummary,
-                    width: pxWidth,
-                    height: pxHeight
+                    regionSummary: result.regionSummary
                 });
             } catch (err) {
                 if (gen !== this._taskGeneration) return;
@@ -70,7 +69,7 @@ export default {
 
         setDisplayMode(mode) {
             this.displayMode = mode;
-            this.$emit('display-mode-changed', mode);
+            Sim.setPigmentDisplayMode(mode);
         },
 
         rgbStyle(rgb) {
@@ -89,6 +88,8 @@ export default {
             this.regionSummary = null;
             this.displayMode = 'current';
             this.error = null;
+            Sim.setPigmentMap(null);
+            Sim.setPigmentDisplayMode('current');
             if (this.analyzing) {
                 this.analyzing = false;
                 this.$emit('busy-changed', false);
