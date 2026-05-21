@@ -9,26 +9,26 @@
  * and recommendations — is tested in isolation.
  */
 
-jest.mock('../services/DeteriorationReplayService', () => ({
+jest.mock('../services/domain/DeteriorationReplayService', () => ({
     replayHistory: jest.fn()
 }));
-jest.mock('../services/AnomalyDetectionService', () => ({
+jest.mock('../services/domain/AnomalyDetectionService', () => ({
     detectSensor: jest.fn()
 }));
-jest.mock('../services/ExhibitService', () => ({
+jest.mock('../services/domain/ExhibitService', () => ({
     _findParentCaveGid: jest.fn(),
     _queryAll:          jest.fn()
 }));
-jest.mock('../services/TelemetryService', () => ({
+jest.mock('../services/domain/TelemetryService', () => ({
     sensorsForArtifact: jest.fn()
 }));
 jest.mock('../models/Sensor', () => ({ Sensor: {} }));
 
-const ReplayService    = require('../services/DeteriorationReplayService');
-const AnomalyService   = require('../services/AnomalyDetectionService');
-const ExhibitService   = require('../services/ExhibitService');
-const TelemetryService = require('../services/TelemetryService');
-const Maint = require('../services/MaintenanceService');
+const ReplayService    = require('../services/domain/DeteriorationReplayService');
+const AnomalyService   = require('../services/domain/AnomalyDetectionService');
+const ExhibitService   = require('../services/domain/ExhibitService');
+const TelemetryService = require('../services/domain/TelemetryService');
+const Maint = require('../services/domain/MaintenanceService');
 const { scoreArtifact, scoreAll, WEIGHTS, STATUS_SEVERITY } = Maint;
 
 const THRESHOLDS = {

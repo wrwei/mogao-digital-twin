@@ -18,7 +18,7 @@ jest.mock('../models/EnvironmentSample', () => ({
 }));
 
 const { EnvironmentSample } = require('../models/EnvironmentSample');
-const Anomaly = require('../services/AnomalyDetectionService');
+const Anomaly = require('../services/domain/AnomalyDetectionService');
 const { detectSensor, SEVERITY } = Anomaly;
 
 // ── Helpers ─────────────────────────────────────────────────────────────

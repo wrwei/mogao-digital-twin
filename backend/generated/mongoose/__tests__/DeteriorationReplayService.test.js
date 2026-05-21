@@ -7,7 +7,7 @@
  * exercised by manual integration testing (live MongoDB), not here.
  */
 
-const ReplayService = require('../services/DeteriorationReplayService');
+const ReplayService = require('../services/domain/DeteriorationReplayService');
 const { runReplay, forwardProject, THRESHOLDS } = ReplayService;
 
 /** Build a daily-bucket array for `n` days at constant T/RH/light/RHamp. */

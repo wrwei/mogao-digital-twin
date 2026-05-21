@@ -21,7 +21,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const V = require('../services/ValidationHarness');
+const V = require('../services/domain/ValidationHarness');
 
 const args = process.argv.slice(2);
 const jsonMode = args.includes('--json');

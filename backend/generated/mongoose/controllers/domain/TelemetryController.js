@@ -1,6 +1,6 @@
 const multer = require('multer');
-const TelemetryService = require('../services/TelemetryService');
-const { Sensor } = require('../models/Sensor');
+const TelemetryService = require('../../services/domain/TelemetryService');
+const { Sensor } = require('../../models/Sensor');
 
 // In-memory CSV upload (bounded at 20 MB — roughly 100k sample rows)
 const csvUpload = multer({

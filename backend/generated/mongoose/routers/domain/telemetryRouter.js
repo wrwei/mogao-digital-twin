@@ -10,8 +10,8 @@
  */
 
 const express = require('express');
-const TelemetryController = require('../controllers/TelemetryController');
-const { sensorAuth } = require('../middleware/sensorAuth');
+const TelemetryController = require('../../controllers/domain/TelemetryController');
+const { sensorAuth } = require('../../middleware/sensorAuth');
 
 // ── Sensor-authenticated router (for loggers pushing data) ───────────────
 const sensorRouter = express.Router();
@@ -36,7 +36,7 @@ adminRouter.post('/:gid/link-artifact',            TelemetryController.linkArtif
 adminRouter.delete('/:gid/link-artifact/:artifactGid', TelemetryController.unlinkArtifact);
 adminRouter.post('/:gid/rotate-key',               TelemetryController.rotateKey);
 adminRouter.get('/:gid/anomalies',
-    require('../controllers/MaintenanceController').sensorAnomalies);
+    require('../../controllers/domain/MaintenanceController').sensorAnomalies);
 adminRouter.post(
     '/:gid/samples/upload',
     TelemetryController.csvUploadMiddleware,

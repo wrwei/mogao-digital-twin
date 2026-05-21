@@ -5,7 +5,7 @@
 
 const express = require('express');
 const router = express.Router();
-const DeteriorationController = require('../controllers/DeteriorationController');
+const DeteriorationController = require('../../controllers/domain/DeteriorationController');
 
 // Combined assessment — all four models
 router.post('/assess', DeteriorationController.assess);

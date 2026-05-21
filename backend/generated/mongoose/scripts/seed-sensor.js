@@ -16,7 +16,7 @@
  */
 
 const mongoose = require('mongoose');
-const TelemetryService = require('../services/TelemetryService');
+const TelemetryService = require('../services/domain/TelemetryService');
 
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/mogao_dt';
 

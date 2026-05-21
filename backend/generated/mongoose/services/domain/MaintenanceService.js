@@ -17,7 +17,7 @@ const ReplayService = require('./DeteriorationReplayService');
 const AnomalyService = require('./AnomalyDetectionService');
 const ExhibitService = require('./ExhibitService');
 const TelemetryService = require('./TelemetryService');
-const { Sensor } = require('../models/Sensor');
+const { Sensor } = require('../../models/Sensor');
 
 const WEIGHTS = { damage: 1.0, eta: 1.0, anomaly: 0.5, inspection: 0.3, status: 0.8 };
 

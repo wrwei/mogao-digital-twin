@@ -10,8 +10,8 @@
  */
 
 const D = require('./DeteriorationService');
-const { EnvironmentSample } = require('../models/EnvironmentSample');
-const { Sensor } = require('../models/Sensor');
+const { EnvironmentSample } = require('../../models/EnvironmentSample');
+const { Sensor } = require('../../models/Sensor');
 const ExhibitService = require('./ExhibitService');
 const TelemetryService = require('./TelemetryService');
 

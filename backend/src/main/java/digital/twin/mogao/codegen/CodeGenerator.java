@@ -43,8 +43,10 @@ import java.util.Map;
  *   - Hand-written services for entities not in the metamodel
  *     (User, Sensor, EnvironmentSample) and the cross-cutting domain
  *     services (Anomaly, Maintenance, Telemetry, DeteriorationReplay,
- *     Exhibit, Validation, Deterioration). These live alongside the
- *     generated CRUD layer and consume it.
+ *     Exhibit, Validation, Deterioration). These live under the
+ *     services/domain/, controllers/domain/, and routers/domain/
+ *     subdirectories so that the generated CRUD layer at services/,
+ *     controllers/, routers/ stays regeneration-safe.
  *
  * generateEOLOperations() remains as scaffolding but is not invoked
  * from main(). The Vue 3 frontend at frontend/ is hand-written

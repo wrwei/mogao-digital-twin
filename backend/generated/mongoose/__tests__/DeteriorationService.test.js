@@ -6,7 +6,7 @@
  * regressions in the numerical behaviour of each model.
  */
 
-const D = require('../services/DeteriorationService');
+const D = require('../services/domain/DeteriorationService');
 
 // A small tolerance for floating-point comparison
 const approx = (got, exp, tol = 1e-3) => Math.abs(got - exp) <= tol;

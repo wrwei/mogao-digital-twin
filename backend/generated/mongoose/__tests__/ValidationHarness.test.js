@@ -10,8 +10,8 @@
 
 const fs = require('fs');
 const path = require('path');
-const V = require('../services/ValidationHarness');
-const { chemicalFading } = require('../services/DeteriorationService');
+const V = require('../services/domain/ValidationHarness');
+const { chemicalFading } = require('../services/domain/DeteriorationService');
 
 const FIXTURE = path.join(__dirname, 'fixtures', 'validation-demo.csv');
 

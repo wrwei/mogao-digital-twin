@@ -1,8 +1,8 @@
-const { Statue } = require('../models/Statue');
-const { Mural } = require('../models/Mural');
-const { Painting } = require('../models/Painting');
-const { Inscription } = require('../models/Inscription');
-const { Cave } = require('../models/Cave');
+const { Statue } = require('../../models/Statue');
+const { Mural } = require('../../models/Mural');
+const { Painting } = require('../../models/Painting');
+const { Inscription } = require('../../models/Inscription');
+const { Cave } = require('../../models/Cave');
 
 const MODELS = [
     { model: Statue, type: 'statue' },

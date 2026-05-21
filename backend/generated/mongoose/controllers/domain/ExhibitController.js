@@ -1,6 +1,6 @@
-const ExhibitService = require('../services/ExhibitService');
-const TelemetryService = require('../services/TelemetryService');
-const ReplayService = require('../services/DeteriorationReplayService');
+const ExhibitService = require('../../services/domain/ExhibitService');
+const TelemetryService = require('../../services/domain/TelemetryService');
+const ReplayService = require('../../services/domain/DeteriorationReplayService');
 
 /**
  * ExhibitController

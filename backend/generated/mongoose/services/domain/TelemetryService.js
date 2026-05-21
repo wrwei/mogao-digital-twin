@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
-const { Sensor } = require('../models/Sensor');
-const { EnvironmentSample } = require('../models/EnvironmentSample');
+const { Sensor } = require('../../models/Sensor');
+const { EnvironmentSample } = require('../../models/EnvironmentSample');
 
 // Lazy-required to avoid circular dependency with DeteriorationReplayService.
 let _replayService = null;
@@ -274,7 +274,7 @@ const TelemetryService = {
 
     /** Collect gids of every artifact in a cave by walking cave.exhibits. */
     async _artifactsInCave(caveGid) {
-        const { Cave } = require('../models/Cave');
+        const { Cave } = require('../../models/Cave');
         const cave = await Cave.findOne({ gid: caveGid }).lean();
         if (!cave || !Array.isArray(cave.exhibits)) return [];
         const gids = [];

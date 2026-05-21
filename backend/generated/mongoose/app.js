@@ -46,7 +46,7 @@ app.use('/exhibit_models', (req, res) => {
 
 // Authentication
 const { authMiddleware, requireWriteAccess } = require('./middleware/auth');
-const userRouter = require('./routers/userRouter');
+const userRouter = require('./routers/domain/userRouter');
 
 // Simple rate limiter for login endpoint
 const loginAttempts = new Map();
@@ -81,7 +81,7 @@ app.use('/users', loginRateLimiter, userRouter);
 // Telemetry sample-ingestion routes use sensor-API-key auth (NOT JWT), so
 // they must be mounted BEFORE the global authMiddleware.
 const { sensorRouter: telemetryIngestRouter, adminRouter: sensorAdminRouter }
-    = require('./routers/telemetryRouter');
+    = require('./routers/domain/telemetryRouter');
 app.use('/telemetry', telemetryIngestRouter);
 
 // Apply auth middleware to all subsequent routes
@@ -107,9 +107,9 @@ const dTPackageRouter = require('./routers/dTPackageRouter');
 const temperatureRouter = require('./routers/temperatureRouter');
 const humidityRouter = require('./routers/humidityRouter');
 const lightIntensityRouter = require('./routers/lightIntensityRouter');
-const deteriorationRouter = require('./routers/deteriorationRouter');
-const exhibitRouter = require('./routers/exhibitRouter');
-const maintenanceRouter = require('./routers/maintenanceRouter');
+const deteriorationRouter = require('./routers/domain/deteriorationRouter');
+const exhibitRouter = require('./routers/domain/exhibitRouter');
+const maintenanceRouter = require('./routers/domain/maintenanceRouter');
 // sensorAdminRouter is defined above (before authMiddleware) alongside telemetryIngestRouter
 
 // Mount routes (no /api prefix to match existing frontend)

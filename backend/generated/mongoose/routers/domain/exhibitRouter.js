@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const ExhibitController = require('../controllers/ExhibitController');
+const ExhibitController = require('../../controllers/domain/ExhibitController');
 
 /**
  * Exhibit Routes

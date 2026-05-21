@@ -3,7 +3,7 @@
  * Exposes deterioration model calculations as REST endpoints.
  */
 
-const DeteriorationService = require('../services/DeteriorationService');
+const DeteriorationService = require('../../services/domain/DeteriorationService');
 
 module.exports = {
     // POST /deterioration/assess — run all four models

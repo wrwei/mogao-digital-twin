@@ -1,5 +1,5 @@
-const UserService = require('../services/UserService');
-const JWT = require('../util/jwt');
+const UserService = require('../../services/domain/UserService');
+const JWT = require('../../util/jwt');
 
 const UserController = {
 

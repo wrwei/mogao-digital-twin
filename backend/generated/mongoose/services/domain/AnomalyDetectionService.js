@@ -13,8 +13,8 @@
  *   5. SIGMA3        — latest reading outside ±3σ of 30-day rolling mean
  */
 
-const { Sensor } = require('../models/Sensor');
-const { EnvironmentSample } = require('../models/EnvironmentSample');
+const { Sensor } = require('../../models/Sensor');
+const { EnvironmentSample } = require('../../models/EnvironmentSample');
 
 const OFFLINE_MS          = 2 * 60 * 60 * 1000;      // 2 h
 const RAPID_WINDOW_MS     = 60 * 60 * 1000;          // 1 h
