@@ -51,13 +51,9 @@ import SensorDashboard from './components/SensorDashboard.js';
 import MaintenanceQueue from './components/MaintenanceQueue.js';
 
 // ============================================
-// Generated Composable Imports
+// Entity Composable Factory
 // ============================================
-import { useCaves } from './composables/useCaves.js';
-import { useStatues } from './composables/useStatues.js';
-import { useMurals } from './composables/useMurals.js';
-import { usePaintings } from './composables/usePaintings.js';
-import { useInscriptions } from './composables/useInscriptions.js';
+import { useEntity } from './composables/useEntity.js';
 
 // ============================================
 // Login Page Component
@@ -505,7 +501,7 @@ const CaveView = {
     emits: ['show-message', 'item-selected', 'drill-in-consumed'],
     inject: ['$confirm'],
     setup() {
-        const composable = useCaves();
+        const composable = useEntity('Cave', 'caves', 'caves');
         const { t } = useI18n();
         return {
             ...composable,
@@ -647,7 +643,7 @@ const StatueView = {
     },
     inject: ['$confirm'],
     setup() {
-        const composable = useStatues();
+        const composable = useEntity('Statue', 'statues', 'statues');
         const { t } = useI18n();
         return {
             ...composable,
@@ -809,7 +805,7 @@ const MuralView = {
     },
     inject: ['$confirm'],
     setup() {
-        const composable = useMurals();
+        const composable = useEntity('Mural', 'murals', 'murals');
         const { t } = useI18n();
         return {
             ...composable,
@@ -971,7 +967,7 @@ const PaintingView = {
     },
     inject: ['$confirm'],
     setup() {
-        const composable = usePaintings();
+        const composable = useEntity('Painting', 'paintings', 'paintings');
         const { t } = useI18n();
         return {
             ...composable,
@@ -1133,7 +1129,7 @@ const InscriptionView = {
     },
     inject: ['$confirm'],
     setup() {
-        const composable = useInscriptions();
+        const composable = useEntity('Inscription', 'inscriptions', 'inscriptions');
         const { t } = useI18n();
         return {
             ...composable,
@@ -1306,11 +1302,11 @@ const app = createApp({
     },
     setup() {
         const { locale, t, setLocale } = useI18n();
-        const cavesComposable = useCaves();
-        const statuesComposable = useStatues();
-        const muralsComposable = useMurals();
-        const paintingsComposable = usePaintings();
-        const inscriptionsComposable = useInscriptions();
+        const cavesComposable = useEntity('Cave', 'caves', 'caves');
+        const statuesComposable = useEntity('Statue', 'statues', 'statues');
+        const muralsComposable = useEntity('Mural', 'murals', 'murals');
+        const paintingsComposable = useEntity('Painting', 'paintings', 'paintings');
+        const inscriptionsComposable = useEntity('Inscription', 'inscriptions', 'inscriptions');
 
         // Provide isGuest as a reactive computed for all child components
         const isGuest = Vue.computed(() => {

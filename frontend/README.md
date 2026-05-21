@@ -51,16 +51,7 @@ frontend/
 │   └── SettingsView.js          # Hand-written: Profile, themes, admin
 │
 ├── composables/                  # Vue 3 composables
-│   ├── useEntity.js             # Factory function (shared CRUD logic)
-│   ├── useCaves.js              # ┐
-│   ├── useDefects.js            # │ Generated entity composables
-│   ├── useStatues.js            # │ (delegate to useEntity factory)
-│   ├── useMurals.js             # │
-│   ├── usePaintings.js          # │
-│   └── useInscriptions.js       # ┘
-│
-├── deterioration/
-│   └── DeteriorationEngine.js   # Client-side deterioration models (reference)
+│   └── useEntity.js             # Factory: shared CRUD/loading/error state per entity
 │
 ├── workers/
 │   └── deterioration-worker.js  # Web Worker for texture processing
