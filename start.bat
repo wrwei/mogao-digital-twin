@@ -16,7 +16,7 @@ echo ============================================
 echo.
 
 echo [1/2] Launching backend in a new window...
-start "Mogao Backend (8008)" cmd /k "cd /d %ROOT%backend\generated\mongoose && call start.bat"
+start "Mogao Backend (8008)" cmd /k "cd /d %ROOT%backend\runtime && call start.bat"
 
 echo [2/2] Launching frontend in a new window...
 start "Mogao Frontend (8009)" cmd /k "cd /d %ROOT%frontend && call start.bat"

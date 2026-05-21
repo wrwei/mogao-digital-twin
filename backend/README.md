@@ -4,7 +4,7 @@ Model-driven backend for the Mogao Digital Twin. Source of truth is the
 Ecore metamodel at
 [src/main/resources/metamodel/mogao_dt.ecore](src/main/resources/metamodel/mogao_dt.ecore);
 the runtime is **Node.js + Express + Mongoose** at
-[generated/mongoose/](generated/mongoose/).
+[runtime/](runtime/).
 
 For a deep dive into the code generation pipeline (templates, what is /
 isn't generated, how to add a new entity, common pitfalls), see
@@ -24,7 +24,7 @@ backend/
 │       └── transformation/
 │           ├── mongodb/            Mongoose backend EGL templates
 │           └── eol/                EOL operation script template (legacy)
-├── generated/mongoose/             Runtime backend (Node.js)
+├── runtime/             Runtime backend (Node.js)
 ├── exhibit_models/                 3D model + texture assets served at /exhibit_models
 ├── pom.xml                         Maven config — Epsilon/EMF deps only
 ├── generate-code.bat / .sh         Run the codegen
@@ -33,7 +33,7 @@ backend/
 
 ## Runtime backend (Node.js)
 
-The Mongoose backend at [generated/mongoose/](generated/mongoose/) is what
+The Mongoose backend at [runtime/](runtime/) is what
 serves the application. Some of it is auto-generated from the metamodel
 (models, per-entity CRUD services, controllers, routers); a substantial
 hand-written tier sits alongside the generated CRUD and consumes it
@@ -46,7 +46,7 @@ the precise scope of "generated".
 Run it directly:
 
 ```bash
-cd generated/mongoose
+cd runtime
 npm install
 node server.js                    # listens on http://localhost:8008
 ```
@@ -54,7 +54,7 @@ node server.js                    # listens on http://localhost:8008
 Tests:
 
 ```bash
-cd generated/mongoose
+cd runtime
 npm test                          # Jest suites against the live backend
 ```
 
@@ -70,11 +70,11 @@ Both scripts run `mvn -q compile && mvn -q exec:java@codegen`. The
 generator reads
 [src/main/resources/metamodel/mogao_dt.ecore](src/main/resources/metamodel/mogao_dt.ecore)
 and emits Mongoose models, services, controllers, and routers under
-[generated/mongoose/](generated/mongoose/). It does **not** start the
+[runtime/](runtime/). It does **not** start the
 server. After regen, inspect the diff with
 
 ```bash
-git status generated/mongoose/
+git status runtime/
 ```
 
 before committing — the generator overwrites unconditionally.

@@ -13,7 +13,7 @@ var allClasses = metamodel.eAllContents.select(c | c.isTypeOf(EClass));
 var concreteClasses = allClasses.select(c | not c.abstract);
 
 // Output directories
-var baseDir = "generated/mongoose/";
+var baseDir = "runtime/";
 var modelsDir = baseDir + "models/";
 var servicesDir = baseDir + "services/";
 var controllersDir = baseDir + "controllers/";

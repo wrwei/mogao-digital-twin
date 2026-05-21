@@ -29,4 +29,4 @@ mvn -q compile
 mvn -q exec:java@codegen
 
 echo ""
-echo "Done. Run 'git status backend/generated/mongoose/' to inspect changes."
+echo "Done. Run 'git status backend/runtime/' to inspect changes."

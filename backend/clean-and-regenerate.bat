@@ -5,7 +5,7 @@ REM ============================================
 REM
 REM Disabled in Phase 1. The previous version of this script wiped
 REM directories that are now load-bearing (most importantly the live
-REM backend at backend\generated\mongoose\, plus the hand-extended
+REM backend at backend\runtime\, plus the hand-extended
 REM Vue 3 frontend). Running it as-is would have destroyed work.
 REM
 REM Phase 2 will restore a safe regenerate-with-fences flow.

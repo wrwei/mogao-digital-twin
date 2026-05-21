@@ -108,7 +108,7 @@ frontend/
 
 ## Provenance
 
-The whole Vue 3 frontend is hand-written. There used to be EGL templates that emitted the entity Card / List / Form / DetailView components, but those templates were retired in Phase 1 — the components are now maintained by hand under `components/`. The codegen at `backend/src/main/java/digital/twin/mogao/codegen/CodeGenerator.java` is scoped to the Mongoose data layer and refuses to write outside `backend/generated/mongoose/`.
+The whole Vue 3 frontend is hand-written. There used to be EGL templates that emitted the entity Card / List / Form / DetailView components, but those templates were retired in Phase 1 — the components are now maintained by hand under `components/`. The codegen at `backend/src/main/java/digital/twin/mogao/codegen/CodeGenerator.java` is scoped to the Mongoose data layer and refuses to write outside `backend/runtime/`.
 
 ## API Integration
 

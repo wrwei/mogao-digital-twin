@@ -19,4 +19,4 @@ echo Press Ctrl+C to stop the server
 echo ============================================
 echo.
 
-cd generated\mongoose && node server.js
+cd runtime && node server.js

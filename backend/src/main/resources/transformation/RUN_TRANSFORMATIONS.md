@@ -42,11 +42,11 @@ Run `digital.twin.mogao.codegen.CodeGenerator` as a Java application.
 
 `CodeGenerator.main()` invokes `generateMongooseBackend()`, which walks
 the metamodel and for each EClass emits a Mongoose model
-(`backend/generated/mongoose/models/X.js`) plus, for each concrete
+(`backend/runtime/models/X.js`) plus, for each concrete
 entity in the `entityClasses` array, a service / controller / Express
 router. It also rewrites `models/index.js` (the schema catalogue).
 
-After a clean run, `git status backend/generated/mongoose/` should
+After a clean run, `git status backend/runtime/` should
 report no changes — the data layer is provably idempotent.
 
 ## What the generator does NOT do
@@ -88,7 +88,7 @@ report no changes — the data layer is provably idempotent.
 | `mongodb/GenerateMongooseRouter.egl` | per-entity router | URL layout changes |
 
 After editing a template, re-run the generator and inspect
-`git status backend/generated/mongoose/` to see the resulting diff.
+`git status backend/runtime/` to see the resulting diff.
 
 ## Troubleshooting
 

@@ -42,7 +42,7 @@ kill_port 8009
 
 # Start backend
 echo "[1/2] Starting backend..."
-( cd "$ROOT/backend/generated/mongoose" && npm start ) &
+( cd "$ROOT/backend/runtime" && npm start ) &
 BACKEND_PID=$!
 
 # Start frontend

@@ -22,7 +22,7 @@ import java.util.Map;
  * and dispatches to the EGL templates under transformation/.
  *
  * Emits the Node.js + Express + Mongoose runtime backend into
- * backend/generated/mongoose/.
+ * backend/runtime/.
  *
  * What this generator emits today:
  *   - One Mongoose model per EClass in the metamodel (concrete and
@@ -58,12 +58,12 @@ public class CodeGenerator {
 
     private static final String METAMODEL_PATH = "metamodel/mogao_dt.ecore";
 
-    // Mongoose backend output (used only by the deferred generator below)
-    private static final String MONGOOSE_OUTPUT_DIR     = "generated/mongoose/";
-    private static final String MONGOOSE_MODELS_DIR     = MONGOOSE_OUTPUT_DIR + "models/";
-    private static final String MONGOOSE_SERVICES_DIR   = MONGOOSE_OUTPUT_DIR + "services/";
-    private static final String MONGOOSE_CONTROLLERS_DIR = MONGOOSE_OUTPUT_DIR + "controllers/";
-    private static final String MONGOOSE_ROUTERS_DIR    = MONGOOSE_OUTPUT_DIR + "routers/";
+    // Runtime backend output (used only by the deferred generator below)
+    private static final String RUNTIME_OUTPUT_DIR     = "runtime/";
+    private static final String RUNTIME_MODELS_DIR     = RUNTIME_OUTPUT_DIR + "models/";
+    private static final String RUNTIME_SERVICES_DIR   = RUNTIME_OUTPUT_DIR + "services/";
+    private static final String RUNTIME_CONTROLLERS_DIR = RUNTIME_OUTPUT_DIR + "controllers/";
+    private static final String RUNTIME_ROUTERS_DIR    = RUNTIME_OUTPUT_DIR + "routers/";
 
     // EOL scripts output (used only by the deferred generator below)
     private static final String EOL_SCRIPTS_OUTPUT_DIR = "src/main/resources/eol-scripts/";
@@ -120,7 +120,7 @@ public class CodeGenerator {
                 params.put("eClass", eClass);
 
                 String generatedCode = manager.executeEglTemplateWithoutModel("transformation/mongodb/GenerateMongooseModel.egl", params);
-                writeToFile(MONGOOSE_MODELS_DIR, eClass.getName() + ".js", generatedCode);
+                writeToFile(RUNTIME_MODELS_DIR, eClass.getName() + ".js", generatedCode);
 
                 if (eClass.isAbstract()) {
                     modelsIndex.append("const { ").append(eClass.getName()).append("Schema } = require('./").append(eClass.getName()).append("');\n");
@@ -142,7 +142,7 @@ public class CodeGenerator {
             }
         }
         modelsIndex.append("};\n");
-        writeToFile(MONGOOSE_MODELS_DIR, "index.js", modelsIndex.toString());
+        writeToFile(RUNTIME_MODELS_DIR, "index.js", modelsIndex.toString());
 
         // Generate services, controllers, routers for CONCRETE classes only
         String[] entityClasses = {"Cave", "Defect", "Statue", "Mural", "Painting", "Inscription",
@@ -156,18 +156,18 @@ public class CodeGenerator {
             params.put("eClass", eClass);
 
             String code = manager.executeEglTemplateWithoutModel("transformation/mongodb/GenerateMongooseService.egl", params);
-            writeToFile(MONGOOSE_SERVICES_DIR, eClass.getName() + "Service.js", code);
+            writeToFile(RUNTIME_SERVICES_DIR, eClass.getName() + "Service.js", code);
 
             params = new HashMap<>();
             params.put("eClass", eClass);
             code = manager.executeEglTemplateWithoutModel("transformation/mongodb/GenerateMongooseController.egl", params);
-            writeToFile(MONGOOSE_CONTROLLERS_DIR, eClass.getName() + "Controller.js", code);
+            writeToFile(RUNTIME_CONTROLLERS_DIR, eClass.getName() + "Controller.js", code);
 
             String routerName = eClass.getName().substring(0, 1).toLowerCase() + eClass.getName().substring(1) + "Router";
             params = new HashMap<>();
             params.put("eClass", eClass);
             code = manager.executeEglTemplateWithoutModel("transformation/mongodb/GenerateMongooseRouter.egl", params);
-            writeToFile(MONGOOSE_ROUTERS_DIR, routerName + ".js", code);
+            writeToFile(RUNTIME_ROUTERS_DIR, routerName + ".js", code);
         }
     }
 
@@ -222,15 +222,15 @@ public class CodeGenerator {
 
     /**
      * Write a generator-emitted file. Refuses to write outside
-     * {@link #MONGOOSE_OUTPUT_DIR} so that a stray template path or a
+     * {@link #RUNTIME_OUTPUT_DIR} so that a stray template path or a
      * misguided attempt to revive frontend codegen (retired in commit
      * 9b33bc4) fails loudly here, rather than silently overwriting
      * hand-written code under frontend/ or anywhere else.
      */
     private void writeToFile(String directory, String fileName, String content) throws Exception {
-        if (directory == null || !directory.startsWith(MONGOOSE_OUTPUT_DIR)) {
+        if (directory == null || !directory.startsWith(RUNTIME_OUTPUT_DIR)) {
             throw new IllegalArgumentException(
-                "Refusing to write outside " + MONGOOSE_OUTPUT_DIR + ": got '" + directory +
+                "Refusing to write outside " + RUNTIME_OUTPUT_DIR + ": got '" + directory +
                 "'. The frontend is hand-written by design; codegen is scoped to the " +
                 "Mongoose data layer. See backend/CODEGEN.md.");
         }

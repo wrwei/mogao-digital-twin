@@ -83,7 +83,7 @@ A Flexmi model instance (`mogao.model`) populates the metamodel with cave, exhib
 
 ### 2.3 Code Generation via Epsilon EGL
 
-The code generator emits the Mongoose data layer (and only the Mongoose data layer) into `backend/generated/mongoose/`. The Vue 3 frontend is hand-written by design — its 3D viewer, deterioration simulation, prediction panel, maintenance queue, sensor dashboard, and application shell are too purpose-built to be a deterministic function of the metamodel.
+The code generator emits the Mongoose data layer (and only the Mongoose data layer) into `backend/runtime/`. The Vue 3 frontend is hand-written by design — its 3D viewer, deterioration simulation, prediction panel, maintenance queue, sensor dashboard, and application shell are too purpose-built to be a deterministic function of the metamodel.
 
 Templates live under `backend/src/main/resources/transformation/`:
 
@@ -95,7 +95,7 @@ Templates live under `backend/src/main/resources/transformation/`:
 | `mongodb/GenerateMongooseRouter.egl` | Express router: CRUD + `/gid/:gid` endpoints |
 | `eol/GenerateEOLOperations.egl` | EOL operations scaffolding (currently dormant) |
 
-`CodeGenerator.entityClasses` controls which 13 concrete EClasses get a Service/Controller/Router triple; all EClasses (including abstract) get a Mongoose schema. The `writeToFile` method refuses to write outside `backend/generated/mongoose/`, so the codegen physically cannot touch `frontend/`.
+`CodeGenerator.entityClasses` controls which 13 concrete EClasses get a Service/Controller/Router triple; all EClasses (including abstract) get a Mongoose schema. The `writeToFile` method refuses to write outside `backend/runtime/`, so the codegen physically cannot touch `frontend/`.
 
 Adding a new heritage artefact type (e.g., a `Textile` class) to the Ecore metamodel auto-generates its Mongoose schema, service, controller, and router — but its UI must be written by hand under `frontend/components/`.
 
@@ -213,7 +213,7 @@ HTTP Request → Express Router → Controller → Service → Mongoose Model �
 
 ### 3.3 Code Generator (Design-Time Only)
 
-The code generator at `backend/src/main/java/digital/twin/mogao/codegen/CodeGenerator.java` is a plain Java 17 program built with Maven. It loads the Ecore metamodel via Eclipse EMF and runs the Epsilon engines (EGL/EOL/ETL/EVL) to emit the Mongoose data layer into `backend/generated/mongoose/`. It is **not** part of the runtime architecture and runs only on demand via `mvn exec:java@codegen` (or the helper scripts in `backend/`).
+The code generator at `backend/src/main/java/digital/twin/mogao/codegen/CodeGenerator.java` is a plain Java 17 program built with Maven. It loads the Ecore metamodel via Eclipse EMF and runs the Epsilon engines (EGL/EOL/ETL/EVL) to emit the Mongoose data layer into `backend/runtime/`. It is **not** part of the runtime architecture and runs only on demand via `mvn exec:java@codegen` (or the helper scripts in `backend/`).
 
 ### 3.4 Frontend
 
@@ -694,7 +694,7 @@ mogao-digital-twin/
 │   │       └── transformation/
 │   │           ├── mongodb/                        Mongoose model/service/controller/router templates
 │   │           └── eol/                            EOL helper operations
-│   ├── generated/mongoose/                        ← RUNTIME BACKEND
+│   ├── runtime/                        ← RUNTIME BACKEND
 │   │   ├── app.js                                 Express app (middleware, routes)
 │   │   ├── server.js                              Entry point (port 8008)
 │   │   ├── package.json                           Node.js dependencies

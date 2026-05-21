@@ -57,14 +57,14 @@ From the repo root:
 Or manually:
 
 ```bash
-cd backend/generated/mongoose && npm install && npm start    # backend on :8008
+cd backend/runtime && npm install && npm start    # backend on :8008
 cd frontend && python -m http.server 8009                    # frontend on :8009
 ```
 
 ### First-run setup
 
 ```bash
-cd backend/generated/mongoose
+cd backend/runtime
 npm run seed:admin                                            # creates admin/admin123 (override via env)
 ADMIN_PASSWORD='YourStrong!' npm run seed:admin               # custom password
 ```
@@ -84,7 +84,7 @@ npm run seed:sensor
 ## Testing
 
 ```bash
-cd backend/generated/mongoose
+cd backend/runtime
 npm test                                                      # runs Jest unit tests
 ```
 
@@ -108,7 +108,7 @@ mogao-digital-twin/
 │   │           ├── backend/                    #   Java DTOs (design-time)
 │   │           ├── mongodb/                    #   Mongoose/Express generation
 │   │           └── frontend/                   #   Vue component generation
-│   ├── generated/mongoose/                     # ← RUNTIME BACKEND
+│   ├── runtime/                     # ← RUNTIME BACKEND
 │   │   ├── server.js
 │   │   ├── app.js
 │   │   ├── models/                             # Mongoose schemas
@@ -263,7 +263,7 @@ If you regenerate from the metamodel, these files survive untouched (the generat
 ### Backend fails to start
 - Ensure MongoDB is running (`mongosh` succeeds)
 - Check port 8008 is free
-- Run `npm install` in `backend/generated/mongoose/`
+- Run `npm install` in `backend/runtime/`
 
 ### Frontend not loading
 - Regenerate code if components are missing: `cd backend && ./generate-code.bat`
@@ -271,7 +271,7 @@ If you regenerate from the metamodel, these files survive untouched (the generat
 - For deployed frontend: edit `frontend/config.js` to point `API_BASE_URL` at the public backend host, and add that host to `CORS_ORIGINS` on the backend
 
 ### 3D models not loading
-- Ensure model files are in `backend/generated/mongoose/exhibit_models/`
+- Ensure model files are in `backend/runtime/exhibit_models/`
 - Check file extensions (`.obj`, `.mtl`, `.glb`, `.gltf`, `.jpg`, `.png`)
 
 ### Sensor can't push data

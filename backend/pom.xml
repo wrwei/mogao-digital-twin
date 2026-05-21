@@ -15,7 +15,7 @@
         Build-time Epsilon/EGL code generator for the Mogao Digital Twin.
         Loads the Ecore metamodel and emits the Mongoose backend and Vue 3
         frontend from the EGL templates. The runtime backend is Node.js +
-        Express + Mongoose, located at backend/generated/mongoose/, and is
+        Express + Mongoose, located at backend/runtime/, and is
         not built by Maven.
     </description>
 

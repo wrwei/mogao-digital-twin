@@ -27,7 +27,7 @@ answer four questions for any artifact:
 
 | Capability | File |
 |---|---|
-| Five deterioration models (pure functions) | `backend/generated/mongoose/services/DeteriorationService.js` |
+| Five deterioration models (pure functions) | `backend/runtime/services/DeteriorationService.js` |
 | Telemetry ingestion + storage | `TelemetryService.js`, `Sensor.js`, `EnvironmentSample.js` |
 | Per-artifact environment query | `GET /exhibits/:gid/environment` |
 | Time-series chart + summary UI | `frontend/components/LiveDataPanel.js` |

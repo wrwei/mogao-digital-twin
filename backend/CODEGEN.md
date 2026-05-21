@@ -1,6 +1,6 @@
 # Backend Code Generation
 
-The Mongoose data layer at [generated/mongoose/](generated/mongoose/) is
+The Mongoose data layer at [runtime/](runtime/) is
 emitted from the Ecore metamodel at
 [src/main/resources/metamodel/mogao_dt.ecore](src/main/resources/metamodel/mogao_dt.ecore)
 via Epsilon EGL templates. This document covers what is generated, what is
@@ -15,12 +15,12 @@ never invokes the generator.
 
 For **every** EClass in the metamodel (concrete and abstract):
 
-- `generated/mongoose/models/<ClassName>.js` — Mongoose schema with the
+- `runtime/models/<ClassName>.js` — Mongoose schema with the
   full inheritance chain flattened in.
 
 Plus once per regen:
 
-- `generated/mongoose/models/index.js` — re-exports every schema.
+- `runtime/models/index.js` — re-exports every schema.
 
 For **each concrete EClass listed in the `entityClasses` array** of
 [CodeGenerator.java](src/main/java/digital/twin/mogao/codegen/CodeGenerator.java)
@@ -28,22 +28,22 @@ For **each concrete EClass listed in the `entityClasses` array** of
 Coordinates, Parameter, AssetReference, DTPackage, Temperature, Humidity,
 LightIntensity):
 
-- `generated/mongoose/services/<ClassName>Service.js` — CRUD against the
+- `runtime/services/<ClassName>Service.js` — CRUD against the
   Mongoose model; `create` mints a server-side gid.
-- `generated/mongoose/controllers/<ClassName>Controller.js` — HTTP handlers
+- `runtime/controllers/<ClassName>Controller.js` — HTTP handlers
   that delegate to the service and shape the response.
-- `generated/mongoose/routers/<className>Router.js` (camelCase filename) —
+- `runtime/routers/<className>Router.js` (camelCase filename) —
   Express router wiring methods to routes.
 
 ## What is *not* generated (and why)
 
 The generator never touches:
 
-- `generated/mongoose/app.js`, `server.js`, `package.json` — wire MongoDB,
+- `runtime/app.js`, `server.js`, `package.json` — wire MongoDB,
   CORS, file upload, JWT auth, and bootstrap. Hand-written infrastructure.
-- `generated/mongoose/services/index.js`,
-  `generated/mongoose/controllers/index.js`,
-  `generated/mongoose/routers/index.js` — re-export aggregators with manual
+- `runtime/services/index.js`,
+  `runtime/controllers/index.js`,
+  `runtime/routers/index.js` — re-export aggregators with manual
   ordering decisions (e.g. `/gid/:gid` registered before `/:id`).
   **Adding a new entity to the metamodel requires manually adding it to
   these three index files** — the generator deliberately doesn't overwrite
@@ -61,7 +61,7 @@ The generator never touches:
   templates were retired in commit `9b33bc4`; the UI is hand-written by
   design (see `architecture_decisions.md` in the memory directory).
 
-A lot of `generated/mongoose/` is thus *not* generator output. The path
+A lot of `runtime/` is thus *not* generator output. The path
 name reflects history, not current state — the directory is a mix of
 generator output and load-bearing hand-written code that consumes it.
 
@@ -82,7 +82,7 @@ mogao_dt.ecore  ──┐
             │  reads template, evaluates [%%-blocks against params,
             │  emits text
             ▼
-        generated/mongoose/<file>.js          (filesystem)
+        runtime/<file>.js          (filesystem)
 ```
 
 `executeEglTemplateWithoutModel` is the key entry: it spins up an
@@ -175,7 +175,7 @@ Emits an object literal with `create`, `getAll`, `getById`, `getByGid`,
 One function per service method. Always returns 201 on create, 404 when
 the service returns null, and a 500 with the error message in JSON
 otherwise. No middleware injection — auth and request validation live in
-hand-written Express middleware (`generated/mongoose/middleware/`).
+hand-written Express middleware (`runtime/middleware/`).
 
 ### `GenerateMongooseRouter.egl` — Express router per concrete class
 
@@ -231,7 +231,7 @@ Both scripts run `mvn -q compile` then `mvn -q exec:java@codegen`. The
 `@codegen` execution is configured in [pom.xml](pom.xml) and points at
 `digital.twin.mogao.codegen.CodeGenerator`. The script then prints
 
-> `Done. Run \`git status backend/generated/mongoose/\` to inspect changes.`
+> `Done. Run \`git status backend/runtime/\` to inspect changes.`
 
 That `git status` step is non-optional in practice — the generator
 overwrites the model/service/controller/router files unconditionally, so
@@ -239,7 +239,7 @@ diffs against the previous run are how you confirm a metamodel change had
 the expected blast radius.
 
 `clean-and-regenerate.bat`/`.sh` exists alongside but is disabled —
-running it would wipe `generated/mongoose/` including the hand-written
+running it would wipe `runtime/` including the hand-written
 services, controllers, and `node_modules`. Don't enable it without first
 fencing off the hand-written tier.
 
@@ -257,10 +257,10 @@ fencing off the hand-written tier.
    if it's concrete and needs CRUD endpoints.
 4. Run `./generate-code.bat` (or `.sh`).
 5. Manually add the new entity to:
-   - `generated/mongoose/services/index.js`
-   - `generated/mongoose/controllers/index.js`
-   - `generated/mongoose/routers/index.js` (this also picks the URL prefix)
-   - `generated/mongoose/app.js` (mounts the router on its prefix)
+   - `runtime/services/index.js`
+   - `runtime/controllers/index.js`
+   - `runtime/routers/index.js` (this also picks the URL prefix)
+   - `runtime/app.js` (mounts the router on its prefix)
 6. Restart `node server.js` and exercise the new endpoints.
 
 ### Modifying a template
@@ -268,9 +268,9 @@ fencing off the hand-written tier.
 1. Edit the relevant `.egl` under
    [src/main/resources/transformation/mongodb/](src/main/resources/transformation/mongodb/).
 2. Run `./generate-code.bat` (or `.sh`).
-3. `git diff backend/generated/mongoose/` to verify the change applied
+3. `git diff backend/runtime/` to verify the change applied
    to every entity, not just the one you were thinking about.
-4. Run `cd generated/mongoose && npm test` to confirm the Jest suite
+4. Run `cd runtime && npm test` to confirm the Jest suite
    still passes against the regenerated layer.
 
 ### Modifying the metamodel without breaking hand-written services
@@ -281,7 +281,7 @@ The hand-written services
 import from generated services and models. A metamodel change that:
 
 - Renames a field → hand-written services that referenced the old name
-  break. Search `generated/mongoose/services/` for the old name before
+  break. Search `runtime/services/` for the old name before
   regenerating.
 - Removes a field → same failure mode, plus the seed/test data may have
   to be updated.
@@ -297,7 +297,7 @@ and the only pre-flight is `npm test` against the Jest suite.
 
 - **"Why are my changes to `services/index.js` getting reverted?"** —
   They aren't. The generator never writes to that file. If yours
-  disappeared, check `git log -- generated/mongoose/services/index.js`.
+  disappeared, check `git log -- runtime/services/index.js`.
 - **"Why does the generated schema have a duplicate field?"** — A child
   class redeclared an attribute already on the parent. EMF allows it; the
   flattener just emits both. Fix it in the metamodel.

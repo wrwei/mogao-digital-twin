@@ -38,6 +38,6 @@ if %ERRORLEVEL% NEQ 0 (
 )
 
 echo.
-echo Done. Run `git status backend/generated/mongoose/` to inspect changes.
+echo Done. Run `git status backend/runtime/` to inspect changes.
 echo.
 pause

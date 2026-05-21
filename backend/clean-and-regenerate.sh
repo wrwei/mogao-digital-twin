@@ -5,7 +5,7 @@
 #
 # Disabled in Phase 1. The previous version of this script wiped
 # directories that are now load-bearing (most importantly the live
-# backend at backend/generated/mongoose/, plus the hand-extended
+# backend at backend/runtime/, plus the hand-extended
 # Vue 3 frontend). Running it as-is would have destroyed work.
 #
 # Phase 2 will restore a safe regenerate-with-fences flow.

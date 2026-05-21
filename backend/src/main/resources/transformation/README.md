@@ -22,7 +22,7 @@ Run `mvn exec:java@codegen` (or `backend/generate-code.bat`) to regenerate.
 | `routers/xRouter.js` | `mongodb/GenerateMongooseRouter.egl` | yes — same list |
 
 The pipeline is provably idempotent: a fresh regeneration leaves
-`backend/generated/mongoose/` byte-equivalent to what is checked in.
+`backend/runtime/` byte-equivalent to what is checked in.
 
 ### Hand-written (outside the generator's remit)
 

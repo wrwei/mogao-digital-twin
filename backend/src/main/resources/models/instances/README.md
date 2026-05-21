@@ -100,7 +100,7 @@ Timestamp format: Unix epoch time in milliseconds
 ## Usage
 
 ### Code generator (Java + Maven)
-The model is loaded by the Epsilon model manager and traversed by the EGL templates to emit the Mongoose data layer at `backend/generated/mongoose/`.
+The model is loaded by the Epsilon model manager and traversed by the EGL templates to emit the Mongoose data layer at `backend/runtime/`.
 
 ### Frontend (Vue.js)
 The frontend fetches data from the backend API, which is generated from this model.

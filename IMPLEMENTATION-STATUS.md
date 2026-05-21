@@ -18,7 +18,7 @@
 - [x] `mongodb/GenerateMongooseRouter.egl` — Express router declarations
 - [x] `eol/GenerateEOLOperations.egl` — EOL operation scaffolding (currently dormant)
 
-Frontend EGL templates were retired in Phase 1 — the Vue 3 frontend is hand-written end-to-end. The codegen refuses to write outside `backend/generated/mongoose/`.
+Frontend EGL templates were retired in Phase 1 — the Vue 3 frontend is hand-written end-to-end. The codegen refuses to write outside `backend/runtime/`.
 
 ### Generated Runtime Backend (Node.js/Express/MongoDB)
 - [x] Express app with CORS, body parsing, static file serving
