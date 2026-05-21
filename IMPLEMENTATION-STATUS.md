@@ -12,25 +12,13 @@
 ### Backend EGL Templates
 - [x] `GenerateDTO.egl` — Java Data Transfer Objects (design-time)
 - [x] `GenerateService.egl` — Java services (design-time)
-- [x] `GenerateController.egl` — Java REST controllers (design-time)
-- [x] `GenerateMongooseModel.egl` — Mongoose schemas (runtime)
-- [x] `GenerateExpressRouter.egl` — Express routers with CRUD + GID endpoints
-- [x] `GenerateExpressController.egl` — Express controller classes
-- [x] `GenerateExpressService.egl` — Express service classes
-- [x] `GenerateExpressApp.egl` — Express app setup with middleware
-- [x] `GenerateFileUploadController.egl` — File upload endpoints
-- [x] `GenerateHealthController.egl` — Health check endpoint
+- [x] `mongodb/GenerateMongooseModel.egl` — Mongoose schemas (one per EClass)
+- [x] `mongodb/GenerateMongooseService.egl` — CRUD services with `/gid/:gid` queries
+- [x] `mongodb/GenerateMongooseController.egl` — HTTP request handlers
+- [x] `mongodb/GenerateMongooseRouter.egl` — Express router declarations
+- [x] `eol/GenerateEOLOperations.egl` — EOL operation scaffolding (currently dormant)
 
-### Frontend EGL Templates
-- [x] `GenerateVueCard.egl` — Entity card components
-- [x] `GenerateVueList.egl` — Entity list components with filtering
-- [x] `GenerateVueForm.egl` — CRUD forms with file upload validation
-- [x] `GenerateVueDetailView.egl` — Detail views with 3D model support
-- [x] `GenerateComposable.egl` — Vue 3 composables for API integration
-- [x] `GenerateApp.egl` — Main Vue application with routing and auth
-- [x] `GenerateIndexHtml.egl` — HTML entry point with CDN imports
-- [x] `GenerateI18n.egl` — Internationalisation module (zh + en)
-- [x] `FrontendHelpers.eol` — Helper functions for label generation
+Frontend EGL templates were retired in Phase 1 — the Vue 3 frontend is hand-written end-to-end. The codegen refuses to write outside `backend/generated/mongoose/`.
 
 ### Generated Runtime Backend (Node.js/Express/MongoDB)
 - [x] Express app with CORS, body parsing, static file serving
@@ -44,19 +32,21 @@
 - [x] Deterioration API (4 scientific models)
 - [x] Health check endpoint
 
-### Generated Frontend (Vue 3 SPA)
-- [x] 24 auto-generated Vue components (Card, List, Form, DetailView x 6 entities)
-- [x] 7 composables (6 entity composables + useEntity factory)
-- [x] Main app with sidebar navigation, dashboard, login page
-- [x] i18n with Chinese/English and reactive locale switching
-- [x] Axios API layer with JWT token management
+### Frontend (Vue 3 SPA — hand-written end-to-end)
 
-### Hand-Written Frontend Components
+The Vue frontend is no longer generated. The codegen scope is the Mongoose data layer only; everything under `frontend/` is hand-written.
+
+- [x] Per-entity Card / List / Detail / Form components for Cave, Statue, Mural, Painting, Inscription, Defect
+- [x] `useEntity` composable factory (callers pass entity name + plural + api key)
+- [x] Application shell: `app.js` (AppContainer), `AppSidebar`, `AppTopbar`, `DashboardView`, `LoginPage`
+- [x] i18n module with Chinese/English and reactive locale switching
+- [x] Axios API layer with JWT token management
 - [x] `ModelViewer.js` — Three.js 3D model viewer (OBJ/MTL loading, orbit controls)
-- [x] `SimulationPanel.js` — Deterioration simulation UI (4 models, time progression, charts)
-- [x] `SettingsView.js` — User settings (profile, 8 themes, language, notifications, admin)
-- [x] `DeteriorationEngine.js` — Client-side deterioration models (reference implementation)
-- [x] `deterioration-worker.js` — Web Worker for texture processing
+- [x] `SimulationPanel.js` + `SimulationEngine.js` — Deterioration simulation UI + state singleton
+- [x] `PigmentAnalysisPanel.js` + `PigmentAnalysis.js` — Pigment-domain module (identification, restoration, worker dispatch)
+- [x] `SettingsView.js` + ProfileSection / AppearanceSection / UserManagementPanel / DatabaseStatsPanel
+- [x] `LiveDataPanel.js`, `PredictionPanel.js`, `MaintenanceQueue.js`, `SensorDashboard.js`
+- [x] `deterioration-worker.js`, `pigment-deterioration-worker.js` — Web Workers for texture processing
 - [x] `config.js` — API URL configuration
 - [x] `useEntity.js` — Composable factory function
 

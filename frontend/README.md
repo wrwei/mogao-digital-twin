@@ -106,26 +106,9 @@ frontend/
 - Notification preferences
 - Admin panel (user management, database statistics)
 
-## Generated vs Hand-Written
+## Provenance
 
-| Component | Source |
-|-----------|--------|
-| `[Entity]Card.js` (6) | Generated from `GenerateVueCard.egl` |
-| `[Entity]List.js` (6) | Generated from `GenerateVueList.egl` |
-| `[Entity]Form.js` (6) | Generated from `GenerateVueForm.egl` |
-| `[Entity]DetailView.js` (6) | Generated from `GenerateVueDetailView.egl` |
-| `use[Entity].js` (6) | Generated from `GenerateComposable.egl` |
-| `app.js` | Generated from `GenerateApp.egl` |
-| `i18n.js` | Generated from `GenerateI18n.egl` |
-| `index.html` | Generated from `GenerateIndexHtml.egl` |
-| `ModelViewer.js` | Hand-written |
-| `SimulationPanel.js` | Hand-written |
-| `SettingsView.js` | Hand-written |
-| `useEntity.js` | Hand-written |
-| `DeteriorationEngine.js` | Hand-written |
-| `deterioration-worker.js` | Hand-written |
-| `config.js` | Hand-written |
-| All CSS | Hand-written |
+The whole Vue 3 frontend is hand-written. There used to be EGL templates that emitted the entity Card / List / Form / DetailView components, but those templates were retired in Phase 1 — the components are now maintained by hand under `components/`. The codegen at `backend/src/main/java/digital/twin/mogao/codegen/CodeGenerator.java` is scoped to the Mongoose data layer and refuses to write outside `backend/generated/mongoose/`.
 
 ## API Integration
 

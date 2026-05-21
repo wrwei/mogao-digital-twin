@@ -83,50 +83,43 @@ A Flexmi model instance (`mogao.model`) populates the metamodel with cave, exhib
 
 ### 2.3 Code Generation via Epsilon EGL
 
-Epsilon EGL (Epsilon Generation Language) templates traverse the Ecore metamodel and generate both backend and frontend code artefacts. The generation is driven by the metamodel structure — for each concrete `EClass`, the templates produce:
+The code generator emits the Mongoose data layer (and only the Mongoose data layer) into `backend/generated/mongoose/`. The Vue 3 frontend is hand-written by design — its 3D viewer, deterioration simulation, prediction panel, maintenance queue, sensor dashboard, and application shell are too purpose-built to be a deterministic function of the metamodel.
 
-**Backend (Node.js/Express + Mongoose):**
-
-| Template | Generates |
-|----------|-----------|
-| `GenerateMongooseModel.egl` | Mongoose schemas (one per EClass) |
-| `GenerateExpressRouter.egl` | Express routers with CRUD + GID endpoints |
-| `GenerateExpressController.egl` | Controller classes (request handling) |
-| `GenerateExpressService.egl` | Service classes (business logic, Mongoose queries) |
-| `GenerateExpressApp.egl` | Express app setup with middleware |
-| `GenerateFileUploadController.egl` | File upload endpoints for 3D model/texture assets |
-| `GenerateHealthController.egl` | Health check endpoint |
-
-**Frontend (Vue.js):**
+Templates live under `backend/src/main/resources/transformation/`:
 
 | Template | Generates |
 |----------|-----------|
-| `GenerateVueCard.egl` | Card components (summary view per entity type) |
-| `GenerateVueList.egl` | List components (collection view with filtering) |
-| `GenerateVueDetailView.egl` | Detail view components (full entity with 3D viewer) |
-| `GenerateVueForm.egl` | Form components (CRUD forms with file upload validation) |
-| `GenerateApp.egl` | Main Vue application with routing |
-| `GenerateComposable.egl` | Vue 3 composables (API integration) |
-| `GenerateIndexHtml.egl` | HTML entry point |
-| `GenerateI18n.egl` | Internationalisation module (zh + en) |
+| `mongodb/GenerateMongooseModel.egl` | Mongoose schema (one per EClass, concrete + abstract) |
+| `mongodb/GenerateMongooseService.egl` | Service: CRUD + GID-based queries (concrete EClasses only) |
+| `mongodb/GenerateMongooseController.egl` | Controller: HTTP request/response handling |
+| `mongodb/GenerateMongooseRouter.egl` | Express router: CRUD + `/gid/:gid` endpoints |
+| `eol/GenerateEOLOperations.egl` | EOL operations scaffolding (currently dormant) |
 
-This means that adding a new heritage artefact type (e.g., a `Textile` class) to the Ecore metamodel would automatically generate the complete backend API and frontend UI for that type without writing any code manually.
+`CodeGenerator.entityClasses` controls which 13 concrete EClasses get a Service/Controller/Router triple; all EClasses (including abstract) get a Mongoose schema. The `writeToFile` method refuses to write outside `backend/generated/mongoose/`, so the codegen physically cannot touch `frontend/`.
+
+Adding a new heritage artefact type (e.g., a `Textile` class) to the Ecore metamodel auto-generates its Mongoose schema, service, controller, and router — but its UI must be written by hand under `frontend/components/`.
 
 ### 2.4 Hand-Written vs Generated Code
 
 | Component | Generated | Hand-written |
 |-----------|:---------:|:------------:|
-| Backend Mongoose models, routers, controllers, services | ✓ | |
+| Backend Mongoose schemas (per EClass) | ✓ | |
+| Backend per-entity CRUD: services, controllers, routers (top-level) | ✓ | |
+| Backend domain services / controllers / routers (under `domain/`) | | ✓ |
 | Backend auth middleware, JWT utilities | | ✓ |
-| Backend deterioration service + API | | ✓ |
-| Frontend CRUD components (Card, List, Detail, Form) | ✓ | |
-| Frontend routing and API composables | ✓ | |
-| Frontend composable factory (`useEntity.js`) | | ✓ |
-| i18n labels for domain entities | ✓ | |
+| Backend deterioration / anomaly / maintenance / telemetry / replay / validation | | ✓ |
+| Backend `app.js`, `server.js`, `package.json`, the three `index.js` aggregators | | ✓ |
+| Frontend entity Card / List / Detail / Form components | | ✓ |
+| Frontend application shell (`app.js`, sidebar, topbar, dashboard) | | ✓ |
+| Frontend `useEntity` composable | | ✓ |
+| Frontend i18n (`i18n.js`) | | ✓ |
 | `ModelViewer.js` (Three.js 3D viewer) | | ✓ |
-| `SimulationPanel.js` (deterioration UI) | | ✓ |
-| `config.js` (frontend configuration) | | ✓ |
-| `deterioration-worker.js` (Web Worker) | | ✓ |
+| `SimulationPanel.js`, `SimulationEngine.js` (deterioration UI + state) | | ✓ |
+| `PigmentAnalysisPanel.js`, `PigmentAnalysis.js`, `PigmentDatabase.js`, `PigmentIdentifier.js` | | ✓ |
+| `SettingsView.js` + section components (Profile / Appearance / UserMgmt / DatabaseStats) | | ✓ |
+| `LiveDataPanel.js`, `PredictionPanel.js`, `MaintenanceQueue.js`, `SensorDashboard.js` | | ✓ |
+| `config.js`, `api.js`, `utils/` (a11y, keyboard, router) | | ✓ |
+| Web Workers (`deterioration-worker.js`, `pigment-deterioration-worker.js`) | | ✓ |
 | CSS styles | | ✓ |
 
 ---
@@ -258,7 +251,7 @@ index.html
     └── styles/model-viewer.css
 ```
 
-**Component count:** 27 Vue components total (24 generated, 3 hand-written)
+**Component count:** All Vue components under `frontend/components/` are hand-written. The metamodel does not generate any frontend artefacts — see §2.3.
 
 **UI features:**
 - Left sidebar navigation (M-Gemini branding)
