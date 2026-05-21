@@ -4,7 +4,7 @@
 //   - eClass: The EClass to generate controller for
 //
 // Controllers handle HTTP request/response and delegate to services.
-// Returns data directly to match the existing Micronaut backend response format.
+// Return data directly via res.json(); no response envelope.
 
 var className = eClass.name;
 var controllerName = eClass.name + "Controller";

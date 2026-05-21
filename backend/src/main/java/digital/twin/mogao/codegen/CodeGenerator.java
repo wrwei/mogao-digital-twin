@@ -21,10 +21,8 @@ import java.util.Map;
  * Build-time tool. Reads the Ecore metamodel at metamodel/mogao_dt.ecore
  * and dispatches to the EGL templates under transformation/.
  *
- * History: this generator originally emitted a Java/Micronaut backend
- * (DTOs, services, controllers) plus EOL operation scripts. The runtime
- * backend has since been re-implemented in Node.js + Express + Mongoose
- * (see backend/generated/mongoose/).
+ * Emits the Node.js + Express + Mongoose runtime backend into
+ * backend/generated/mongoose/.
  *
  * What this generator emits today:
  *   - One Mongoose model per EClass in the metamodel (concrete and

@@ -99,8 +99,8 @@ Timestamp format: Unix epoch time in milliseconds
 
 ## Usage
 
-### Backend (Java/Micronaut)
-The model is loaded by the Epsilon model manager and used to populate the DTOs served via REST API.
+### Code generator (Java + Maven)
+The model is loaded by the Epsilon model manager and traversed by the EGL templates to emit the Mongoose data layer at `backend/generated/mongoose/`.
 
 ### Frontend (Vue.js)
 The frontend fetches data from the backend API, which is generated from this model.

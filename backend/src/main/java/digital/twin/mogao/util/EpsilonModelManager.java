@@ -21,11 +21,11 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
- * Epsilon Model Manager for Mogao Digital Twin
+ * Epsilon Model Manager for Mogao Digital Twin.
  * Handles loading/saving EMF models and executing EOL/EGL scripts.
  *
- * Used as a build-time singleton by CodeGenerator; no DI annotation
- * needed now that the Micronaut runtime is gone.
+ * Build-time singleton used by CodeGenerator. No DI framework — the
+ * generator is a plain Java program invoked via `mvn exec:java`.
  */
 public class EpsilonModelManager {
 

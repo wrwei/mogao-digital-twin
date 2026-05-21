@@ -19,7 +19,7 @@ The Mogao Digital Twin is a model-driven engineering (MDE) system for heritage c
 | **Design-time** | | | |
 | Metamodelling | Eclipse EMF (Ecore) | 2.23.0 | Domain metamodel |
 | Code generation | Epsilon (EGL, EOL, ETL, EVL) | 2.8.0 | Template-based generation |
-| Code gen runtime | Micronaut (Java 17) | 4.2.3 | Hosts EGL transformation engine |
+| Build tool | Maven (Java 17) | 3.x | Builds and runs the code generator |
 | Model format | Flexmi | (Epsilon bundle) | Concise model instances |
 | **Runtime** | | | |
 | Backend framework | Express.js (Node.js) | — | REST API server |
@@ -97,14 +97,6 @@ Epsilon EGL (Epsilon Generation Language) templates traverse the Ecore metamodel
 | `GenerateFileUploadController.egl` | File upload endpoints for 3D model/texture assets |
 | `GenerateHealthController.egl` | Health check endpoint |
 
-**Backend (Java/Micronaut — design-time only):**
-
-| Template | Generates |
-|----------|-----------|
-| `GenerateDTO.egl` | Data Transfer Objects (one per EClass) |
-| `GenerateController.egl` | REST controllers with CRUD endpoints |
-| `GenerateService.egl` | Service classes (EMF model access) |
-
 **Frontend (Vue.js):**
 
 | Template | Generates |
@@ -147,11 +139,11 @@ This means that adding a new heritage artefact type (e.g., a `Textile` class) to
 ┌─────────────────────────────────────────────────────────────────┐
 │                        DESIGN TIME                              │
 │  ┌──────────────┐    EGL Templates    ┌──────────────────────┐  │
-│  │   Micronaut   │ ─────────────────→ │  Generated Code      │  │
-│  │   (Java 17)   │                    │  • Node.js backend   │  │
-│  │               │                    │  • Vue.js frontend   │  │
-│  │  mogao_dt     │                    └──────────────────────┘  │
-│  │  .ecore       │                                              │
+│  │   Java +     │ ─────────────────→ │  Generated Code      │  │
+│  │   Maven +    │                    │  • Node.js backend   │  │
+│  │   Epsilon    │                    └──────────────────────┘  │
+│  │  mogao_dt    │                                              │
+│  │  .ecore      │                                              │
 │  └──────────────┘                                               │
 └─────────────────────────────────────────────────────────────────┘
 
@@ -226,9 +218,9 @@ HTTP Request → Express Router → Controller → Service → Mongoose Model �
 | `/api/upload` | POST | File upload (multipart, inline in app.js) |
 | `/api/avatar` | POST | Avatar upload (inline in app.js) |
 
-### 3.3 Backend (Micronaut — Design-Time Only)
+### 3.3 Code Generator (Design-Time Only)
 
-Micronaut runs only during code generation. It hosts the Epsilon engine which reads the Ecore metamodel and executes EGL templates to generate the Node.js backend and Vue.js frontend. It is **not** part of the runtime architecture.
+The code generator at `backend/src/main/java/digital/twin/mogao/codegen/CodeGenerator.java` is a plain Java 17 program built with Maven. It loads the Ecore metamodel via Eclipse EMF and runs the Epsilon engines (EGL/EOL/ETL/EVL) to emit the Mongoose data layer into `backend/generated/mongoose/`. It is **not** part of the runtime architecture and runs only on demand via `mvn exec:java@codegen` (or the helper scripts in `backend/`).
 
 ### 3.4 Frontend
 
@@ -698,23 +690,17 @@ const CONFIG = {
 ```
 mogao-digital-twin/
 ├── backend/
-│   ├── pom.xml                                    Maven project (Micronaut 4.2.3)
+│   ├── pom.xml                                    Maven project (codegen only)
 │   ├── src/main/
 │   │   ├── java/digital/twin/mogao/
 │   │   │   ├── codegen/CodeGenerator.java         EGL code generation driver
-│   │   │   ├── controller/                        Micronaut controllers (design-time)
-│   │   │   ├── service/                           Micronaut services (design-time)
-│   │   │   ├── dto/                               Generated DTOs
 │   │   │   └── util/EpsilonModelManager.java      EMF model loader
 │   │   └── resources/
 │   │       ├── metamodel/mogao_dt.ecore            Ecore metamodel
 │   │       ├── models/instances/mogao.model        Flexmi model instance
-│   │       ├── transformation/
-│   │       │   ├── backend/                        Backend EGL templates
-│   │       │   ├── frontend/                       Frontend EGL templates
-│   │       │   ├── mongodb/                        MongoDB/Mongoose EGL templates
-│   │       │   └── eol/                            EOL helper operations
-│   │       └── eol-scripts/                        Domain-specific EOL operations
+│   │       └── transformation/
+│   │           ├── mongodb/                        Mongoose model/service/controller/router templates
+│   │           └── eol/                            EOL helper operations
 │   ├── generated/mongoose/                        ← RUNTIME BACKEND
 │   │   ├── app.js                                 Express app (middleware, routes)
 │   │   ├── server.js                              Entry point (port 8008)

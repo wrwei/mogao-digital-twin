@@ -6,7 +6,7 @@ A Model-Driven Engineering (MDE) system for the Mogao Caves Digital Twin, a UNES
 
 | Layer | Technology | Role |
 |-------|-----------|------|
-| **Design-time** | Java 17, Micronaut 4.2.3, Epsilon EGL/EOL, Eclipse EMF (Ecore) | Metamodel-driven code generation |
+| **Design-time** | Java 17, Maven, Epsilon EGL/EOL, Eclipse EMF (Ecore) | Metamodel-driven code generation |
 | **Runtime backend** | Node.js, Express.js, MongoDB, Mongoose | REST API + persistence |
 | **Runtime frontend** | Vue 3 (CDN), Three.js, Chart.js, Axios, TensorFlow.js | SPA with 3D visualisation |
 | **Authentication** | JWT (jsonwebtoken), bcryptjs | Token-based auth with role system; sensor devices authenticate via API key |
