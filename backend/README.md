@@ -27,8 +27,7 @@ backend/
 ├── runtime/             Runtime backend (Node.js)
 ├── exhibit_models/                 3D model + texture assets served at /exhibit_models
 ├── pom.xml                         Maven config — Epsilon/EMF deps only
-├── generate-code.bat / .sh         Run the codegen
-└── clean-and-regenerate.bat / .sh  DISABLED — would clobber hand-written code
+└── generate-code.bat / .sh         Run the codegen
 ```
 
 ## Runtime backend (Node.js)

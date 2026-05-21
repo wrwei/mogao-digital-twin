@@ -238,11 +238,6 @@ overwrites the model/service/controller/router files unconditionally, so
 diffs against the previous run are how you confirm a metamodel change had
 the expected blast radius.
 
-`clean-and-regenerate.bat`/`.sh` exists alongside but is disabled —
-running it would wipe `runtime/` including the hand-written
-services, controllers, and `node_modules`. Don't enable it without first
-fencing off the hand-written tier.
-
 ## Workflows
 
 ### Adding a new entity type

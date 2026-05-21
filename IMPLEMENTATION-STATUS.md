@@ -7,7 +7,7 @@
 - [x] Flexmi model instance (`mogao.model`) with sample cave/exhibit/defect data
 - [x] Java CodeGenerator driver (`CodeGenerator.java`)
 - [x] EpsilonModelManager for EMF model loading
-- [x] Generation scripts (`generate-code.bat/sh`, `clean-and-regenerate.bat/sh`)
+- [x] Generation scripts (`generate-code.bat/sh`)
 
 ### Backend EGL Templates
 - [x] `GenerateDTO.egl` — Java Data Transfer Objects (design-time)
