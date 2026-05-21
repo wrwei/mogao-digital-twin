@@ -115,12 +115,20 @@ function chemicalFading(T_celsius, RH_percent, light_klux, totalDays, params = {
         scientificDegradation,
         risk: Math.min(100, scientificDegradation),
         label,
-        visualEffect: { fadeFactor: degradationFactor, type: 'chemical' }
+        visualEffect: {
+            type: 'chemical',
+            intensity: 1 - degradationFactor,   // 0 = pristine, 1 = fully degraded
+            coverage: 1,                        // uniform across the texture
+            fadeFactor: degradationFactor
+        }
     };
 }
 
 // 2. Michalski Lifetime Multiplier
-function lifetimeMultiplier(T_celsius, RH_percent, params = {}) {
+// `totalDays` is optional — it's only needed to populate visualEffect.
+// Reference span: 200 years at the reference conditions (20 °C, 50 % RH).
+const LIFETIME_REFERENCE_YEARS = 200;
+function lifetimeMultiplier(T_celsius, RH_percent, totalDays = 0, params = {}) {
     const { Ea, n, T0, RH0 } = { ...LIFETIME_DEFAULTS, ...params };
     const T_kelvin = T_celsius + 273.15;
     const T0_kelvin = T0 + 273.15;
@@ -140,7 +148,22 @@ function lifetimeMultiplier(T_celsius, RH_percent, params = {}) {
         label = 'shorter';
     }
 
-    return { multiplier, label, color };
+    // Convert elapsed real-time to effective ageing at reference conditions.
+    // multiplier > 1 ⇒ slower ageing ⇒ shorter effectiveYears.
+    const actualYears = Math.max(0, (totalDays || 0) / 365.25);
+    const effectiveYears = multiplier > 0 ? actualYears / multiplier : 0;
+    const intensity = Math.min(1, effectiveYears / LIFETIME_REFERENCE_YEARS);
+
+    return {
+        multiplier, label, color,
+        effectiveYears,
+        visualEffect: {
+            type: 'lifetime',
+            intensity,
+            coverage: 1,
+            effectiveYears
+        }
+    };
 }
 
 // 3. VTT / Finnish Mould Growth Model
@@ -184,7 +207,14 @@ function mouldGrowth(T_celsius, RH_percent, totalDays, prevMouldIndex = 0, param
         risk,
         label,
         growthRate,
-        visualEffect: { coverage: mouldIndex / 6, intensity: Math.min(1, mouldIndex / 4), type: 'mould' }
+        visualEffect: {
+            type: 'mould',
+            intensity: Math.min(1, mouldIndex / 4),
+            coverage: mouldIndex / 6,
+            mouldIndex,
+            rhCritical: Math.round(rhCritical * 10) / 10,
+            isAboveThreshold
+        }
     };
 }
 
@@ -227,7 +257,13 @@ function saltCrystallization(T_celsius, RH_percent, totalDays, params = {}) {
         cumulativeDamage: Math.round(cumulativeDamage * 10) / 10,
         risk,
         label,
-        visualEffect: { spalling: Math.min(1, damageRatio / 3), type: 'salt' }
+        visualEffect: {
+            type: 'salt',
+            intensity: Math.min(1, damageRatio),
+            coverage: Math.min(1, damageRatio / 5),
+            spalling: Math.min(1, damageRatio / 3),
+            damageRatio: Math.round(damageRatio * 100) / 100
+        }
     };
 }
 
@@ -274,7 +310,13 @@ function fatigueDamage(RH_amplitude, totalDays, params = {}) {
         crackDensity: Math.round(crackDensity * 100) / 100,
         risk: Math.round(risk),
         label,
-        visualEffect: { crackDensity, type: 'fatigue' }
+        visualEffect: {
+            type: 'fatigue',
+            intensity: Math.min(1, cumulativeDamage / 3),
+            coverage: crackDensity,
+            crackDensity,
+            cumulativeDamage: Math.round(cumulativeDamage * 1000) / 1000
+        }
     };
 }
 
@@ -293,7 +335,7 @@ function assess(params) {
 
     return {
         chemical: chemicalFading(T_celsius, RH_percent, light_klux, totalDays, chemicalParams),
-        lifetime: lifetimeMultiplier(T_celsius, RH_percent, lifetimeParams),
+        lifetime: lifetimeMultiplier(T_celsius, RH_percent, totalDays, lifetimeParams),
         mould: mouldGrowth(T_celsius, RH_percent, totalDays, prevMouldIndex, mouldParams),
         saltCryst: saltCrystallization(T_celsius, RH_percent, totalDays, saltCrystParams),
         fatigue: fatigueDamage(RH_amplitude, totalDays, fatigueParams)

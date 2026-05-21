@@ -154,7 +154,8 @@ function runReplay(dailyBuckets, opts = {}) {
         const cumChemicalDeltaE = (1 - Math.exp(-cumKTimesDt)) * DELTA_E_SCALE;
 
         // --- Lifetime: reference-equivalent years --------------------------
-        const LM = D.lifetimeMultiplier(T, RH, lifetimeP).multiplier;
+        // totalDays not needed here — we only read the multiplier for the step.
+        const LM = D.lifetimeMultiplier(T, RH, 0, lifetimeP).multiplier;
         const dEquivYears = (1 / 365.25) / Math.max(LM, 1e-6);
         equivYears += dEquivYears;
 

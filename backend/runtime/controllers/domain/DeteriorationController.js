@@ -44,10 +44,12 @@ module.exports = {
         }
     },
 
-    // POST /deterioration/lifetime — Michalski lifetime multiplier only
+    // POST /deterioration/lifetime — Michalski lifetime multiplier only.
+    // totalDays is optional; when provided, the response's visualEffect.intensity
+    // reflects the equivalent ageing at reference conditions.
     async lifetime(req, res) {
         try {
-            const { T_celsius, RH_percent, params } = req.body;
+            const { T_celsius, RH_percent, totalDays = 0, params } = req.body;
 
             if (T_celsius == null || RH_percent == null) {
                 return res.status(400).json({
@@ -55,7 +57,7 @@ module.exports = {
                 });
             }
 
-            const result = DeteriorationService.lifetimeMultiplier(T_celsius, RH_percent, params);
+            const result = DeteriorationService.lifetimeMultiplier(T_celsius, RH_percent, totalDays, params);
             res.json(result);
         } catch (error) {
             console.error('Lifetime multiplier error:', error);
