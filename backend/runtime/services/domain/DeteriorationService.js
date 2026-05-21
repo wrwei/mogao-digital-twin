@@ -87,6 +87,13 @@ function calculateMoistureContent(RH_fraction, T_kelvin) {
 }
 
 // 1. Chemical Pigment Fading
+//
+// NOTE: this formula is intentionally duplicated client-side in
+//   frontend/pigment/PigmentAnalysis.js → computePerPigmentParams()
+// where it runs per-pigment-class for the per-pixel renderer. The
+// server-side version is the authoritative one; if you change the
+// equation here, mirror the change there. The duplication exists to
+// avoid a per-slider-tick network round-trip during simulation.
 function calculateRateConstant(T_celsius, RH_percent, light_klux, params = {}) {
     const T_kelvin = T_celsius + 273.15;
     const RH_fraction = RH_percent / 100.0;
@@ -172,6 +179,23 @@ function mouldCriticalRH(T_celsius) {
     return -0.0026 * T * T * T + 0.160 * T * T - 3.13 * T + 100.0;
 }
 
+// Per-step mould-index update used by both the "scrub from zero" branch
+// inside mouldGrowth() and the parallel implementation in
+// frontend/services/SimulationEngine.js → _tick() (the playback loop
+// can't round-trip the API every 100 ms). The formula is deliberately
+// the same in both places; keep them in sync.
+function _stepMouldIndex(prevMouldIndex, growthRate, daysElapsed) {
+    return Math.max(0, Math.min(6, prevMouldIndex + growthRate * daysElapsed));
+}
+
+// mouldGrowth has two operating regimes:
+//   1. **Scrub** (prevMouldIndex === 0 && totalDays > 0): integrate
+//      from zero over `totalDays` at the current (T, RH). One-shot
+//      query for a chosen exposure span at constant environment.
+//   2. **Steady-state read** (prevMouldIndex > 0): return the index
+//      unchanged. Per-step integration during real-time playback
+//      lives in SimulationEngine._tick(); this endpoint is just for
+//      reporting the current value back to the UI.
 function mouldGrowth(T_celsius, RH_percent, totalDays, prevMouldIndex = 0, params = {}) {
     const { growthCoeff, declineRate } = { ...MOULD_DEFAULTS, ...params };
     const rhCritical = mouldCriticalRH(T_celsius);
@@ -188,8 +212,10 @@ function mouldGrowth(T_celsius, RH_percent, totalDays, prevMouldIndex = 0, param
 
     let mouldIndex;
     if (prevMouldIndex === 0 && totalDays > 0 && isAboveThreshold) {
-        mouldIndex = Math.min(6, growthRate * totalDays);
+        // Regime 1: scrub-from-zero. Integrate uniformly across the span.
+        mouldIndex = _stepMouldIndex(0, growthRate, totalDays);
     } else {
+        // Regime 2: steady-state read. SimulationEngine owns the live accumulator.
         mouldIndex = prevMouldIndex;
     }
     mouldIndex = Math.max(0, Math.min(6, mouldIndex));

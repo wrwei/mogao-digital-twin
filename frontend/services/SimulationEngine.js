@@ -270,13 +270,23 @@ export function togglePlayback() {
     else startPlayback();
 }
 
+// Per-step mould-index update. Same formula as the backend's
+// `_stepMouldIndex` in DeteriorationService.mouldGrowth — kept
+// duplicated because the playback tick runs every 100 ms and can't
+// round-trip the /deterioration/assess endpoint at that cadence.
+// The growthRate comes from the most recent server assessment;
+// integration is local.
+function _stepMouldIndex(prev, growthRate, daysElapsed) {
+    return Math.max(0, Math.min(6, prev + growthRate * daysElapsed));
+}
+
 function _tick() {
     const daysPerTick = (simulationSpeed.value * 1.0) / 10;
     exposure.days += daysPerTick;
 
     if (enabledModels.mould && assessmentResults.value) {
         const growthRate = assessmentResults.value.mould.growthRate;
-        mouldIndex.value = Math.max(0, Math.min(6, mouldIndex.value + growthRate * daysPerTick));
+        mouldIndex.value = _stepMouldIndex(mouldIndex.value, growthRate, daysPerTick);
     }
 
     if (exposure.days >= 30.44) {
