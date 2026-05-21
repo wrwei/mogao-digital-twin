@@ -1,17 +1,18 @@
 /**
- * PigmentAnalysis — pigment-domain operations for the deterioration pipeline.
+ * PigmentAnalysis — pigment-domain operations consumed by the
+ * deterioration pipeline.
  *
- * Three responsibilities:
- *   1. Segment a texture into per-pixel pigment classes (delegates to PigmentIdentifier).
+ * Two responsibilities:
+ *   1. Segment a texture into per-pixel pigment classes (HSV decision
+ *      tree, delegates to PigmentIdentifier).
  *   2. Compute per-pigment Arrhenius parameters for a given environment.
- *   3. Apply those parameters to a texture via the off-thread worker.
+ *      The output object is the `perPigmentParams` payload that
+ *      DeteriorationRenderer's `chemical-pigment` mode consumes.
  *
- * The pigment-deterioration worker and the PigmentIdentifier instance are
- * module-private singletons created lazily on first use.
- *
- * Stateless from the caller's perspective: callers pass inputs and receive
- * outputs; nothing about previous calls is retained except the worker /
- * identifier instances themselves.
+ * The PigmentIdentifier instance is a module-private singleton created
+ * lazily on first use. Per-pixel rendering happens off-thread in
+ * `frontend/workers/effects-worker.js` via DeteriorationRenderer —
+ * this module does not own a Web Worker.
  */
 import { PigmentIdentifier } from './PigmentIdentifier.js';
 import { PIGMENT_DATABASE, PIGMENT_NAMES } from './PigmentDatabase.js';
@@ -19,18 +20,10 @@ import { PIGMENT_DATABASE, PIGMENT_NAMES } from './PigmentDatabase.js';
 const R = 8.314;
 
 let _identifier = null;
-let _worker = null;
 
 function getIdentifier() {
     if (!_identifier) _identifier = new PigmentIdentifier();
     return _identifier;
-}
-
-function getWorker() {
-    if (!_worker) {
-        _worker = new Worker('workers/pigment-deterioration-worker.js');
-    }
-    return _worker;
 }
 
 /**
@@ -44,11 +37,12 @@ export async function identifyPigments(pixelData, width, height) {
 /**
  * Compute per-pigment Arrhenius rate constants and resulting degradation
  * factor for the given environment, returning a payload shaped for the
- * pigment-deterioration worker.
+ * effects worker's `chemical-pigment` mode.
  *
  * Matches the formula in backend DeteriorationService.calculateRateConstant
  * but parameterised per pigment from PigmentDatabase rather than the
- * single-pigment defaults.
+ * single-pigment defaults. The duplication is deliberate: this runs
+ * client-side so per-pixel rendering doesn't need a network round-trip.
  *
  * @param env { T_celsius, RH_percent, light_klux, totalDays }
  * @returns { [pigmentId]: { degradationFactor, targetRGB, fadedRGB, agingTint } }
@@ -78,23 +72,4 @@ export function computePerPigmentParams({ T_celsius, RH_percent, light_klux, tot
     }
 
     return params;
-}
-
-/**
- * Dispatch a per-pigment deterioration pass to the worker.
- * Buffers (pixelData, pigmentMap) are transferred ownership; the caller
- * must already have copied them if it needs to retain originals.
- *
- * @returns Promise resolving to { pixelData: ArrayBuffer, width, height }
- */
-export function runDeteriorationWorker({ pixelData, pigmentMap, perPigmentParams, width, height, amplification = 3 }) {
-    return new Promise((resolve, reject) => {
-        const worker = getWorker();
-        worker.onmessage = (e) => resolve(e.data);
-        worker.onerror = (err) => reject(err);
-        worker.postMessage(
-            { pixelData, pigmentMap, pigmentParams: perPigmentParams, width, height, amplification },
-            [pixelData, pigmentMap]
-        );
-    });
 }
