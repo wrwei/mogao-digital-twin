@@ -739,42 +739,42 @@ mogao-digital-twin/
 
 ---
 
-## 10. ML Pigment Analysis System
+## 10. Pigment Analysis System
 
-The pigment analysis system uses machine learning to identify historical pigments in 3D model textures and reconstruct their original polychrome appearance. It operates entirely client-side in the browser.
+The pigment analysis system identifies historical pigments in 3D model textures and feeds the resulting per-pixel class map into the per-pigment Arrhenius extension of the chemical fading model. It runs entirely client-side in the browser and uses an HSV decision tree — no machine-learning model is loaded (the dependency footprint is zero ML libraries).
 
 ### 10.1 Problem Statement
 
-Heritage artefact textures are photographs of **already-degraded** surfaces. Applying uniform Arrhenius fading to a 1200-year-old faded texture compounds degradation on top of degradation. Scientifically accurate simulation requires:
+Heritage artefact textures are photographs of **already-degraded** surfaces. Applying uniform Arrhenius fading to a 1200-year-old faded texture compounds degradation on top of degradation. The pigment-aware path:
 
-1. **Identifying** what pigments are present in each texture region
-2. **Reconstructing** the original vibrant colours (virtual restoration)
-3. **Applying per-pigment degradation** with pigment-specific Arrhenius parameters
+1. **Identifies** what pigments are present in each texture region.
+2. **Applies per-pigment degradation** with pigment-specific Arrhenius parameters in the deterioration worker.
 
 ### 10.2 Architecture
 
 ```
 Texture (originalPixelData captured at load via fetch → ImageBitmap → canvas)
                     │
-        ┌───────────┴───────────┐
-        │                       │
-  PigmentIdentifier       PigmentRestorer
-  (Model 1: Segmentation)  (Model 2: Colourisation)
-        │                       │
-  pigmentMap: Uint8Array   restoredPixels: Uint8ClampedArray
-  (per-pixel class ID)     (full RGBA restored texture)
-        │                       │
-  Per-pigment Arrhenius    "Restored" display mode
-  via pigment-deterioration   → CanvasTexture swap
-  -worker.js                   on 3D model
-        │
-  Region-aware texture
-  degradation (vermilion
-  darkens, azurite greens,
-  lead white yellows)
+              PigmentIdentifier
+              (HSV decision tree)
+                    │
+              pigmentMap: Uint8Array
+              (per-pixel class ID)
+                    │
+              PigmentAnalysis.computePerPigmentParams(env)
+                    │
+              perPigmentParams: { [classId]: { degradationFactor,
+                                               targetRGB, fadedRGB,
+                                               agingTint } }
+                    │
+              pigment-deterioration-worker.js
+              (per-pixel: fade toward fadedRGB + apply agingTint)
+                    │
+              Region-aware texture degradation
+              (vermilion darkens, azurite greens, lead white yellows)
 ```
 
-### 10.3 Pigment Database (`frontend/ml/PigmentDatabase.js`)
+### 10.3 Pigment Database (`frontend/pigment/PigmentDatabase.js`)
 
 Eight Dunhuang-specific pigment classes with per-pigment Arrhenius kinetic parameters sourced from conservation literature:
 
@@ -789,115 +789,63 @@ Eight Dunhuang-specific pigment classes with per-pigment Arrhenius kinetic param
 | 6 | Red ochre | 赭石 | 95,000 | 35,000 | Very high | Very lightfast (Fe₂O₃) |
 | 7 | Carbon black | 墨 | 110,000 | 45,000 | Very high | Extremely stable |
 
-Each entry also stores `targetRGB` (original vibrant colour) and `fadedRGB` (typical aged colour) for both the restoration model and the degradation worker.
+Vermilion, azurite, and lead white also carry an `agingTint: { amount, dR, dG, dB }` field that the worker applies as a secondary effect on top of the base fade.
 
-### 10.4 Model 1: Pigment Identifier (`frontend/ml/PigmentIdentifier.js`)
+### 10.4 Pigment Identifier (`frontend/pigment/PigmentIdentifier.js`)
 
-**Purpose:** Segment a texture image into pigment regions, producing a per-pixel class map.
+HSV colour-space classification with conservative thresholds tuned for Dunhuang pigments. The classifier is an order-dependent decision tree: most-distinctive signatures first (carbon black, lead white, gold leaf), then a red-family branch (vermilion vs red ochre by saturation), then green/blue ranges. Saturation thresholds are deliberately high (0.25–0.50) so that neutral/brown tones remain as "background" rather than being aggressively classified as chromatic pigments.
 
-**Two operating modes:**
-
-1. **Heuristic mode (default)** — HSV colour-space classification with conservative thresholds tuned for Dunhuang pigments. Each pixel is converted to HSV; saturation and hue thresholds determine pigment class. Saturation thresholds are deliberately high (0.25–0.50) so that neutral/brown tones remain as "background" rather than being aggressively classified as chromatic pigments.
-
-2. **TF.js model mode** — MobileNet-v2 encoder with a segmentation head. Loads from `frontend/ml/models/pigment-identifier/model.json` when trained weights are available. Input: 256x256, output: per-pixel class probabilities, upscaled to original resolution via nearest-neighbour interpolation.
-
-**Output interface:**
+Output:
 ```javascript
 {
   pigmentMap: Uint8Array,        // Per-pixel class index (0–7)
-  pigmentNames: string[],       // Class names matching PigmentDatabase keys
-  confidence: Float32Array,     // Per-pixel max confidence (0–1)
-  regionSummary: [{             // Aggregated statistics
-    pigmentName, displayName, pixelCount, percentage, color
-  }]
+  pigmentNames: string[],        // Class names matching PigmentDatabase keys
+  confidence: Float32Array,      // Per-pixel max confidence (0–1)
+  regionSummary: [{ pigmentName, displayName, pixelCount, percentage, color }]
 }
 ```
 
-### 10.5 Model 2: Pigment Restorer (`frontend/ml/PigmentRestorer.js`)
+### 10.5 Pigment Analysis Module (`frontend/pigment/PigmentAnalysis.js`)
 
-**Purpose:** Reconstruct the original vibrant polychrome as the artefact appeared when first created.
+Single seam in front of the pigment subsystem. Three stateless functions:
 
-**Two operating modes:**
+- `identifyPigments(pixelData, w, h)` — delegates to PigmentIdentifier, caches the instance.
+- `computePerPigmentParams({ T_celsius, RH_percent, light_klux, totalDays })` — runs the per-pigment Arrhenius math from PigmentDatabase entries and returns the payload the worker consumes.
+- `runDeteriorationWorker({ pixelData, pigmentMap, perPigmentParams, width, height, amplification })` — owns the worker singleton, posts a message, returns a Promise that resolves with the processed pixel buffer.
 
-1. **Heuristic mode (default)** — Per-pigment colour correction using `PigmentDatabase.targetRGB`. For each pixel, the current faded colour is blended toward the pigment's known original colour in HSV space. Adaptive strength: pixels further from the target receive stronger correction. Hue interpolation uses shortest-arc angular lerp for natural transitions.
-
-2. **TF.js model mode** — U-Net encoder-decoder. Loads from `frontend/ml/models/pigment-restorer/model.json`. Input: 256x256 faded texture. Output: 256x256 restored texture, upscaled to original size.
-
-**Restoration strength** is user-configurable (0–100% slider in the UI). At 65% (default), the restoration is visually convincing without appearing artificial.
+PigmentAnalysisPanel and SimulationEngine and ModelViewer all import from this module — none reach for PigmentIdentifier or PigmentDatabase directly.
 
 ### 10.6 Per-Pigment Deterioration Worker (`frontend/workers/pigment-deterioration-worker.js`)
 
-Replaces the uniform `deterioration-worker.js` when a pigment map is available. For each pixel:
+Runs off the main thread. For each pixel:
 
-1. Look up the pixel's pigment class from `pigmentMap`
-2. Retrieve that pigment's `degradationFactor` (computed per-pigment in `SimulationPanel._computePerPigmentParams()`)
-3. Apply visual amplification: `visualDeg = 1 − degradationFactor^amplification` where `amplification = 3` (lower than the uniform worker's 10, since per-pigment Arrhenius already produces larger rate constants for photosensitive pigments)
-4. Blend the pixel toward the pigment's `fadedRGB` by `visualDeg`
-5. Apply subtle per-pigment ageing tints:
-   - **Vermilion** (cls 3): slight darkening (meta-cinnabar conversion)
-   - **Azurite** (cls 1): slight green shift (CuO formation)
-   - **Lead white** (cls 4): slight yellowing
+1. Look up the pixel's pigment class from `pigmentMap`.
+2. Read that pigment's `{ degradationFactor, fadedRGB, agingTint }` from `pigmentParams`.
+3. Compute `visualDeg = 1 − degradationFactor^amplification` (amplification = 3).
+4. Blend the pixel toward `fadedRGB` by `visualDeg`.
+5. If `agingTint` is present, apply `delta = visualDeg * tint.amount` as signed deltas (`dR`, `dG`, `dB`) — vermilion darkens, azurite shifts green, lead white yellows. Pigments without an `agingTint` field skip this step.
 
-### 10.7 UI Integration (`frontend/components/PigmentAnalysisPanel.js`)
+The worker reads tints from the params payload; it has no hard-coded class IDs.
 
-Rendered as a section within `SimulationPanel`. Provides:
+### 10.7 UI (`frontend/components/PigmentAnalysisPanel.js`)
 
-- **"Identify Pigments"** button — runs PigmentIdentifier on the texture
-- **"Restore Colours"** button — runs PigmentRestorer (requires pigment analysis first)
-- **Display mode toggle** — switches the 3D model texture between:
-  - *Current*: original loaded texture
-  - *Pigment Map*: 50% translucent colour overlay showing identified pigment regions
-  - *Restored*: ML-reconstructed vibrant polychrome
-- **Restoration strength slider** (0–100%)
-- **Detected pigments legend** — colour swatches, Chinese/English names, percentage breakdown
+A side panel rendered by `CaveList` alongside `SimulationPanel`. Provides:
 
-### 10.8 Data Flow
+- **"Identify Pigments"** button — runs `PigmentAnalysis.identifyPigments` on the captured texture pixels.
+- **Display mode toggle** — *Current* (the simulation effect renders) vs *Pigment Map* (50% translucent class-coloured overlay on the 3D model).
+- **Detected pigments legend** — colour swatches, Chinese / English names, percentage breakdown.
 
-```
-ModelViewer                        SimulationPanel
-    │                                   │
-    ├── @pixel-data-ready ──────────►  :pixel-data (prop)
-    │                                   │
-    │                              PigmentAnalysisPanel
-    │                                   │
-    │                              "Identify Pigments"
-    │                                   │
-    │                              @pigment-analyzed
-    │                                   │
-    │                              _computePerPigmentParams()
-    │                                   │
-    │   ◄── simulation-changed ────── emitSimulation()
-    │   (includes pigmentMap,          (pigmentMap + perPigmentParams
-    │    perPigmentParams,              added to deterioration payload)
-    │    restoredTexture,
-    │    pigmentDisplayMode)
-    │
-    ├── displayMode === 'restored'  → _applyRestoredTexture()
-    ├── displayMode === 'pigment-map' → _applyPigmentOverlay()
-    └── displayMode === 'current'   → applyDeteriorationToTexture()
-                                        uses pigment-deterioration-worker.js
-                                        when pigmentMap is present
-```
+The panel writes results directly into `SimulationEngine.setPigmentAnalysisResult({...})`. SimulationEngine's `renderCommand` picks the appropriate mode for ModelViewer to consume.
 
-### 10.9 Future Work: Trained Models
+### 10.8 File Inventory
 
-The heuristic modes serve as a working prototype. To replace them with trained neural networks:
-
-1. **Training data for PigmentIdentifier**: Dunhuang mural photographs with per-pixel pigment annotations from XRF or Raman spectroscopy ground truth. Architecture: MobileNet-v2 encoder + 1x1 conv segmentation head, trained with cross-entropy loss.
-
-2. **Training data for PigmentRestorer**: Paired (degraded, original) texture datasets. Could be generated synthetically by applying known Arrhenius degradation to digitally restored reference images. Architecture: U-Net with skip connections, trained with perceptual loss (VGG feature matching) + L1 pixel loss.
-
-3. **Deployment**: Export trained models to TensorFlow.js format (`tensorflowjs_converter`), place `model.json` + weight shards in `frontend/ml/models/{pigment-identifier,pigment-restorer}/`. The system automatically detects and uses them, falling back to heuristic mode on load failure.
-
-### 10.10 File Inventory
-
-| File | Type | Purpose |
-|------|------|---------|
-| `frontend/ml/PigmentDatabase.js` | Data | 8 pigment classes, per-pigment Arrhenius params, target/faded RGB |
-| `frontend/ml/PigmentIdentifier.js` | Model 1 | HSV heuristic + TF.js segmentation slot |
-| `frontend/ml/PigmentRestorer.js` | Model 2 | Colour-shift heuristic + TF.js U-Net slot |
-| `frontend/workers/pigment-deterioration-worker.js` | Worker | Per-pigment texture fading (runs off main thread) |
-| `frontend/components/PigmentAnalysisPanel.js` | UI | Vue panel: buttons, legend, display mode toggle |
+| File | Purpose |
+|------|---------|
+| `frontend/pigment/PigmentDatabase.js` | Data: 8 pigment classes with Arrhenius params, target/faded RGB, optional agingTint |
+| `frontend/pigment/PigmentIdentifier.js` | HSV decision-tree classifier |
+| `frontend/pigment/PigmentAnalysis.js` | Public module: identify / compute params / run worker |
+| `frontend/workers/pigment-deterioration-worker.js` | Per-pigment texture fading (runs off main thread) |
+| `frontend/components/PigmentAnalysisPanel.js` | Vue panel: identify button, display-mode toggle, legend |
 
 ---
 

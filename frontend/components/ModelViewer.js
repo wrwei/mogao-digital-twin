@@ -2,7 +2,7 @@
  * ModelViewer Component
  * Three.js-based 3D model viewer for OBJ/MTL files with textures
  */
-import { runDeteriorationWorker as runPigmentDeteriorationWorker } from '../ml/PigmentAnalysis.js';
+import { runDeteriorationWorker as runPigmentDeteriorationWorker } from '../pigment/PigmentAnalysis.js';
 import * as Sim from '../services/SimulationEngine.js';
 
 const { markRaw } = Vue;

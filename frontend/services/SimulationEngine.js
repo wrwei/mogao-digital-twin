@@ -26,7 +26,7 @@
  * template interpolation). Methods are exported as named functions.
  */
 
-import { computePerPigmentParams } from '../ml/PigmentAnalysis.js';
+import { computePerPigmentParams } from '../pigment/PigmentAnalysis.js';
 
 const { reactive, ref, computed, watch } = Vue;
 

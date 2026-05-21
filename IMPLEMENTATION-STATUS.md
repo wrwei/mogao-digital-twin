@@ -56,15 +56,13 @@ The Vue frontend is no longer generated. The codegen scope is the Mongoose data 
 - [x] Backend start scripts
 - [x] Frontend start scripts
 
-### ML Pigment Analysis System
-- [x] `PigmentDatabase.js` — 8 Dunhuang pigment classes with per-pigment Arrhenius parameters, target/faded RGB
-- [x] `PigmentIdentifier.js` — Model 1: pigment segmentation (HSV heuristic + TF.js model slot)
-- [x] `PigmentRestorer.js` — Model 2: original colour reconstruction (colour-shift heuristic + TF.js U-Net slot)
-- [x] `pigment-deterioration-worker.js` — Per-pigment texture fading Web Worker
-- [x] `PigmentAnalysisPanel.js` — Vue UI: identify pigments, restore colours, display mode toggle
-- [x] SimulationPanel integration — per-pigment Arrhenius computation, pigment data in emission payload
-- [x] ModelViewer integration — pixel data capture, display modes (current/restored/pigment-map), pigment-aware worker dispatch
-- [x] CaveList wiring — pixel-data-ready event, pixelData prop pass-through
+### Pigment Analysis System (HSV heuristic, no ML wired in)
+- [x] `frontend/pigment/PigmentDatabase.js` — 8 Dunhuang pigment classes with Arrhenius params, target/faded RGB, and optional agingTint per pigment
+- [x] `frontend/pigment/PigmentIdentifier.js` — HSV decision-tree classifier
+- [x] `frontend/pigment/PigmentAnalysis.js` — single seam: identify, compute per-pigment params, dispatch the worker
+- [x] `frontend/workers/pigment-deterioration-worker.js` — per-pigment texture fading (uses `agingTint` from PigmentDatabase, not hard-coded class IDs)
+- [x] `frontend/components/PigmentAnalysisPanel.js` — identify button + display-mode toggle + legend
+- [x] SimulationEngine + ModelViewer integration via PigmentAnalysis module (no PigmentRestorer; restoration is not part of the current system)
 
 ## Summary
 
@@ -85,8 +83,8 @@ The Vue frontend is no longer generated. The codegen scope is the Mongoose data 
 - [ ] Real-time WebSocket updates
 - [ ] Data export functionality
 - [ ] Advanced filtering and search
-- [ ] Trained TF.js models for PigmentIdentifier (MobileNet-v2 segmentation) and PigmentRestorer (U-Net)
-- [ ] XRF/Raman spectroscopy ground-truth dataset for model training
+- [ ] Replace the HSV pigment classifier with a trained model (e.g. MobileNet-v2 head) — `experiments/inpainting/` has a partial PyTorch starter but no exporter / loader wired into the runtime
+- [ ] XRF / Raman spectroscopy ground-truth dataset for training the above
 
 ---
 

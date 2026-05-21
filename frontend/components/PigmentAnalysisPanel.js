@@ -3,7 +3,7 @@
  * HSV-threshold pigment-class segmentation. The output map drives the
  * per-pigment Arrhenius extension of the chemical fading model.
  */
-import { identifyPigments } from '../ml/PigmentAnalysis.js';
+import { identifyPigments } from '../pigment/PigmentAnalysis.js';
 import * as Sim from '../services/SimulationEngine.js';
 import { useI18n } from '../i18n.js';
 

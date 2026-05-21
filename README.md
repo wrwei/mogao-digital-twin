@@ -8,7 +8,7 @@ A Model-Driven Engineering (MDE) system for the Mogao Caves Digital Twin, a UNES
 |-------|-----------|------|
 | **Design-time** | Java 17, Maven, Epsilon EGL/EOL, Eclipse EMF (Ecore) | Metamodel-driven code generation |
 | **Runtime backend** | Node.js, Express.js, MongoDB, Mongoose | REST API + persistence |
-| **Runtime frontend** | Vue 3 (CDN), Three.js, Chart.js, Axios, TensorFlow.js | SPA with 3D visualisation |
+| **Runtime frontend** | Vue 3 (CDN), Three.js, Chart.js, Axios | SPA with 3D visualisation |
 | **Authentication** | JWT (jsonwebtoken), bcryptjs | Token-based auth with role system; sensor devices authenticate via API key |
 | **Testing** | Jest | Unit tests for deterioration models |
 
@@ -22,9 +22,7 @@ A Model-Driven Engineering (MDE) system for the Mogao Caves Digital Twin, a UNES
   - VTT mould growth — Hukka-Viitanen 1999
   - Salt crystallisation pressure — Correns / Steiger 2005
   - Hygro-mechanical fatigue — Basquin + Miner's rule, after Bratasz 2013
-- **ML Pigment Analysis**:
-  - Per-pixel pigment classification into 8 mineralogical classes (heuristic HSV default, optional MobileNetV2 neural net)
-  - Database-driven colour restoration using reference chromaticities from published conservation analyses
+- **Pigment Analysis**: Per-pixel HSV classification into 8 mineralogical Dunhuang pigment classes (azurite, malachite, vermilion, lead white, gold leaf, red ochre, carbon black, background). Drives per-pigment Arrhenius fading in the chemical model.
 - **Telemetry Pipeline** — live monitoring with per-sensor API keys:
   - Single-sample, batch, and CSV-file ingestion endpoints
   - 10-minute sampling cadence by default
@@ -145,15 +143,14 @@ mogao-digital-twin/
 │   │   ├── LiveDataPanel.js                    # Real-time telemetry
 │   │   ├── SensorDashboard.js                  # Fleet management (admin)
 │   │   └── SettingsView.js                     # User settings
-│   ├── ml/                                     # PigmentIdentifier, PigmentRestorer, PigmentDatabase
+│   ├── pigment/                                # PigmentDatabase, PigmentIdentifier, PigmentAnalysis
 │   ├── workers/
 │   │   ├── deterioration-worker.js
 │   │   └── pigment-deterioration-worker.js
 │   └── css/
 │
-├── ml/inpainting/                              # PyTorch U-Net training scripts (future work)
+├── experiments/inpainting/                     # PyTorch U-Net training scripts (not wired into runtime)
 ├── ARCHITECTURE.md
-├── ML-MODELS.md                                # Pigment ID + restorer background
 └── README.md                                   # This file
 ```
 
@@ -246,7 +243,7 @@ Adding a new heritage artefact type (e.g. `Textile`) to the metamodel automatica
 Several runtime components were added by hand rather than through the EGL templates:
 
 - **Backend**: `DeteriorationService`, `TelemetryService`, `Sensor` model, `EnvironmentSample` model, sensor/telemetry controllers and routers, `sensorAuth` middleware
-- **Frontend**: `ModelViewer`, `SimulationPanel`, `PigmentAnalysisPanel`, `LiveDataPanel`, `SensorDashboard`, ML helpers (`PigmentIdentifier`, `PigmentRestorer`, `PigmentDatabase`), deterioration web workers
+- **Frontend**: `ModelViewer`, `SimulationPanel` (+ `SimulationEngine`), `PigmentAnalysisPanel`, `LiveDataPanel`, `SensorDashboard`, pigment helpers (`PigmentIdentifier`, `PigmentDatabase`, `PigmentAnalysis`), deterioration web workers
 
 If you regenerate from the metamodel, these files survive untouched (the generator only produces the auto-generated ones listed in the Ecore).
 
@@ -254,7 +251,7 @@ If you regenerate from the metamodel, these files survive untouched (the generat
 
 - [System Architecture & Deterioration Models](ARCHITECTURE.md) — full technical reference
 - [Deterioration Simulation Guide](frontend/DETERIORATION_SIMULATION.md) — Strlic dose-response framework
-- [ML Models](ML-MODELS.md) — pigment identifier + restorer background
+- Pigment analysis subsystem: [ARCHITECTURE.md §10](ARCHITECTURE.md#10-pigment-analysis-system)
 - [Predictive Analytics Plan](PREDICTION-PLAN.md) — roadmap for historical replay, forecast ETA, anomaly detection, and maintenance triage built on top of the telemetry pipeline
 - [i18n Guide](frontend/I18N_README.md) — multilingual support
 

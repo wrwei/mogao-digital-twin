@@ -301,6 +301,6 @@ capability.
 ## Cross-references
 
 - Scientific models: [ARCHITECTURE.md](ARCHITECTURE.md)
-- ML pigment analysis: [ML-MODELS.md](ML-MODELS.md)
+- Pigment analysis subsystem: [ARCHITECTURE.md §10](ARCHITECTURE.md#10-pigment-analysis-system)
 - Deterioration equations: [deterioration models.md](deterioration%20models.md)
 - Manuscript alignment: `../Heritage-Sciences/Methods.tex`
