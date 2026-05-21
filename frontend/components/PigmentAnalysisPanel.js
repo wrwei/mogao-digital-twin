@@ -3,7 +3,7 @@
  * HSV-threshold pigment-class segmentation. The output map drives the
  * per-pigment Arrhenius extension of the chemical fading model.
  */
-import { PigmentIdentifier } from '../ml/PigmentIdentifier.js';
+import { identifyPigments } from '../ml/PigmentAnalysis.js';
 import { useI18n } from '../i18n.js';
 
 export default {
@@ -19,7 +19,6 @@ export default {
     },
     data() {
         return {
-            identifier: null,
             analyzing: false,
             pigmentMap: null,
             regionSummary: null,
@@ -31,12 +30,6 @@ export default {
             // clobbering the new one).
             _taskGeneration: 0,
         };
-    },
-    created() {
-        this.identifier = new PigmentIdentifier();
-    },
-    beforeUnmount() {
-        if (this.identifier) this.identifier.dispose();
     },
     methods: {
         async analyzePigments() {
@@ -51,7 +44,7 @@ export default {
             this.error = null;
             this.$emit('busy-changed', true);
             try {
-                const result = await this.identifier.identify(
+                const result = await identifyPigments(
                     this.pixelData.data, pxWidth, pxHeight
                 );
                 if (gen !== this._taskGeneration) return;

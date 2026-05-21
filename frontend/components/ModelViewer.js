@@ -2,6 +2,8 @@
  * ModelViewer Component
  * Three.js-based 3D model viewer for OBJ/MTL files with textures
  */
+import { runDeteriorationWorker as runPigmentDeteriorationWorker } from '../ml/PigmentAnalysis.js';
+
 const { markRaw } = Vue;
 
 export default {
@@ -33,7 +35,6 @@ export default {
         return {
             loading: true,
             error: null,
-            pigmentDeteriorationWorker: null,
             // Deterioration simulation parameters
             simTemp: 20,           // Temperature in °C
             simRH: 50,             // Relative humidity in %
@@ -86,7 +87,6 @@ export default {
     },
     beforeUnmount() {
         if (this.deteriorationWorker) this.deteriorationWorker.terminate();
-        if (this.pigmentDeteriorationWorker) this.pigmentDeteriorationWorker.terminate();
         this.cleanup();
     },
     watch: {
@@ -476,12 +476,7 @@ export default {
             const degradationFactor = this.enabledChemical ? (this.chemicalDegradationFactor ?? 1.0) : 1.0;
 
             if (pigmentMap && perPigmentParams) {
-                // ── Per-pigment deterioration via pigment worker ──────────
-                if (!this.pigmentDeteriorationWorker) {
-                    this.pigmentDeteriorationWorker = new Worker('workers/pigment-deterioration-worker.js');
-                    this.pigmentDeteriorationWorker.onmessage = (e) => this.handleWorkerResult(e.data);
-                    this.pigmentDeteriorationWorker.onerror = (err) => this._handleWorkerError('per-pigment', err);
-                }
+                // ── Per-pigment deterioration via PigmentAnalysis module ──
                 const pixelCopy = new Uint8ClampedArray(this.originalPixelData).buffer;
                 const mapCopy = new Uint8Array(pigmentMap).buffer;
                 // Deep-copy perPigmentParams to a plain object (Vue reactive proxies can't be cloned by postMessage)
@@ -491,14 +486,19 @@ export default {
                     plainParams[key] = {
                         degradationFactor: p.degradationFactor,
                         fadedRGB: p.fadedRGB ? [...p.fadedRGB] : null,
-                        targetRGB: p.targetRGB ? [...p.targetRGB] : null
+                        targetRGB: p.targetRGB ? [...p.targetRGB] : null,
+                        agingTint: p.agingTint ? { ...p.agingTint } : null
                     };
                 }
                 console.log(`Per-pigment deterioration: ${Object.keys(plainParams).length} classes, size=${w}×${h}`);
-                this.pigmentDeteriorationWorker.postMessage(
-                    { pixelData: pixelCopy, pigmentMap: mapCopy, pigmentParams: plainParams, width: w, height: h, amplification: 3 },
-                    [pixelCopy, mapCopy]
-                );
+                runPigmentDeteriorationWorker({
+                    pixelData: pixelCopy,
+                    pigmentMap: mapCopy,
+                    perPigmentParams: plainParams,
+                    width: w, height: h,
+                    amplification: 3
+                }).then(result => this.handleWorkerResult(result))
+                  .catch(err => this._handleWorkerError('per-pigment', err));
             } else {
                 // ── Uniform deterioration (existing behaviour) ────────────
                 const pixelCopy = new Uint8ClampedArray(this.originalPixelData).buffer;

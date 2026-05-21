@@ -11,7 +11,7 @@
  */
 import { useI18n } from '../i18n.js';
 import PigmentAnalysisPanel from './PigmentAnalysisPanel.js';
-import { PIGMENT_DATABASE, PIGMENT_NAMES } from '../ml/PigmentDatabase.js';
+import { computePerPigmentParams } from '../ml/PigmentAnalysis.js';
 
 /**
  * Unified preset catalog. Each entry declares the environmental conditions
@@ -426,23 +426,12 @@ export default {
 
         // ── ML Pigment Integration ──────────────────────────────────
         _computePerPigmentParams(totalDays) {
-            const R = 8.314;
-            const T = this.temperatureCelsius + 273.15;
-            const RH = this.humidity / 100;
-            const light = this.simLight;
-            const params = {};
-
-            for (const name of PIGMENT_NAMES) {
-                const p = PIGMENT_DATABASE[name];
-                // Arrhenius rate constant per pigment
-                const H2O = Math.pow(Math.abs(Math.log(1 - Math.min(RH, 0.999)) / (1.67 * T - 285.655)), 1 / (2.491 - 0.012 * T));
-                const k_dark = p.k0_dark * Math.pow(Math.abs(H2O), p.q) * Math.exp(-p.Ea_dark / (R * T));
-                const k_light = light > 0 ? p.k0_light * Math.pow(light, p.p) * Math.pow(Math.abs(H2O), p.q) * Math.exp(-p.Ea_light / (R * T)) : 0;
-                const k = k_dark + k_light;
-                const degradationFactor = Math.exp(-k * totalDays);
-                params[p.id] = { degradationFactor, fadedRGB: p.fadedRGB, targetRGB: p.targetRGB };
-            }
-            this.perPigmentParams = params;
+            this.perPigmentParams = computePerPigmentParams({
+                T_celsius: this.temperatureCelsius,
+                RH_percent: this.humidity,
+                light_klux: this.simLight,
+                totalDays
+            });
         },
 
         handlePigmentAnalyzed(result) {

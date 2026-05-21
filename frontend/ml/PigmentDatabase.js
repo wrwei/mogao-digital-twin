@@ -38,6 +38,9 @@ export const PIGMENT_DATABASE = {
         p: 0.85,
         targetRGB: [0, 80, 180],
         fadedRGB: [90, 110, 130],
+        // Secondary ageing tint applied after the base fade in the worker.
+        // Green shift from CuO formation: +G, -B (R unchanged).
+        agingTint: { amount: 8, dR: 0, dG: 0.4, dB: -0.2 },
         description: 'Copper carbonate, darkens to tenorite (CuO) in humid conditions'
     },
     malachite: {
@@ -68,6 +71,8 @@ export const PIGMENT_DATABASE = {
         p: 0.95,
         targetRGB: [200, 30, 15],
         fadedRGB: [130, 80, 70],
+        // Meta-cinnabar darkening: all three channels drop, R fastest.
+        agingTint: { amount: 12, dR: -1, dG: -0.6, dB: -0.4 },
         description: 'Mercury sulfide (HgS), meta-cinnabar darkening under light'
     },
     leadWhite: {
@@ -83,6 +88,8 @@ export const PIGMENT_DATABASE = {
         p: 0.8,
         targetRGB: [245, 240, 230],
         fadedRGB: [200, 190, 170],
+        // Slight yellowing with age: +R/+G, -B.
+        agingTint: { amount: 10, dR: 1, dG: 0.5, dB: -0.4 },
         description: 'Basic lead carbonate, darkens with H₂S, yellows with age'
     },
     goldLeaf: {
