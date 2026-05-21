@@ -10,7 +10,6 @@ const { createApp } = Vue;
 // Import i18n
 // ============================================
 import { useI18n } from './i18n.js';
-import { vFocusTrap } from './utils/a11y.js';
 import { parseHash, setHash, subscribeRoute } from './utils/router.js';
 import ConfirmDialog from './components/ConfirmDialog.js';
 import ToastStack from './components/ToastStack.js';
@@ -49,6 +48,13 @@ import InscriptionDetailView from './components/InscriptionDetailView.js';
 import SettingsView from './components/SettingsView.js';
 import SensorDashboard from './components/SensorDashboard.js';
 import MaintenanceQueue from './components/MaintenanceQueue.js';
+
+// Application chrome + shared UI primitives (extracted from this file)
+import AppSidebar from './components/AppSidebar.js';
+import AppTopbar from './components/AppTopbar.js';
+import LoadingSpinner from './components/LoadingSpinner.js';
+import ModalDialog from './components/ModalDialog.js';
+import DrawerPanel from './components/DrawerPanel.js';
 
 // ============================================
 // Entity Composable Factory
@@ -174,172 +180,6 @@ const LoginPage = {
 // ============================================
 // Shared UI Components
 // ============================================
-const AppSidebar = {
-    props: ['currentView', 'backendOnline', 'isAdmin', 'anomalyCount'],
-    emits: ['change-view'],
-    setup() {
-        const { t } = useI18n();
-        return { t };
-    },
-    template: `
-        <div class="app-sidebar">
-            <div class="sidebar-header">
-                <div class="sidebar-logo">🏛️</div>
-                <span class="sidebar-brand">M-Gemini</span>
-            </div>
-            <div class="sidebar-nav">
-                <div class="sidebar-nav-item" :class="{ active: currentView === 'dashboard' }" @click="$emit('change-view', 'dashboard')">
-                    <span class="sidebar-nav-icon">📊</span>
-                    <span>{{ t('nav.dashboard') }}</span>
-                </div>
-                <div class="sidebar-nav-item" :class="{ active: currentView === 'caves' || currentView === 'statues' || currentView === 'murals' || currentView === 'paintings' || currentView === 'inscriptions' }" @click="$emit('change-view', 'caves')">
-                    <span class="sidebar-nav-icon">🏛️</span>
-                    <span>{{ t('entities.caves') }}</span>
-                </div>
-                <div v-if="isAdmin" class="sidebar-nav-item" :class="{ active: currentView === 'sensors' }" @click="$emit('change-view', 'sensors')">
-                    <span class="sidebar-nav-icon">📡</span>
-                    <span style="flex: 1;">{{ t('nav.sensors') || 'Sensors' }}</span>
-                    <span v-if="anomalyCount > 0" class="sidebar-badge" :class="{ critical: anomalyCount >= 5 }" :title="anomalyCount + ' active anomalies'">{{ anomalyCount }}</span>
-                </div>
-                <div v-if="isAdmin" class="sidebar-nav-item" :class="{ active: currentView === 'maintenance' }" @click="$emit('change-view', 'maintenance')">
-                    <span class="sidebar-nav-icon">🔧</span>
-                    <span style="flex: 1;">{{ t('navExtras.maintenance') }}</span>
-                    <span v-if="anomalyCount > 0" class="sidebar-badge" :class="{ critical: anomalyCount >= 5 }" :title="anomalyCount + ' active anomalies'">{{ anomalyCount }}</span>
-                </div>
-                <div class="sidebar-nav-item" :class="{ active: currentView === 'settings' }" @click="$emit('change-view', 'settings')" style="margin-top: auto;">
-                    <span class="sidebar-nav-icon">&#9881;</span>
-                    <span>{{ t('nav.settings') || 'Settings' }}</span>
-                </div>
-            </div>
-            <div class="sidebar-footer">
-                <span class="status-dot" :class="backendOnline ? 'online' : 'offline'"></span>
-                <span>{{ backendOnline ? t('nav.backendOnline') : t('nav.backendOffline') }}</span>
-            </div>
-        </div>
-    `
-};
-
-const AppTopbar = {
-    props: ['locale', 'theme', 'user'],
-    emits: ['change-locale', 'change-theme', 'logout'],
-    setup() {
-        const { t } = useI18n();
-        return { t };
-    },
-    data() {
-        return {
-            showThemePicker: false,
-            themes: [
-                { id: 'mogao',    name: 'Mogao Sand',     sidebar: '#5C3D2E', primary: '#D4A574', accent: '#8B4513', icon: '🏛️' },
-                { id: 'ocean',    name: 'Ocean Blue',     sidebar: '#1e3a5f', primary: '#5b9bd5', accent: '#2c5f8a', icon: '🌊' },
-                { id: 'forest',   name: 'Forest Green',   sidebar: '#2d4a3e', primary: '#6db58a', accent: '#3a7d5c', icon: '🌿' },
-                { id: 'slate',    name: 'Modern Slate',   sidebar: '#2d3748', primary: '#a0aec0', accent: '#4a5568', icon: '🖥️' },
-                { id: 'plum',     name: 'Royal Plum',     sidebar: '#3d2b4e', primary: '#b39ddb', accent: '#6a4c93', icon: '👑' },
-                { id: 'ember',    name: 'Warm Ember',     sidebar: '#4a2020', primary: '#e07a5f', accent: '#8b3a3a', icon: '🔥' },
-                { id: 'midnight', name: 'Midnight Dark',  sidebar: '#1a1a2e', primary: '#7c83db', accent: '#3a3a5c', icon: '🌙' },
-                { id: 'sakura',   name: 'Sakura Blossom', sidebar: '#4a3040', primary: '#e8a0bf', accent: '#8b4f6e', icon: '🌸' }
-            ]
-        };
-    },
-    methods: {
-        selectTheme(themeId) {
-            this.$emit('change-theme', themeId);
-            this.showThemePicker = false;
-            // Restore focus to the trigger after closing.
-            this.$nextTick(() => { if (this.$refs.themeBtn) this.$refs.themeBtn.focus(); });
-        },
-        toggleThemePicker() {
-            this.showThemePicker = !this.showThemePicker;
-        },
-        closeThemePicker() {
-            this.showThemePicker = false;
-        },
-        handleThemePickerKey(ev) {
-            // Esc closes the picker; arrows navigate items.
-            if (ev.key === 'Escape') {
-                ev.stopPropagation();
-                this.showThemePicker = false;
-                if (this.$refs.themeBtn) this.$refs.themeBtn.focus();
-            }
-        },
-        handleDocClick(ev) {
-            // Click-outside dismissal — runs only while picker is open
-            // because the listener is registered/removed by a watcher below.
-            if (this.$refs.picker && !this.$refs.picker.contains(ev.target)) {
-                this.showThemePicker = false;
-            }
-        }
-    },
-    watch: {
-        showThemePicker(open) {
-            if (open) {
-                document.addEventListener('mousedown', this.handleDocClick);
-            } else {
-                document.removeEventListener('mousedown', this.handleDocClick);
-            }
-        }
-    },
-    beforeUnmount() {
-        document.removeEventListener('mousedown', this.handleDocClick);
-    },
-    template: `
-        <div class="app-topbar">
-            <span class="topbar-title">{{ locale === 'zh' ? 'M-Gemini 数字孪生平台' : 'M-Gemini Digital Twin Platform' }}</span>
-            <div class="topbar-actions">
-                <!-- Theme picker -->
-                <div class="theme-picker-wrapper" ref="picker" @keydown="handleThemePickerKey">
-                    <button ref="themeBtn"
-                            class="topbar-icon-btn"
-                            @click="toggleThemePicker"
-                            :aria-label="t('settings.theme') || 'Theme'"
-                            aria-haspopup="menu"
-                            :aria-expanded="showThemePicker">
-                        🎨
-                    </button>
-                    <div v-if="showThemePicker" class="theme-picker-dropdown" role="menu">
-                        <div class="theme-picker-title">{{ t('settings.theme') || 'Theme' }}</div>
-                        <button
-                            v-for="th in themes"
-                            :key="th.id"
-                            type="button"
-                            class="theme-picker-item"
-                            :class="{ active: theme === th.id }"
-                            role="menuitemradio"
-                            :aria-checked="theme === th.id"
-                            @click="selectTheme(th.id)"
-                        >
-                            <span class="theme-picker-swatch" :style="{ background: th.sidebar }">
-                                <span class="theme-picker-swatch-dot" :style="{ background: th.primary }"></span>
-                            </span>
-                            <span>{{ th.icon }} {{ th.name }}</span>
-                            <span v-if="theme === th.id" style="margin-left: auto; color: var(--primary-color);" aria-hidden="true">✓</span>
-                        </button>
-                    </div>
-                </div>
-                <!-- Locale -->
-                <select class="topbar-locale-select"
-                        @change="$emit('change-locale', $event.target.value)"
-                        :value="locale"
-                        :aria-label="t('settings.language') || 'Language'">
-                    <option value="en">🌐 English</option>
-                    <option value="zh">🌐 中文</option>
-                </select>
-                <!-- User & Logout -->
-                <span v-if="user" style="color: var(--sidebar-text, #ccc); font-size: 13px; margin-left: 8px;">
-                    {{ user.fullName || user.username }}
-                </span>
-                <button class="topbar-icon-btn"
-                        @click="$emit('logout')"
-                        :aria-label="t('actions.logout')"
-                        :title="t('actions.logout')"
-                        style="margin-left: 4px;">
-                    ⏻
-                </button>
-            </div>
-        </div>
-    `
-};
-
 const DashboardView = {
     props: ['caveCount', 'statueCount', 'muralCount', 'paintingCount', 'inscriptionCount'],
     emits: ['navigate'],
@@ -407,74 +247,6 @@ const DashboardView = {
                     <button class="quick-action-btn" @click="$emit('navigate', 'murals')">🎨 {{ t('dashboard.viewMurals') }}</button>
                     <button class="quick-action-btn" @click="$emit('navigate', 'paintings')">🖼️ {{ t('dashboard.viewPaintings') }}</button>
                     <button class="quick-action-btn" @click="$emit('navigate', 'inscriptions')">✍️ {{ t('dashboard.viewInscriptions') }}</button>
-                </div>
-            </div>
-        </div>
-    `
-};
-
-const LoadingSpinner = {
-    setup() {
-        const { t } = useI18n();
-        return { t };
-    },
-    template: `
-        <div class="loading-overlay">
-            <div class="spinner"></div>
-            <p style="margin-top: var(--spacing-md); color: var(--text-secondary);">{{ t('common.loading') }}</p>
-        </div>
-    `
-};
-
-const ModalDialog = {
-    props: ['title', 'show', 'wide'],
-    emits: ['close'],
-    directives: { focusTrap: vFocusTrap },
-    setup() {
-        const { t } = useI18n();
-        return { t };
-    },
-    template: `
-        <div v-if="show" class="modal-overlay" @click.self="$emit('close')"
-             v-focus-trap="{ onEscape: () => $emit('close') }"
-             role="dialog" aria-modal="true" aria-labelledby="modal-title">
-            <div class="modal" :style="wide ? 'min-width: 500px; max-width: 95vw; width: auto;' : 'min-width: 500px;'">
-                <div class="modal-header">
-                    <h3 id="modal-title" class="modal-title">{{ title }}</h3>
-                    <button class="modal-close" @click="$emit('close')"
-                            :aria-label="t('common.close') || 'Close'">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <slot></slot>
-                </div>
-            </div>
-        </div>
-    `
-};
-
-const DrawerPanel = {
-    props: ['show', 'title'],
-    emits: ['close'],
-    directives: { focusTrap: vFocusTrap },
-    setup() {
-        const { t } = useI18n();
-        return { t };
-    },
-    template: `
-        <div v-if="show" class="drawer-overlay" @click.self="$emit('close')"
-             v-focus-trap="{ onEscape: () => $emit('close') }"
-             role="dialog" aria-modal="true" aria-labelledby="drawer-title">
-            <div class="drawer drawer-right">
-                <div class="drawer-header" style="display: flex; justify-content: space-between; align-items: center;">
-                    <h3 id="drawer-title" style="margin: 0; flex: 1;">{{ title }}</h3>
-                    <div class="drawer-header-actions" style="display: flex; align-items: center; gap: 8px;">
-                        <slot name="header-actions"></slot>
-                        <button class="drawer-close" @click="$emit('close')"
-                                :aria-label="t('common.close') || 'Close'">&times;</button>
-                    </div>
-                </div>
-                <div class="drawer-body">
-                    <slot></slot>
                 </div>
             </div>
         </div>
