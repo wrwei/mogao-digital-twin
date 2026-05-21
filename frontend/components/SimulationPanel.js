@@ -1,742 +1,315 @@
 /**
- * Simulation Panel Component
- * Manual component for environmental simulation
- * Allows users to configure temperature and relative humidity
- *
- * Calls backend deterioration API for scientific model calculations:
- *   - Chemical pigment fading (Arrhenius + first-order kinetics)
- *   - Michalski lifetime multiplier (Climate for Culture eLM)
- *   - VTT / Finnish mould growth model (Hukka & Viitanen 1999)
- *   - Salt crystallization pressure (Scherer 1999 / Steiger 2005)
+ * Simulation Panel
+ * UI for environmental simulation: sliders bind to SimulationEngine state,
+ * results render from engine.assessmentResults. Chart rendering, unit
+ * conversion (°C/°F), and the legacy `simulation-changed` emit live here;
+ * deterioration state, the assess API, presets, playback, and the time
+ * series have moved to frontend/services/SimulationEngine.js.
  */
 import { useI18n } from '../i18n.js';
-import PigmentAnalysisPanel from './PigmentAnalysisPanel.js';
-import { computePerPigmentParams } from '../ml/PigmentAnalysis.js';
+import * as Sim from '../services/SimulationEngine.js';
 
-/**
- * Unified preset catalog. Each entry declares the environmental conditions
- * plus which deterioration models it's intended to demonstrate. The UI uses
- * `models` to filter the dropdown per active tab so users only see presets
- * that produce meaningful output for the current model.
- */
-const PRESET_CATALOG = {
-    // Real-world heritage scenarios. Every real-world preset includes
-    // 'mould' in its models array so users can observe whether conditions
-    // cross the VTT critical-RH threshold (many won't — and that's the
-    // intended teaching point: "see why these conditions prevent mould").
-    oneYear:     { temp: 25, rh: 60,  years: 1,   light: 10,   rhAmplitude: 10, label: '1 Year',                          models: ['chemical', 'lifetime', 'mould', 'salt', 'fatigue'] },
-    tenYears:    { temp: 25, rh: 60,  years: 10,  light: 10,   rhAmplitude: 10, label: '10 Years',                        models: ['chemical', 'lifetime', 'mould', 'salt', 'fatigue'] },
-    museum:      { temp: 20, rh: 50,  years: 100, light: 0.15, rhAmplitude: 5,  label: 'Museum 100y',                     models: ['chemical', 'lifetime', 'mould', 'salt', 'fatigue'] },
-    poorStorage: { temp: 30, rh: 80,  years: 50,  light: 5,    rhAmplitude: 20, label: 'Poor Storage 50y',                models: ['chemical', 'lifetime', 'mould', 'salt', 'fatigue'] },
-    extreme:     { temp: 40, rh: 100, years: 10,  light: 30,   rhAmplitude: 30, label: 'Extreme 10y',                     models: ['chemical', 'lifetime', 'mould', 'fatigue'] },
-    longTerm200: { temp: 20, rh: 50,  years: 200, light: 0.15, rhAmplitude: 5,  label: '200y Museum',                     models: ['chemical', 'lifetime', 'mould', 'salt', 'fatigue'] },
-    mogao200:    { temp: 13, rh: 35,  years: 200, light: 2,    rhAmplitude: 15, label: '200y Mogao (cold/dry)',           models: ['chemical', 'lifetime', 'mould', 'salt', 'fatigue'] },
-    tropical200: { temp: 28, rh: 75,  years: 200, light: 5,    rhAmplitude: 20, label: '200y Tropical (humid/warm)',      models: ['chemical', 'lifetime', 'mould', 'salt', 'fatigue'] },
-    // Model-dedicated demonstrations
-    demoChemical: { temp: 25, rh: 50, years: 50,  light: 20,   rhAmplitude: 10, label: '⚗️ Light Exposure Test 50y',       models: ['chemical'] },
-    demoLifetime: { temp: 5,  rh: 35, years: 200, light: 0,    rhAmplitude: 5,  label: '⏳ Cold Dry Archive 200y',          models: ['lifetime'] },
-    demoMould:    { temp: 25, rh: 90, years: 10,  light: 1,    rhAmplitude: 5,  label: '🦠 Humid Mould Bloom 10y',          models: ['mould'] },
-    demoSalt:     { temp: 20, rh: 45, years: 100, light: 0.15, rhAmplitude: 5,  label: '🧂 Salt Cycling Zone 100y',         models: ['salt'] },
-    demoFatigue:  { temp: 20, rh: 50, years: 50,  light: 0.15, rhAmplitude: 30, label: '🧱 Large RH Swings 50y',             models: ['fatigue'] },
-};
-
-/** Map the dropdown's `activeTab` name to the model keys used in PRESET_CATALOG. */
-const TAB_TO_MODEL = { chemical: 'chemical', lifetime: 'lifetime', mould: 'mould', salt: 'salt', fatigue: 'fatigue' };
+const { ref, reactive, computed, watch, onMounted, onBeforeUnmount, toRefs, nextTick } = Vue;
 
 export default {
     name: 'SimulationPanel',
-    components: { PigmentAnalysisPanel },
     props: {
-        entity: {
-            type: Object,
-            default: null
-        },
-        pixelData: {
-            type: Object,
-            default: null // { data: Uint8ClampedArray, width, height }
-        },
-        externalPigmentMap: {
-            type: Object,
-            default: null
-        },
-        externalPigmentDisplayMode: {
-            type: String,
-            default: null
-        },
-        textureProcessing: {
-            type: Boolean,
-            default: false
-        }
+        entity: { type: Object, default: null },
+        pixelData: { type: Object, default: null },
+        externalPigmentMap: { type: Object, default: null },
+        externalPigmentDisplayMode: { type: String, default: null },
+        textureProcessing: { type: Boolean, default: false }
     },
     emits: ['simulation-changed', 'reset-texture', 'busy-changed'],
-    setup() {
+    setup(props, { emit }) {
         const { t } = useI18n();
-        return { t };
-    },
-    data() {
-        return {
-            temperature: 20, // Celsius
-            humidity: 50,    // Percentage
-            isSimulating: true,   // Always active
-            isPlaying: false,    // Time progression play/pause
-            temperatureUnit: 'C', // C or F
-            simulationSpeed: 1.0, // Multiplier for time-based effects
-            // Deterioration simulation parameters
-            simDays: 0,      // Exposure time in days
-            simMonths: 0,    // Exposure time in months
-            simYears: 0,     // Exposure time in years
-            simLight: 0,     // Light intensity in klux
-            simRHAmplitude: 10, // RH cycle amplitude (%), drives hygro-mechanical fatigue
-            // Mould growth tracking
-            mouldIndex: 0,   // Running mould index (0-6)
-            // Time progression
-            simulationTimer: null,
-            timeSeriesData: [],  // Historical data points
-            chartInstance: null,
-            maxDataPoints: 100,   // Limit chart data for performance
-            isApplyingTexture: false,  // For notification
-            // Model selection toggles
-            enabledModels: {
-                chemical: true,
-                lifetime: true,
-                mould: true,
-                saltCryst: true,
-                fatigue: true
-            },
-            // Active tab
-            activeTab: 'chemical',
-            // Selected preset (empty = no preset)
-            selectedPreset: '',
-            // Loading state during preset application (reset → apply → wait for texture)
-            presetLoading: false,
-            // Monotonic counter; bumped on every preset change so an earlier
-            // in-flight onPresetChange knows it's been superseded and exits.
-            _presetGeneration: 0,
-            // Model configuration (expandable)
-            showConfig: { chemical: false, lifetime: false, mould: false, saltCryst: false, fatigue: false },
-            // Configurable model parameters (loaded from backend /deterioration/defaults)
-            chemicalParams: { Ea_dark: 70000, Ea_light: 25000, k0_dark: 0.0001, k0_light: 0.001, q: 0.8, p: 0.9 },
-            lifetimeParams: { Ea: 70000, n: 1.3, T0: 20, RH0: 50 },
-            mouldParams: { growthCoeff: 0.13, declineRate: -0.128 },
-            saltCrystParams: { Vm: 5.33e-5, DRH_ref: 84.2, DRH_slope: -0.17, T_ref: 25, tensileStrength: 3.0, cyclesPerYear: 120 },
-            fatigueParams: { beta_diff: 5e-5, E: 2000, sigma_fail: 10.0, basquin_b: 6, cyclesPerYear: 365 },
-            // Cached assessment results from backend API
-            _assessmentResults: null,
-            _assessDebounceTimer: null,
-            // Pigment-class segmentation (from PigmentAnalysisPanel)
-            pigmentMap: null,
-            perPigmentParams: null,
-            pigmentDisplayMode: 'current'
-        };
-    },
-    computed: {
-        temperatureK() {
-            if (this.temperatureUnit === 'C') {
-                return this.temperature + 273.15;
+
+        // ── UI-only state (not in engine) ─────────────────────────────────
+        const temperatureUnit = ref('C');
+        const showConfig = reactive({ chemical: false, lifetime: false, mould: false, saltCryst: false, fatigue: false });
+        const timeSeriesCanvas = ref(null);
+        let chartInstance = null;
+
+        // ── Engine bindings exposed to the template ───────────────────────
+        const { temperature, humidity, simLight, simRHAmplitude } = toRefs(Sim.env);
+        const { days: simDays, months: simMonths, years: simYears } = toRefs(Sim.exposure);
+
+        // Reactive children of modelParams — template uses dotted access (chemicalParams.Ea_dark)
+        const chemicalParams  = Sim.modelParams.chemical;
+        const lifetimeParams  = Sim.modelParams.lifetime;
+        const mouldParams     = Sim.modelParams.mould;
+        const saltCrystParams = Sim.modelParams.saltCryst;
+        const fatigueParams   = Sim.modelParams.fatigue;
+
+        const enabledModels  = Sim.enabledModels;
+        const activeTab      = Sim.activeTab;
+        const selectedPreset = Sim.selectedPreset;
+        const presetLoading  = Sim.presetLoading;
+
+        const assessmentResults = Sim.assessmentResults;
+        const isPlaying         = Sim.isPlaying;
+        const simulationSpeed   = Sim.simulationSpeed;
+        const history           = Sim.history;
+        const availablePresets  = Sim.availablePresets;
+
+        // ── UI-derived computeds (°C/°F, status labels, colours) ──────────
+        const temperatureK = computed(() => {
+            if (temperatureUnit.value === 'C') return temperature.value + 273.15;
+            return (temperature.value - 32) * 5/9 + 273.15;
+        });
+        const temperatureCelsius = computed(() => {
+            if (temperatureUnit.value === 'C') return temperature.value;
+            return (temperature.value - 32) * 5/9;
+        });
+        const temperatureColor = computed(() => {
+            const T = temperature.value;
+            if (T < 10) return '#3b82f6';
+            if (T < 20) return '#10b981';
+            if (T < 25) return '#f59e0b';
+            return '#ef4444';
+        });
+        const humidityColor = computed(() => {
+            const H = humidity.value;
+            if (H < 30) return '#ef4444';
+            if (H < 40) return '#f59e0b';
+            if (H < 60) return '#10b981';
+            if (H < 70) return '#f59e0b';
+            return '#ef4444';
+        });
+        const temperatureStatus = computed(() => {
+            const T = temperature.value;
+            if (T < 10) return t('simulation.status.tooCold');
+            if (T < 18) return t('simulation.status.cold');
+            if (T < 22) return t('simulation.status.optimal');
+            if (T < 28) return t('simulation.status.warm');
+            return t('simulation.status.tooHot');
+        });
+        const lightColor = computed(() => {
+            const L = simLight.value;
+            if (L <= 0) return '#6b7280';
+            if (L <= 0.2) return '#10b981';
+            if (L <= 5) return '#f59e0b';
+            return '#ef4444';
+        });
+        const lightStatus = computed(() => {
+            const L = simLight.value;
+            if (L <= 0) return t('simulation.status.dark') || 'Dark storage';
+            if (L <= 0.2) return t('simulation.status.museum') || 'Museum level';
+            if (L <= 5) return t('simulation.status.moderate') || 'Moderate exposure';
+            return t('simulation.status.excessive') || 'Excessive';
+        });
+        const humidityStatus = computed(() => {
+            const H = humidity.value;
+            if (H < 30) return t('simulation.status.tooDry');
+            if (H < 40) return t('simulation.status.dry');
+            if (H < 60) return t('simulation.status.optimal');
+            if (H < 70) return t('simulation.status.humid');
+            return t('simulation.status.tooHumid');
+        });
+
+        // ── Per-model result aliases ──────────────────────────────────────
+        const chemicalResult    = computed(() => assessmentResults.value.chemical);
+        const lifetimeResult    = computed(() => assessmentResults.value.lifetime);
+        const mouldResult       = computed(() => assessmentResults.value.mould);
+        const saltCrystResult   = computed(() => assessmentResults.value.saltCryst);
+        const fatigueResult     = computed(() => assessmentResults.value.fatigue);
+        const displayMouldIndex = computed(() => mouldResult.value.mouldIndex);
+        const mouldStatusColor = computed(() => {
+            const r = mouldResult.value;
+            if (!r.isAboveThreshold && humidity.value < r.rhCritical - 5) return '#10b981';
+            if (!r.isAboveThreshold) return '#f59e0b';
+            return '#ef4444';
+        });
+        const mouldStatusLabel = computed(() => {
+            const r = mouldResult.value;
+            if (!r.isAboveThreshold && humidity.value < r.rhCritical - 5) return t('simulation.mould.safe');
+            if (!r.isAboveThreshold) return t('simulation.mould.warning');
+            return t('simulation.mould.active');
+        });
+
+        // ── Busy state ────────────────────────────────────────────────────
+        const busy = computed(() => presetLoading.value || props.textureProcessing);
+        watch(busy, v => emit('busy-changed', v));
+
+        // ── Methods used from the template ────────────────────────────────
+        function getTotalDays() { return Sim.totalDays.value; }
+        function calculateRateConstant() { return assessmentResults.value.chemical.rateConstant; }
+
+        function convertTemperature() {
+            if (temperatureUnit.value === 'C') {
+                temperature.value = (temperature.value * 9/5) + 32;
+                temperatureUnit.value = 'F';
             } else {
-                return (this.temperature - 32) * 5/9 + 273.15;
+                temperature.value = (temperature.value - 32) * 5/9;
+                temperatureUnit.value = 'C';
             }
-        },
-        temperatureCelsius() {
-            if (this.temperatureUnit === 'C') return this.temperature;
-            return (this.temperature - 32) * 5/9;
-        },
-        temperatureColor() {
-            if (this.temperature < 10) return '#3b82f6';
-            if (this.temperature < 20) return '#10b981';
-            if (this.temperature < 25) return '#f59e0b';
-            return '#ef4444';
-        },
-        humidityColor() {
-            if (this.humidity < 30) return '#ef4444';
-            if (this.humidity < 40) return '#f59e0b';
-            if (this.humidity < 60) return '#10b981';
-            if (this.humidity < 70) return '#f59e0b';
-            return '#ef4444';
-        },
-        temperatureStatus() {
-            if (this.temperature < 10) return this.t('simulation.status.tooCold');
-            if (this.temperature < 18) return this.t('simulation.status.cold');
-            if (this.temperature < 22) return this.t('simulation.status.optimal');
-            if (this.temperature < 28) return this.t('simulation.status.warm');
-            return this.t('simulation.status.tooHot');
-        },
-        lightColor() {
-            if (this.simLight <= 0) return '#6b7280';       // Dark - gray
-            if (this.simLight <= 0.2) return '#10b981';     // Museum - green
-            if (this.simLight <= 5) return '#f59e0b';       // Moderate - orange
-            return '#ef4444';                                // Excessive - red
-        },
-        lightStatus() {
-            if (this.simLight <= 0) return this.t('simulation.status.dark') || 'Dark storage';
-            if (this.simLight <= 0.2) return this.t('simulation.status.museum') || 'Museum level';
-            if (this.simLight <= 5) return this.t('simulation.status.moderate') || 'Moderate exposure';
-            return this.t('simulation.status.excessive') || 'Excessive';
-        },
-        humidityStatus() {
-            if (this.humidity < 30) return this.t('simulation.status.tooDry');
-            if (this.humidity < 40) return this.t('simulation.status.dry');
-            if (this.humidity < 60) return this.t('simulation.status.optimal');
-            if (this.humidity < 70) return this.t('simulation.status.humid');
-            return this.t('simulation.status.tooHumid');
-        },
-        // ── Deterioration model results (cached from backend API) ────────────
-        assessmentResults() {
-            return this._assessmentResults || {
-                chemical: { rateConstant: 0, degradationFactor: 1, scientificDegradation: 0, risk: 0, label: 'low', visualEffect: { fadeFactor: 1, type: 'chemical' } },
-                lifetime: { multiplier: 1, label: 'longer', color: '#10b981' },
-                mould: { mouldIndex: 0, rhCritical: 80, isAboveThreshold: false, risk: 0, label: 'low', growthRate: 0, visualEffect: { coverage: 0, intensity: 0, type: 'mould' } },
-                saltCryst: { pressure_MPa: 0, DRH: 84.2, isCrystallizing: false, damageRatio: 0, cumulativeDamage: 0, risk: 0, label: 'safe', visualEffect: { spalling: 0, type: 'salt' } },
-                fatigue: { stress_MPa: 0, cyclesToFailure: null, cyclesApplied: 0, cumulativeDamage: 0, crackDensity: 0, risk: 0, label: 'low', visualEffect: { crackDensity: 0, type: 'fatigue' } }
-            };
-        },
-        lifetimeResult() {
-            return this.assessmentResults.lifetime;
-        },
-        mouldResult() {
-            return this.assessmentResults.mould;
-        },
-        chemicalResult() {
-            return this.assessmentResults.chemical;
-        },
-        saltCrystResult() {
-            return this.assessmentResults.saltCryst;
-        },
-        fatigueResult() {
-            return this.assessmentResults.fatigue;
-        },
-        displayMouldIndex() {
-            // Use assessment result (correct in both static and play modes)
-            // During play, this.mouldIndex accumulator feeds into assessmentResults anyway
-            return this.mouldResult.mouldIndex;
-        },
-        mouldStatusColor() {
-            if (!this.mouldResult.isAboveThreshold && this.humidity < this.mouldResult.rhCritical - 5) return '#10b981';
-            if (!this.mouldResult.isAboveThreshold) return '#f59e0b';
-            return '#ef4444';
-        },
-        mouldStatusLabel() {
-            if (!this.mouldResult.isAboveThreshold && this.humidity < this.mouldResult.rhCritical - 5) return this.t('simulation.mould.safe');
-            if (!this.mouldResult.isAboveThreshold) return this.t('simulation.mould.warning');
-            return this.t('simulation.mould.active');
-        },
-        busy() { return this.presetLoading || this.textureProcessing; },
-        /** Presets whose `models` array includes the current activeTab. */
-        availablePresets() {
-            const model = TAB_TO_MODEL[this.activeTab] || this.activeTab;
-            return Object.entries(PRESET_CATALOG)
-                .filter(([, p]) => p.models.includes(model))
-                .map(([key, p]) => {
-                    const lightPart = p.light > 0 ? `, light=${p.light}` : '';
-                    const ampPart = (model === 'fatigue' && p.rhAmplitude != null)
-                        ? `, ±${p.rhAmplitude}%RH` : '';
-                    return {
-                        key,
-                        label: p.label,
-                        desc: `T=${p.temp}°C, RH=${p.rh}%${lightPart} klux${ampPart} · ${p.years}y`
-                    };
-                });
         }
-    },
-    watch: {
-        busy(v) { this.$emit('busy-changed', v); },
-        externalPigmentMap(val) {
-            // Sync both directions: set on new value, clear on null (e.g. exhibit switch)
-            this.pigmentMap = val || null;
-            if (!val) this.perPigmentParams = null;
-            this.emitSimulation();
-        },
-        // externalPigmentDisplayMode is intentionally not synced — the Simulation
-        // panel always emits displayMode='current' so its effect wins over the
-        // PigmentAnalysisPanel's overlay mode.
-        activeTab() {
-            // Stop any running simulation and reset texture when switching models
-            if (this.isPlaying) {
-                this.isPlaying = false;
-                this.stopTimeProgression();
-            }
-            this.simDays = 0;
-            this.simMonths = 0;
-            this.simYears = 0;
-            this.mouldIndex = 0;
-            this.selectedPreset = '';
-            this.emitSimulation();
-        },
-        temperature() {
-            // Manual environment change invalidates the play-mode accumulator:
-            // growth rate depends on T, so the carried-over index is stale.
-            if (!this.isPlaying) this.mouldIndex = 0;
-            this.emitSimulation();
-        },
-        humidity() {
-            if (!this.isPlaying) this.mouldIndex = 0;
-            this.emitSimulation();
-        },
-        simDays() {
-            // Only reset when the user is scrubbing manually — during play,
-            // tickSimulation is mutating simDays every frame and we must
-            // keep the accumulator intact so growth integrates over time.
-            if (!this.isPlaying) this.mouldIndex = 0;
-            this.emitSimulation();
-        },
-        simMonths() {
-            if (!this.isPlaying) this.mouldIndex = 0;
-            this.emitSimulation();
-        },
-        simYears() {
-            if (!this.isPlaying) this.mouldIndex = 0;
-            this.emitSimulation();
-        },
-        simLight() { this.emitSimulation(); },
-        simRHAmplitude() { this.emitSimulation(); },
-        enabledModels: {
-            deep: true,
-            handler() { this.emitSimulation(); }
-        },
-        chemicalParams: {
-            deep: true,
-            handler() { this.emitSimulation(); }
-        },
-        lifetimeParams: {
-            deep: true,
-            handler() { this.emitSimulation(); }
-        },
-        mouldParams: {
-            deep: true,
-            handler() { this.emitSimulation(); }
-        },
-        saltCrystParams: {
-            deep: true,
-            handler() { this.emitSimulation(); }
-        },
-        fatigueParams: {
-            deep: true,
-            handler() { this.emitSimulation(); }
+
+        function clearHistory() {
+            Sim.clearHistory();
+            updateChart();
         }
-    },
-    methods: {
-        // Return cached rate constant from last assessment
-        calculateRateConstant() {
-            return this.assessmentResults.chemical.rateConstant;
-        },
 
-        getTotalDays() {
-            return this.simDays + (this.simMonths * 30.44) + (this.simYears * 365.25);
-        },
+        function toggleTimeProgression() { Sim.togglePlayback(); }
 
-        // Fetch assessment from backend API (debounced)
-        fetchAssessment() {
-            if (this._assessDebounceTimer) clearTimeout(this._assessDebounceTimer);
-            this._assessDebounceTimer = setTimeout(() => this._doFetchAssessment(), 150);
-        },
+        function resetDefaults() {
+            Sim.resetDefaults();
+            temperatureUnit.value = 'C';
+        }
 
-        async _doFetchAssessment() {
-            try {
-                const response = await window.api.deterioration.assess({
-                    T_celsius: this.temperatureCelsius,
-                    RH_percent: this.humidity,
-                    light_klux: this.simLight,
-                    totalDays: this.getTotalDays(),
-                    prevMouldIndex: this.mouldIndex,
-                    RH_amplitude: this.simRHAmplitude,
-                    chemicalParams: this.chemicalParams,
-                    lifetimeParams: this.lifetimeParams,
-                    mouldParams: this.mouldParams,
-                    saltCrystParams: this.saltCrystParams,
-                    fatigueParams: this.fatigueParams
-                });
-                this._assessmentResults = response.data;
-                // Re-emit with fresh backend results so ModelViewer renders
-                // the correct texture (fixes stale-data bug on preset changes).
-                this._emitCurrent();
-            } catch (error) {
-                console.error('Deterioration API error:', error);
-            }
-        },
+        function resetModelParams(_modelName) { Sim.loadDefaults(); }
 
-        async loadDefaults() {
-            try {
-                const response = await window.api.deterioration.defaults();
-                const d = response.data;
-                this.chemicalParams = { ...d.chemical };
-                this.lifetimeParams = { ...d.lifetime };
-                this.mouldParams = { ...d.mould };
-                this.saltCrystParams = { ...d.salt };
-                if (d.fatigue) this.fatigueParams = { ...d.fatigue };
-            } catch (error) {
-                console.error('Failed to load deterioration defaults:', error);
-            }
-        },
+        async function onPresetChange(event) {
+            const key = event.target.value;
+            await Sim.applyPresetWithCancellation(key, {
+                onResetTexture: () => emit('reset-texture'),
+                isTextureProcessing: () => props.textureProcessing
+            });
+        }
 
-        emitSimulation() {
-            if (!this.isSimulating) return;
-            this.fetchAssessment();
-            this._emitCurrent();
-        },
+        function applyPreset(key) { Sim.applyPreset(key); }
+        function toggleSimulation() { /* always-active in current UI */ }
 
-        _emitCurrent() {
-            if (!this.isSimulating) return;
-            const results = this.assessmentResults;
-            const totalDays = this.getTotalDays();
+        function handlePigmentAnalyzed(result) { Sim.setPigmentMap(result.pigmentMap); }
+        function handleDisplayModeChanged(mode) { Sim.setPigmentDisplayMode(mode); }
 
-            // Compute per-pigment Arrhenius when pigmentMap is available
-            if (this.pigmentMap && this.enabledModels.chemical) {
-                this._computePerPigmentParams(totalDays);
-            }
+        // ── External pigment-map prop sync (CaveList → engine) ────────────
+        watch(() => props.externalPigmentMap, (val) => {
+            Sim.setPigmentMap(val || null);
+        });
 
-            this.$emit('simulation-changed', {
-                temperature: {
-                    value: this.temperatureK,
-                    unit: 'K',
-                    celsius: this.temperatureCelsius
-                },
-                humidity: {
-                    value: this.humidity,
-                    unit: 'RH'
-                },
-                activeModel: this.activeTab,
+        // ── Legacy `simulation-changed` emit ──────────────────────────────
+        // ModelViewer still consumes this payload via the :simulation-data
+        // prop. Commit 2 of the #2 refactor wires ModelViewer to the engine
+        // directly and removes this emit.
+        function _emitCurrent() {
+            const r = assessmentResults.value;
+            emit('simulation-changed', {
+                temperature: { value: temperatureK.value, unit: 'K', celsius: temperatureCelsius.value },
+                humidity: { value: humidity.value, unit: 'RH' },
+                activeModel: activeTab.value,
                 deterioration: {
-                    // Legacy fields for backward compatibility with ModelViewer
-                    days: this.simDays,
-                    months: this.simMonths,
-                    years: this.simYears,
-                    lightIntensity: this.simLight,
-                    totalDays: totalDays,
-                    rateConstant: this.enabledModels.chemical ? results.chemical.rateConstant : 0,
-                    degradationFactor: this.enabledModels.chemical ? results.chemical.degradationFactor : 1.0,
-                    scientificDegradation: this.enabledModels.chemical ? results.chemical.scientificDegradation : 0,
-                    // Per-model results (null when disabled)
-                    chemical: this.enabledModels.chemical ? results.chemical : null,
-                    lifetime: this.enabledModels.lifetime ? results.lifetime : null,
-                    mould: this.enabledModels.mould ? results.mould : null,
-                    saltCryst: this.enabledModels.saltCryst ? results.saltCryst : null,
-                    fatigue: this.enabledModels.fatigue ? results.fatigue : null,
-                    RH_amplitude: this.simRHAmplitude,
-                    // Pigment-class segmentation (drives per-pigment Arrhenius)
-                    pigmentMap: this.pigmentMap,
-                    perPigmentParams: this.perPigmentParams,
+                    days: simDays.value,
+                    months: simMonths.value,
+                    years: simYears.value,
+                    lightIntensity: simLight.value,
+                    totalDays: Sim.totalDays.value,
+                    rateConstant: enabledModels.chemical ? r.chemical.rateConstant : 0,
+                    degradationFactor: enabledModels.chemical ? r.chemical.degradationFactor : 1.0,
+                    scientificDegradation: enabledModels.chemical ? r.chemical.scientificDegradation : 0,
+                    chemical:  enabledModels.chemical  ? r.chemical  : null,
+                    lifetime:  enabledModels.lifetime  ? r.lifetime  : null,
+                    mould:     enabledModels.mould     ? r.mould     : null,
+                    saltCryst: enabledModels.saltCryst ? r.saltCryst : null,
+                    fatigue:   enabledModels.fatigue   ? r.fatigue   : null,
+                    RH_amplitude: simRHAmplitude.value,
+                    pigmentMap: Sim.pigmentMap.value,
+                    perPigmentParams: Sim.perPigmentParams.value,
                     // Always 'current' so the simulation effect is rendered —
-                    // the PigmentAnalysisPanel controls the pigment-map overlay independently.
+                    // PigmentAnalysisPanel controls the pigment-map overlay independently.
                     pigmentDisplayMode: 'current'
                 },
                 timestamp: Date.now(),
-                speed: this.simulationSpeed
+                speed: simulationSpeed.value
             });
-        },
+        }
 
-        // ── ML Pigment Integration ──────────────────────────────────
-        _computePerPigmentParams(totalDays) {
-            this.perPigmentParams = computePerPigmentParams({
-                T_celsius: this.temperatureCelsius,
-                RH_percent: this.humidity,
-                light_klux: this.simLight,
-                totalDays
-            });
-        },
+        // Re-emit on any change that affects the payload. assessmentResults
+        // updates after the debounced /deterioration/assess; the other watches
+        // catch state changes that happen before/between fetches.
+        watch(assessmentResults, _emitCurrent);
+        watch([activeTab, Sim.pigmentMap, Sim.perPigmentParams], _emitCurrent);
+        watch([simDays, simMonths, simYears], _emitCurrent);
 
-        handlePigmentAnalyzed(result) {
-            this.pigmentMap = result.pigmentMap;
-            this.emitSimulation();
-        },
-
-        handleDisplayModeChanged(mode) {
-            this.pigmentDisplayMode = mode;
-            this.emitSimulation();
-        },
-
-        toggleSimulation() {
-            this.isSimulating = !this.isSimulating;
-            if (this.isSimulating) {
-                this.emitSimulation();
-            }
-        },
-
-        resetDefaults() {
-            this.temperature = 20;
-            this.humidity = 50;
-            this.simulationSpeed = 1.0;
-            this.simDays = 0;
-            this.simMonths = 0;
-            this.simYears = 0;
-            this.simLight = 0;
-            this.mouldIndex = 0;
-            this.selectedPreset = '';
-        },
-
-        resetModelParams(model) {
-            // Re-fetch defaults from backend
-            this.loadDefaults();
-        },
-
-        async onPresetChange(event) {
-            const preset = event.target.value;
-            if (!preset) return;
-
-            // Bump the generation; any in-flight older run will see a
-            // mismatch at its next checkpoint and exit cleanly.
-            const gen = ++this._presetGeneration;
-            const stillActive = () => gen === this._presetGeneration;
-
-            this.presetLoading = true;
-            try {
-                // 1. Stop any running time progression
-                if (this.isPlaying) {
-                    this.isPlaying = false;
-                    this.stopTimeProgression();
-                }
-                // 2. Reset the texture to original (via parent → ModelViewer)
-                this.$emit('reset-texture');
-                await this.$nextTick();
-                if (!stillActive()) return;
-
-                // 3. Apply preset parameters — watchers will trigger emitSimulation
-                this.applyPreset(preset);
-
-                // 4. Wait for the backend assessment to complete (debounce 150ms + API).
-                //    _doFetchAssessment will re-emit with fresh data, triggering texture rerender.
-                await new Promise(r => setTimeout(r, 500));
-                if (!stillActive()) return;
-
-                // 5. Wait for ModelViewer's isProcessing to clear (via textureProcessing prop).
-                const start = Date.now();
-                while (this.textureProcessing && Date.now() - start < 10000) {
-                    await new Promise(r => setTimeout(r, 50));
-                    if (!stillActive()) return;
-                }
-
-                // 6. Small grace period so the overlay doesn't flicker
-                await new Promise(r => setTimeout(r, 100));
-            } finally {
-                // Only the latest generation may clear the loading flag —
-                // older runs bailed out and must leave it for the winner.
-                if (stillActive()) this.presetLoading = false;
-            }
-        },
-
-        applyPreset(preset) {
-            const p = PRESET_CATALOG[preset];
-            if (p) {
-                this.temperature = p.temp;
-                this.humidity = p.rh;
-                this.simDays = p.days || 0;
-                this.simMonths = p.months || 0;
-                this.simYears = p.years || 0;
-                this.simLight = p.light;
-                if (p.rhAmplitude != null) this.simRHAmplitude = p.rhAmplitude;
-                this.mouldIndex = 0; // Reset mould on preset change
-            }
-        },
-
-        convertTemperature() {
-            if (this.temperatureUnit === 'C') {
-                this.temperature = (this.temperature * 9/5) + 32;
-                this.temperatureUnit = 'F';
-            } else {
-                this.temperature = (this.temperature - 32) * 5/9;
-                this.temperatureUnit = 'C';
-            }
-        },
-
-        // ── Time Progression ────────────────────────────────────────────
-        toggleTimeProgression() {
-            this.isPlaying = !this.isPlaying;
-            if (this.isPlaying) {
-                this.startTimeProgression();
-            } else {
-                this.stopTimeProgression();
-            }
-        },
-
-        startTimeProgression() {
-            if (this.simulationTimer) return;
-            this.simulationTimer = setInterval(() => {
-                this.tickSimulation();
-            }, 100);
-            this.recordDataPoint();
-        },
-
-        stopTimeProgression() {
-            if (this.simulationTimer) {
-                clearInterval(this.simulationTimer);
-                this.simulationTimer = null;
-            }
-        },
-
-        tickSimulation() {
-            const daysPerTick = (this.simulationSpeed * 1.0) / 10;
-            this.simDays += daysPerTick;
-
-            // Update mould index incrementally using cached growth rate from last API response
-            if (this.enabledModels.mould && this._assessmentResults) {
-                const growthRate = this._assessmentResults.mould.growthRate;
-                this.mouldIndex = Math.max(0, Math.min(6, this.mouldIndex + growthRate * daysPerTick));
-            }
-
-            // Normalize days → months → years
-            if (this.simDays >= 30.44) {
-                const monthsToAdd = Math.floor(this.simDays / 30.44);
-                this.simMonths += monthsToAdd;
-                this.simDays -= monthsToAdd * 30.44;
-            }
-            if (this.simMonths >= 12) {
-                const yearsToAdd = Math.floor(this.simMonths / 12);
-                this.simYears += yearsToAdd;
-                this.simMonths -= yearsToAdd * 12;
-            }
-
-            if (Math.random() < 0.1) {
-                this.recordDataPoint();
-            }
-        },
-
-        recordDataPoint() {
-            const totalDays = this.getTotalDays();
-            const results = this.assessmentResults;
-
-            this.timeSeriesData.push({
-                time: totalDays,
-                temperature: this.temperatureCelsius,
-                humidity: this.humidity,
-                light: this.simLight,
-                degradation: results.chemical.scientificDegradation,
-                mouldIndex: this.mouldIndex
-            });
-
-            if (this.timeSeriesData.length > this.maxDataPoints) {
-                this.timeSeriesData.shift();
-            }
-            this.updateChart();
-        },
-
-        // ── Chart.js ────────────────────────────────────────────────────
-        initChart() {
-            const canvas = this.$refs.timeSeriesCanvas;
+        // ── Chart.js (DOM-coupled, stays in the panel) ───────────────────
+        function initChart() {
+            const canvas = timeSeriesCanvas.value;
             if (!canvas) return;
-
-            this.chartInstance = new Chart(canvas.getContext('2d'), {
+            chartInstance = new Chart(canvas.getContext('2d'), {
                 type: 'line',
                 data: {
                     labels: [],
                     datasets: [
-                        {
-                            label: 'Temperature (°C)',
-                            data: [],
-                            borderColor: '#ef4444',
-                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                            yAxisID: 'y',
-                            tension: 0.4
-                        },
-                        {
-                            label: 'Humidity (% RH)',
-                            data: [],
-                            borderColor: '#3b82f6',
-                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                            yAxisID: 'y',
-                            tension: 0.4
-                        },
-                        {
-                            label: 'Light (klux)',
-                            data: [],
-                            borderColor: '#f59e0b',
-                            backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                            yAxisID: 'y1',
-                            tension: 0.4
-                        },
-                        {
-                            label: 'Degradation (%)',
-                            data: [],
-                            borderColor: '#8b5cf6',
-                            backgroundColor: 'rgba(139, 92, 246, 0.1)',
-                            yAxisID: 'y2',
-                            tension: 0.4
-                        },
-                        {
-                            label: 'Mould Index (0-6)',
-                            data: [],
-                            borderColor: '#059669',
-                            backgroundColor: 'rgba(5, 150, 105, 0.1)',
-                            yAxisID: 'y3',
-                            tension: 0.4,
-                            borderDash: [5, 5]
-                        }
+                        { label: 'Temperature (°C)',  data: [], borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', yAxisID: 'y',  tension: 0.4 },
+                        { label: 'Humidity (% RH)',   data: [], borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', yAxisID: 'y',  tension: 0.4 },
+                        { label: 'Light (klux)',      data: [], borderColor: '#f59e0b', backgroundColor: 'rgba(245, 158, 11, 0.1)', yAxisID: 'y1', tension: 0.4 },
+                        { label: 'Degradation (%)',   data: [], borderColor: '#8b5cf6', backgroundColor: 'rgba(139, 92, 246, 0.1)', yAxisID: 'y2', tension: 0.4 },
+                        { label: 'Mould Index (0-6)', data: [], borderColor: '#059669', backgroundColor: 'rgba(5, 150, 105, 0.1)', yAxisID: 'y3', tension: 0.4, borderDash: [5, 5] }
                     ]
                 },
                 options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
+                    responsive: true, maintainAspectRatio: false,
                     interaction: { mode: 'index', intersect: false },
                     plugins: {
-                        legend: {
-                            display: true,
-                            position: 'top',
-                            labels: { boxWidth: 12, font: { size: 10 } }
-                        },
-                        title: {
-                            display: true,
-                            text: 'Environmental Conditions Over Time',
-                            font: { size: 12 }
-                        }
+                        legend: { display: true, position: 'top', labels: { boxWidth: 12, font: { size: 10 } } },
+                        title:  { display: true, text: 'Environmental Conditions Over Time', font: { size: 12 } }
                     },
                     scales: {
-                        x: {
-                            title: { display: true, text: 'Simulated Time (days)', font: { size: 10 } },
-                            ticks: { font: { size: 9 } }
-                        },
-                        y: {
-                            type: 'linear', display: true, position: 'left',
-                            title: { display: true, text: 'Temp (°C) / Humidity (% RH)', font: { size: 10 } },
-                            ticks: { font: { size: 9 } }
-                        },
-                        y1: {
-                            type: 'linear', display: true, position: 'right',
-                            title: { display: true, text: 'Light (klux)', font: { size: 10 } },
-                            ticks: { font: { size: 9 } },
-                            grid: { drawOnChartArea: false }
-                        },
+                        x:  { title: { display: true, text: 'Simulated Time (days)', font: { size: 10 } }, ticks: { font: { size: 9 } } },
+                        y:  { type: 'linear', display: true, position: 'left', title: { display: true, text: 'Temp (°C) / Humidity (% RH)', font: { size: 10 } }, ticks: { font: { size: 9 } } },
+                        y1: { type: 'linear', display: true, position: 'right', title: { display: true, text: 'Light (klux)', font: { size: 10 } }, ticks: { font: { size: 9 } }, grid: { drawOnChartArea: false } },
                         y2: { type: 'linear', display: false, position: 'right', max: 100 },
                         y3: { type: 'linear', display: false, position: 'right', min: 0, max: 6 }
                     }
                 }
             });
-        },
-
-        updateChart() {
-            if (!this.chartInstance) return;
-
-            const labels = this.timeSeriesData.map(d => d.time.toFixed(0));
-            this.chartInstance.data.labels = labels;
-            this.chartInstance.data.datasets[0].data = this.timeSeriesData.map(d => d.temperature);
-            this.chartInstance.data.datasets[1].data = this.timeSeriesData.map(d => d.humidity);
-            this.chartInstance.data.datasets[2].data = this.timeSeriesData.map(d => d.light);
-            this.chartInstance.data.datasets[3].data = this.timeSeriesData.map(d => d.degradation);
-            this.chartInstance.data.datasets[4].data = this.timeSeriesData.map(d => d.mouldIndex);
-
-            this.chartInstance.update('none');
-        },
-
-        clearHistory() {
-            this.timeSeriesData = [];
-            this.updateChart();
         }
-    },
 
-    mounted() {
-        // Pick up any pigment data already available from the Pigment Analysis panel.
-        // We do NOT sync externalPigmentDisplayMode — simulation renders its own effect.
-        if (this.externalPigmentMap) this.pigmentMap = this.externalPigmentMap;
-        this.loadDefaults();
-        this.$nextTick(() => { this.initChart(); this.emitSimulation(); });
-    },
-
-    beforeUnmount() {
-        this.stopTimeProgression();
-        if (this._assessDebounceTimer) clearTimeout(this._assessDebounceTimer);
-        if (this.chartInstance) {
-            this.chartInstance.destroy();
-            this.chartInstance = null;
+        function updateChart() {
+            if (!chartInstance) return;
+            const series = history.value;
+            chartInstance.data.labels = series.map(d => d.time.toFixed(0));
+            chartInstance.data.datasets[0].data = series.map(d => d.temperature);
+            chartInstance.data.datasets[1].data = series.map(d => d.humidity);
+            chartInstance.data.datasets[2].data = series.map(d => d.light);
+            chartInstance.data.datasets[3].data = series.map(d => d.degradation);
+            chartInstance.data.datasets[4].data = series.map(d => d.mouldIndex);
+            chartInstance.update('none');
         }
-    },
 
+        watch(history, updateChart, { deep: true });
+
+        // ── Lifecycle ─────────────────────────────────────────────────────
+        onMounted(() => {
+            Sim.loadDefaults();
+            nextTick(() => {
+                initChart();
+                _emitCurrent();
+            });
+        });
+
+        onBeforeUnmount(() => {
+            Sim.stopPlayback();
+            if (chartInstance) {
+                chartInstance.destroy();
+                chartInstance = null;
+            }
+        });
+
+        return {
+            t,
+            // UI-only state
+            temperatureUnit, showConfig, timeSeriesCanvas,
+            // Engine bindings
+            temperature, humidity, simLight, simRHAmplitude,
+            simDays, simMonths, simYears,
+            chemicalParams, lifetimeParams, mouldParams, saltCrystParams, fatigueParams,
+            enabledModels, activeTab, selectedPreset, presetLoading,
+            assessmentResults, isPlaying, simulationSpeed, availablePresets,
+            // Computeds
+            temperatureK, temperatureCelsius, temperatureColor, humidityColor,
+            temperatureStatus, lightColor, lightStatus, humidityStatus,
+            chemicalResult, lifetimeResult, mouldResult, saltCrystResult, fatigueResult,
+            displayMouldIndex, mouldStatusColor, mouldStatusLabel, busy,
+            // Template references engine.history as timeSeriesData (legacy name)
+            timeSeriesData: history,
+            // Methods
+            getTotalDays, calculateRateConstant, convertTemperature,
+            toggleTimeProgression, resetDefaults, resetModelParams,
+            onPresetChange, applyPreset, toggleSimulation,
+            handlePigmentAnalyzed, handleDisplayModeChanged, clearHistory
+        };
+    },
     template: `
         <div class="simulation-panel simulation-active" style="position: relative;">
             <!-- Loading overlay shown during preset application or texture processing -->
@@ -784,9 +357,7 @@ export default {
                     </select>
 
                 <!-- ═══ CHEMICAL TAB ═══ -->
-                <!-- ═══ CHEMICAL TAB ═══ -->
                 <div v-if="activeTab === 'chemical'" class="sim-tab-content">
-                    <!-- Controls: Temperature, Humidity, Light, Exposure -->
                     <div class="sim-tab-controls">
                         <div class="sim-compact-control">
                             <div class="sim-compact-control-header">
@@ -817,7 +388,6 @@ export default {
                             <input type="range" v-model.number="simYears" min="0" max="200" step="1" class="simulation-slider" />
                         </div>
                     </div>
-                    <!-- Result -->
                     <div class="sim-tab-result">
                         <div class="sim-result-main" :style="{ color: chemicalResult.label === 'low' ? '#10b981' : chemicalResult.label === 'moderate' ? '#eab308' : '#ef4444' }">
                             {{ chemicalResult.scientificDegradation.toFixed(1) }}%
@@ -825,7 +395,6 @@ export default {
                         <div class="sim-result-sub">k = {{ chemicalResult.rateConstant.toExponential(2) }} /day</div>
                         <span class="deterioration-badge" :style="{ background: chemicalResult.label === 'critical' ? '#ef4444' : chemicalResult.label === 'high' ? '#f59e0b' : chemicalResult.label === 'moderate' ? '#eab308' : '#10b981', color: 'white' }">{{ chemicalResult.label }}</span>
                     </div>
-                    <!-- Params -->
                     <button class="config-toggle-btn" style="margin-top: 8px; width: 100%;" @click="showConfig.chemical = !showConfig.chemical">{{ showConfig.chemical ? '▼' : '▶' }} {{ t('simulation.params.configure') }}</button>
                     <div v-if="showConfig.chemical" class="param-config">
                         <div class="param-config-grid">
