@@ -167,6 +167,19 @@ export default {
             });
         }
 
+        // Re-apply the currently-selected preset. Native <select> @change
+        // doesn't fire when the user picks the same value twice, so picking
+        // the same preset to "retry" after a transient state issue would
+        // silently no-op. This handler bypasses that.
+        async function reapplyPreset() {
+            const key = selectedPreset.value;
+            if (!key) return;
+            await Sim.applyPresetWithCancellation(key, {
+                onResetTexture: () => emit('reset-texture'),
+                isTextureProcessing: () => props.textureProcessing
+            });
+        }
+
         function applyPreset(key) { Sim.applyPreset(key); }
         function toggleSimulation() { /* always-active in current UI */ }
 
@@ -252,7 +265,7 @@ export default {
             // Methods
             getTotalDays, calculateRateConstant, convertTemperature,
             toggleTimeProgression, resetDefaults, resetModelParams,
-            onPresetChange, applyPreset, toggleSimulation, clearHistory
+            onPresetChange, reapplyPreset, applyPreset, toggleSimulation, clearHistory
         };
     },
     template: `
@@ -572,10 +585,17 @@ export default {
                     <!-- Quick Presets -->
                     <div class="control-group" style="margin-bottom: 16px;">
                         <label class="control-label" style="font-weight: 600; margin-bottom: 8px; display: block;">📊 Quick Presets:</label>
-                        <select class="preset-select" v-model="selectedPreset" :disabled="busy" @change="onPresetChange($event)">
-                            <option value="" disabled>Choose a preset…</option>
-                            <option v-for="p in availablePresets" :key="p.key" :value="p.key">{{ p.label }} — {{ p.desc }}</option>
-                        </select>
+                        <div style="display: flex; gap: 6px; align-items: center;">
+                            <select class="preset-select" v-model="selectedPreset" :disabled="busy" @change="onPresetChange($event)" style="flex: 1;">
+                                <option value="" disabled>Choose a preset…</option>
+                                <option v-for="p in availablePresets" :key="p.key" :value="p.key">{{ p.label }} — {{ p.desc }}</option>
+                            </select>
+                            <button class="btn btn-sm" :disabled="busy || !selectedPreset"
+                                    @click="reapplyPreset"
+                                    title="Re-apply the selected preset (re-runs the assessment + render)">
+                                ↻
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Exposure Time Control -->

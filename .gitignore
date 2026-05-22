@@ -46,6 +46,16 @@ Thumbs.db
 # Test data
 kneeling-attendant-bodhisattva/
 
+# Snapshot binaries — backend filesystem store (metadata stays in MongoDB)
+backend/runtime/snapshots/
+
+# Pigment-map binaries — backend filesystem cache (metadata stays in MongoDB)
+backend/runtime/pigment-maps/
+
+# Generated sample CSVs — regenerate with `npm run generate:museum-csv` /
+# `npm run generate:deterioration-csv` from backend/runtime/
+backend/runtime/sample-data/csv/*.csv
+
 # Node
 node_modules/
 npm-debug.log*

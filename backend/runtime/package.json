@@ -8,6 +8,10 @@
         "dev": "node --watch server.js",
         "seed:admin": "node scripts/seed-admin.js",
         "seed:sensor": "node scripts/seed-sensor.js",
+        "seed:snapshot": "node scripts/seed-snapshot.js",
+        "emulate:sensor": "node scripts/emulate-sensor.js",
+        "generate:museum-csv": "node scripts/generate-museum-csv.js",
+        "generate:deterioration-csv": "node scripts/generate-deterioration-csv.js",
         "test": "jest"
     },
     "jest": {

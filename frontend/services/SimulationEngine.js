@@ -49,6 +49,17 @@ export const PRESET_CATALOG = {
 
 const TAB_TO_MODEL = { chemical: 'chemical', lifetime: 'lifetime', mould: 'mould', salt: 'salt', fatigue: 'fatigue' };
 
+// The preset catalog uses 'salt'; enabledModels uses 'saltCryst'. This map
+// reconciles those two vocabularies when a preset's `models` array is
+// translated into enabledModels keys.
+const PRESET_MODEL_TO_ENABLED_KEY = {
+    chemical: 'chemical',
+    lifetime: 'lifetime',
+    mould:    'mould',
+    salt:     'saltCryst',
+    fatigue:  'fatigue'
+};
+
 function defaultResults() {
     return {
         chemical: { rateConstant: 0, degradationFactor: 1, scientificDegradation: 0, risk: 0, label: 'low', visualEffect: { fadeFactor: 1, type: 'chemical' } },
@@ -210,6 +221,18 @@ export function applyPreset(key) {
     env.simLight = p.light;
     if (p.rhAmplitude != null) env.simRHAmplitude = p.rhAmplitude;
     mouldIndex.value = 0;
+    selectedPreset.value = key;
+
+    // Toggle enabledModels per the preset's `models` array, so demo* presets
+    // (e.g. demoMould) actually isolate the one model they're meant to
+    // showcase. General-purpose presets that list all five models simply
+    // re-enable everything, which is the expected behaviour.
+    if (Array.isArray(p.models) && p.models.length) {
+        const wanted = new Set(p.models.map(m => PRESET_MODEL_TO_ENABLED_KEY[m] || m));
+        for (const k of Object.keys(enabledModels)) {
+            enabledModels[k] = wanted.has(k);
+        }
+    }
 }
 
 /**
@@ -234,7 +257,23 @@ export async function applyPresetWithCancellation(key, { onResetTexture, isTextu
 
         applyPreset(key);
 
-        await new Promise(r => setTimeout(r, 500));
+        // Without this, renderCommand emits during the 150 ms assessment
+        // debounce with stale assessmentResults / perPigmentParams, and the
+        // worker may finish the stale render before the corrected one
+        // arrives — producing inconsistent visuals when the same preset is
+        // applied at different times (e.g. before vs after pigment analysis
+        // populated perPigmentParams). Flushing the microtask queue lets the
+        // watchers fired by applyPreset() set the debounce timer, then we
+        // cancel it and run the assessment directly so both refs are fresh
+        // BEFORE the ModelViewer watcher (gated on presetLoading) is allowed
+        // to dispatch a render.
+        await new Promise(r => setTimeout(r, 0));
+        if (!stillActive()) return;
+        if (_assessDebounceTimer) {
+            clearTimeout(_assessDebounceTimer);
+            _assessDebounceTimer = null;
+        }
+        await _runAssessment();
         if (!stillActive()) return;
 
         const start = Date.now();
@@ -374,11 +413,14 @@ watch(() => [exposure.days, exposure.months, exposure.years], () => {
 watch(() => env.simLight, _scheduleAssessment);
 watch(() => env.simRHAmplitude, _scheduleAssessment);
 
+// Tab change is a "which model do I want to look at" gesture, not a
+// "start over" gesture — exposure, mouldIndex, and the selected preset
+// belong to the scenario, not to the visible card, so they're preserved
+// across tab switches. (Previously this watcher zeroed exposure on every
+// flip, which surprised users who had carefully set up a long-term
+// scenario and then tabbed away to inspect a different model.)
 watch(activeTab, () => {
     if (isPlaying.value) stopPlayback();
-    exposure.days = 0; exposure.months = 0; exposure.years = 0;
-    mouldIndex.value = 0;
-    selectedPreset.value = '';
     _scheduleAssessment();
 });
 

@@ -10,28 +10,53 @@
 }
 
 :root {
-    /* Color Palette - Inspired by Mogao Caves */
-    --primary-color: #D4A574; /* Sand/cave color */
-    --secondary-color: #8B4513; /* Dark brown */
-    --accent-color: #FFD700; /* Gold accent */
-    --success-color: #4CAF50;
-    --warning-color: #FF9800;
-    --error-color: #F44336;
-    --info-color: #2196F3;
+    /* ── Semantic colour tokens ─────────────────────────────────────────
+     * Themes override these. Component CSS should reference tokens, not
+     * raw hex values. The only hardcoded colours allowed elsewhere are
+     * red/green/amber/blue for severity badges (handled in severity.css).
+     *
+     * Two-layer naming:
+     *   --primary / --primary-hover   — brand action colour
+     *   --accent                       — secondary brand colour for emphasis
+     *   --background                   — page chrome background
+     *   --surface                      — card / panel background
+     *   --surface-elevated             — hover / focus card background
+     *   --border / --border-strong     — separators
+     *   --text-primary / --text-secondary / --text-muted  — text hierarchy
+     *   --sidebar-*                    — left rail (always darker than chrome
+     *                                    unless theme is true-dark, where it
+     *                                    sits at the same brightness)
+     */
+    --primary: #b25a24;
+    --primary-hover: #8a3a1f;
+    --accent: #d4a574;
+    --background: #f6f0e6;
+    --surface: #ffffff;
+    --surface-elevated: #fffaf3;
+    --border: #ece0cd;
+    --border-strong: #d9c8af;
+    --text-primary: #2c1810;
+    --text-secondary: #6e5d4a;
+    --text-muted: #a3917a;
 
-    /* Neutral Colors */
-    --background: #F5F0EB;
-    --surface: #FFFFFF;
-    --text-primary: #333333;
-    --text-secondary: #666666;
-    --border: #DDDDDD;
-
-    /* Sidebar Colors */
-    --sidebar-bg: #5C3D2E;
-    --sidebar-text: #E8D5C4;
-    --sidebar-hover: rgba(212, 165, 116, 0.15);
-    --sidebar-active: rgba(212, 165, 116, 0.25);
+    --sidebar-bg: #2c1810;
+    --sidebar-bg-gradient: linear-gradient(180deg, #2e1a10 0%, #1a1108 100%);
+    --sidebar-text: #e8d5c4;
+    --sidebar-text-muted: rgba(232, 213, 196, 0.55);
+    --sidebar-hover: rgba(244, 196, 130, 0.10);
+    --sidebar-active: rgba(244, 196, 130, 0.18);
+    --sidebar-accent: #d4a574;
     --sidebar-width: 240px;
+
+    /* Status / severity (theme-invariant) */
+    --success-color: #10b981;
+    --warning-color: #f59e0b;
+    --error-color:   #ef4444;
+    --info-color:    #3b82f6;
+    /* Legacy aliases — keep until callers migrate. */
+    --primary-color: var(--primary);
+    --secondary-color: var(--primary-hover);
+    --accent-color: var(--accent);
 
     /* Spacing */
     --spacing-xs: 4px;
@@ -41,14 +66,14 @@
     --spacing-xl: 32px;
 
     /* Border Radius */
-    --radius-sm: 4px;
-    --radius-md: 8px;
-    --radius-lg: 12px;
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
 
-    /* Shadows */
-    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.12);
-    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
-    --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.15);
+    /* Shadows — light, tinted with primary so they harmonise with theme. */
+    --shadow-sm: 0 1px 2px rgba(44, 24, 16, 0.05), 0 1px 1px rgba(44, 24, 16, 0.03);
+    --shadow-md: 0 4px 14px rgba(44, 24, 16, 0.08);
+    --shadow-lg: 0 12px 30px rgba(44, 24, 16, 0.14);
 
     /* Transitions */
     --transition: all 0.3s ease;
@@ -76,13 +101,14 @@ body {
     width: var(--sidebar-width);
     min-width: var(--sidebar-width);
     height: 100vh;
-    background: var(--sidebar-bg);
+    background: var(--sidebar-bg-gradient, var(--sidebar-bg));
     display: flex;
     flex-direction: column;
     color: var(--sidebar-text);
     overflow: hidden;
     z-index: 100;
     transition: width 0.25s ease, min-width 0.25s ease;
+    box-shadow: 1px 0 0 rgba(0, 0, 0, 0.04), 2px 0 16px rgba(44, 24, 16, 0.04);
 }
 
 .sidebar-header {
@@ -96,13 +122,15 @@ body {
 .sidebar-logo {
     width: 40px;
     height: 40px;
-    background: var(--primary-color);
+    background: var(--sidebar-accent);
+    color: var(--sidebar-bg);
     border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 22px;
     flex-shrink: 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
 }
 
 .sidebar-brand {
@@ -138,7 +166,7 @@ body {
 
 .sidebar-nav-item.active {
     background: var(--sidebar-active);
-    border-left-color: var(--primary-color);
+    border-left-color: var(--sidebar-accent);
     color: #FFFFFF;
     font-weight: 600;
 }
@@ -179,7 +207,7 @@ body {
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 1.2px;
-    color: rgba(232,213,196,0.5);
+    color: var(--sidebar-text-muted);
     font-weight: 600;
 }
 
@@ -247,8 +275,8 @@ body {
 .app-topbar {
     height: 56px;
     min-height: 56px;
-    background: #FFFFFF;
-    border-bottom: 1px solid #e5e1dc;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -270,9 +298,9 @@ body {
 
 .topbar-locale-select {
     padding: 6px 12px;
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
     border: 1px solid var(--border);
-    background: #fff;
+    background: var(--surface);
     color: var(--text-primary);
     cursor: pointer;
     font-size: 13px;
@@ -280,25 +308,27 @@ body {
 }
 
 .topbar-locale-select:focus {
-    border-color: var(--primary-color);
+    border-color: var(--primary);
 }
 
 .topbar-icon-btn {
     width: 36px;
     height: 36px;
     border: 1px solid var(--border);
-    border-radius: 8px;
-    background: #fff;
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--text-primary);
     cursor: pointer;
     font-size: 16px;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: border-color 0.2s;
+    transition: border-color 0.18s, background 0.18s, color 0.18s;
 }
 
 .topbar-icon-btn:hover {
-    border-color: var(--primary-color);
+    border-color: var(--primary);
+    color: var(--primary);
 }
 
 /* Tool buttons bar (below topbar) */
@@ -462,14 +492,15 @@ body {
 }
 
 .welcome-banner {
-    background: linear-gradient(135deg, var(--sidebar-bg) 0%, var(--secondary-color) 40%, var(--primary-color) 100%);
-    color: white;
-    border-radius: 12px;
+    background: linear-gradient(135deg, var(--sidebar-bg) 0%, var(--primary-hover) 55%, var(--primary) 100%);
+    color: #ffffff;
+    border-radius: var(--radius-lg);
     padding: 28px 32px;
     margin-bottom: 24px;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    box-shadow: var(--shadow-md);
 }
 
 .welcome-banner h2 {
@@ -497,21 +528,23 @@ body {
 }
 
 .stat-card {
-    background: white;
-    border-radius: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--primary);
+    border-radius: var(--radius-md);
     padding: 20px;
     display: flex;
     align-items: center;
     gap: 16px;
     box-shadow: var(--shadow-sm);
-    border-left: 4px solid var(--primary-color);
-    transition: transform 0.2s, box-shadow 0.2s;
+    transition: transform 0.18s, box-shadow 0.18s, border-color 0.18s;
     cursor: pointer;
 }
 
 .stat-card:hover {
     transform: translateY(-2px);
     box-shadow: var(--shadow-md);
+    border-color: var(--border-strong);
 }
 
 .stat-card-icon {
@@ -1085,18 +1118,19 @@ body {
 }
 
 .project-card {
-    background: white;
-    border: 1px solid #eae6e1;
-    border-radius: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
     padding: 18px;
-    transition: border-color 0.2s, box-shadow 0.2s;
+    transition: border-color 0.18s, box-shadow 0.18s, transform 0.18s;
     display: flex;
     flex-direction: column;
 }
 
 .project-card:hover {
-    border-color: var(--primary-color);
-    box-shadow: 0 4px 16px rgba(139,69,19,0.08);
+    border-color: var(--primary);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
 }
 
 .project-card-badges {
@@ -1245,8 +1279,8 @@ body {
 
 .edit-modal-header {
     padding: 20px 24px;
-    background: linear-gradient(135deg, var(--sidebar-bg) 0%, var(--secondary-color) 100%);
-    color: white;
+    background: linear-gradient(135deg, var(--sidebar-bg) 0%, var(--primary-hover) 100%);
+    color: #ffffff;
     display: flex;
     align-items: center;
     gap: 14px;
@@ -1525,12 +1559,12 @@ h6 { font-size: 14px; }
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
+    color: #ffffff;
 }
 
 .btn-primary:hover {
-    background: linear-gradient(135deg, #5568d3 0%, #653a8a 100%);
+    filter: brightness(1.06);
 }
 
 .btn-secondary {
@@ -1571,15 +1605,15 @@ h6 { font-size: 14px; }
 
 .btn-outline {
     background: transparent;
-    border: 2px solid #e5e7eb;
-    color: #4b5563;
+    border: 1.5px solid var(--border-strong);
+    color: var(--text-secondary);
     box-shadow: none;
 }
 
 .btn-outline:hover {
-    border-color: #667eea;
-    color: #667eea;
-    background: #f5f7ff;
+    border-color: var(--primary);
+    color: var(--primary);
+    background: var(--surface-elevated);
 }
 
 .btn-sm {
@@ -1652,8 +1686,8 @@ h6 { font-size: 14px; }
 
 .viewer-header {
     padding: 16px 20px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
+    color: #ffffff;
     border-bottom: 2px solid rgba(255, 255, 255, 0.2);
 }
 
@@ -1690,7 +1724,7 @@ h6 { font-size: 14px; }
     position: relative;
     width: 100%;
     min-height: 500px;
-    background: #f5f5f5;
+    background: var(--background);
 }
 
 .viewer-container canvas {
@@ -1746,76 +1780,154 @@ h6 { font-size: 14px; }
 
 /* ══════════════════════════════════════════════════
    THEME DEFINITIONS
+   ──────────────────────────────────────────────────
+   Each theme overrides the token palette in :root. The default theme
+   (Mogao Sand) lives in :root itself; everything below is a divergence.
+
+   Token responsibility:
+     --primary / --primary-hover   action colour (buttons, links, focus rings)
+     --accent                       complementary brand colour
+     --background                   page chrome
+     --surface                      card / panel
+     --surface-elevated             hover / focus card
+     --border / --border-strong     separators
+     --text-*                       text hierarchy
+     --sidebar-*                    left rail (uses gradient so flat fills
+                                    don't look stamped)
    ══════════════════════════════════════════════════ */
 
-/* Default: Mogao Sand (no data-theme or data-theme="mogao") */
+/* Default — Mogao Sand: warm terracotta on cream. Mirrors the login page. */
 
 [data-theme="ocean"] {
-    --primary-color: #5b9bd5;
-    --secondary-color: #2c5f8a;
-    --sidebar-bg: #1e3a5f;
-    --sidebar-text: #c8ddf0;
-    --sidebar-hover: rgba(91, 155, 213, 0.15);
-    --sidebar-active: rgba(91, 155, 213, 0.25);
-    --background: #f0f4f8;
+    --primary:        #2570a8;
+    --primary-hover:  #1c5a8a;
+    --accent:         #5b9bd5;
+    --background:     #eef3f8;
+    --surface:        #ffffff;
+    --surface-elevated:#f6fafd;
+    --border:         #d8e3ee;
+    --border-strong:  #b4c8dc;
+    --text-primary:   #16283c;
+    --text-secondary: #4b6480;
+    --text-muted:     #8aa0b8;
+    --sidebar-bg:     #0f2a44;
+    --sidebar-bg-gradient: linear-gradient(180deg, #15375a 0%, #0a1f33 100%);
+    --sidebar-text:   #d2e2f1;
+    --sidebar-text-muted: rgba(210, 226, 241, 0.5);
+    --sidebar-hover:  rgba(91, 155, 213, 0.10);
+    --sidebar-active: rgba(91, 155, 213, 0.20);
+    --sidebar-accent: #5b9bd5;
 }
 
 [data-theme="forest"] {
-    --primary-color: #6db58a;
-    --secondary-color: #3a7d5c;
-    --sidebar-bg: #2d4a3e;
-    --sidebar-text: #c8e0d4;
-    --sidebar-hover: rgba(109, 181, 138, 0.15);
-    --sidebar-active: rgba(109, 181, 138, 0.25);
-    --background: #f0f5f2;
+    --primary:        #3a7d5c;
+    --primary-hover:  #2c6147;
+    --accent:         #6db58a;
+    --background:     #eef5f0;
+    --surface:        #ffffff;
+    --surface-elevated:#f5fbf7;
+    --border:         #d6e6dc;
+    --border-strong:  #aecdba;
+    --text-primary:   #1c2e23;
+    --text-secondary: #4a6553;
+    --text-muted:     #8aa595;
+    --sidebar-bg:     #1f3a2e;
+    --sidebar-bg-gradient: linear-gradient(180deg, #284a3b 0%, #162a21 100%);
+    --sidebar-text:   #d4e4d9;
+    --sidebar-text-muted: rgba(212, 228, 217, 0.5);
+    --sidebar-hover:  rgba(109, 181, 138, 0.10);
+    --sidebar-active: rgba(109, 181, 138, 0.20);
+    --sidebar-accent: #6db58a;
 }
 
 [data-theme="slate"] {
-    --primary-color: #a0aec0;
-    --secondary-color: #4a5568;
-    --sidebar-bg: #2d3748;
-    --sidebar-text: #cbd5e0;
-    --sidebar-hover: rgba(160, 174, 192, 0.15);
-    --sidebar-active: rgba(160, 174, 192, 0.25);
-    --background: #f1f3f5;
+    --primary:        #4a5568;
+    --primary-hover:  #2d3748;
+    --accent:         #718096;
+    --background:     #f3f4f6;
+    --surface:        #ffffff;
+    --surface-elevated:#f9fafb;
+    --border:         #e2e4e7;
+    --border-strong:  #c6c9cf;
+    --text-primary:   #1a202c;
+    --text-secondary: #4a5568;
+    --text-muted:     #8a93a3;
+    --sidebar-bg:     #1f2733;
+    --sidebar-bg-gradient: linear-gradient(180deg, #2b3441 0%, #161c25 100%);
+    --sidebar-text:   #cbd5e0;
+    --sidebar-text-muted: rgba(203, 213, 224, 0.5);
+    --sidebar-hover:  rgba(160, 174, 192, 0.10);
+    --sidebar-active: rgba(160, 174, 192, 0.20);
+    --sidebar-accent: #a0aec0;
 }
 
 [data-theme="plum"] {
-    --primary-color: #b39ddb;
-    --secondary-color: #6a4c93;
-    --sidebar-bg: #3d2b4e;
-    --sidebar-text: #d8cce6;
-    --sidebar-hover: rgba(179, 157, 219, 0.15);
-    --sidebar-active: rgba(179, 157, 219, 0.25);
-    --background: #f5f0f8;
+    --primary:        #6a4c93;
+    --primary-hover:  #4f3870;
+    --accent:         #b39ddb;
+    --background:     #f4eff7;
+    --surface:        #ffffff;
+    --surface-elevated:#faf5fd;
+    --border:         #e2d8ec;
+    --border-strong:  #c4b3d7;
+    --text-primary:   #2a1d3a;
+    --text-secondary: #5a4970;
+    --text-muted:     #9587a8;
+    --sidebar-bg:     #2d1f3d;
+    --sidebar-bg-gradient: linear-gradient(180deg, #3d2b4e 0%, #1f1429 100%);
+    --sidebar-text:   #ddd0e8;
+    --sidebar-text-muted: rgba(221, 208, 232, 0.5);
+    --sidebar-hover:  rgba(179, 157, 219, 0.10);
+    --sidebar-active: rgba(179, 157, 219, 0.22);
+    --sidebar-accent: #b39ddb;
 }
 
-[data-theme="ember"] {
-    --primary-color: #e07a5f;
-    --secondary-color: #8b3a3a;
-    --sidebar-bg: #4a2020;
-    --sidebar-text: #e8c8c0;
-    --sidebar-hover: rgba(224, 122, 95, 0.15);
-    --sidebar-active: rgba(224, 122, 95, 0.25);
-    --background: #f8f0ee;
-}
-
-[data-theme="midnight"] {
-    --primary-color: #7c83db;
-    --secondary-color: #3a3a5c;
-    --sidebar-bg: #1a1a2e;
-    --sidebar-text: #b8b8d0;
-    --sidebar-hover: rgba(124, 131, 219, 0.15);
-    --sidebar-active: rgba(124, 131, 219, 0.25);
-    --background: #f0f0f5;
-}
-
+/* Sakura Blossom — soft mauve / dusty rose. */
 [data-theme="sakura"] {
-    --primary-color: #e8a0bf;
-    --secondary-color: #8b4f6e;
-    --sidebar-bg: #4a3040;
-    --sidebar-text: #e8d0dc;
-    --sidebar-hover: rgba(232, 160, 191, 0.15);
-    --sidebar-active: rgba(232, 160, 191, 0.25);
-    --background: #f8f0f4;
+    --primary:        #8b4f6e;
+    --primary-hover:  #6f3e58;
+    --accent:         #e8a0bf;
+    --background:     #faf0f4;
+    --surface:        #ffffff;
+    --surface-elevated:#fff5f8;
+    --border:         #eed8e1;
+    --border-strong:  #dcb5c5;
+    --text-primary:   #3a1d2c;
+    --text-secondary: #6e495d;
+    --text-muted:     #b08fa0;
+    --sidebar-bg:     #3a2030;
+    --sidebar-bg-gradient: linear-gradient(180deg, #4a2c3e 0%, #28171f 100%);
+    --sidebar-text:   #ecd5dd;
+    --sidebar-text-muted: rgba(236, 213, 221, 0.5);
+    --sidebar-hover:  rgba(232, 160, 191, 0.10);
+    --sidebar-active: rgba(232, 160, 191, 0.22);
+    --sidebar-accent: #e8a0bf;
+}
+
+/* Midnight Dark — TRUE dark mode. The only theme where the page chrome,
+ * cards and inputs flip to dark surfaces; everything above used a dark
+ * sidebar on a light chrome. */
+[data-theme="midnight"] {
+    --primary:        #7c83db;
+    --primary-hover:  #6168c4;
+    --accent:         #b8baf5;
+    --background:     #0f1117;
+    --surface:        #1a1d29;
+    --surface-elevated:#242838;
+    --border:         #2c3041;
+    --border-strong:  #3a3f55;
+    --text-primary:   #e8e9f2;
+    --text-secondary: #a8acc4;
+    --text-muted:     #6e7390;
+    --sidebar-bg:     #0a0c12;
+    --sidebar-bg-gradient: linear-gradient(180deg, #131623 0%, #06080d 100%);
+    --sidebar-text:   #c8cbe0;
+    --sidebar-text-muted: rgba(200, 203, 224, 0.5);
+    --sidebar-hover:  rgba(124, 131, 219, 0.14);
+    --sidebar-active: rgba(124, 131, 219, 0.26);
+    --sidebar-accent: #b8baf5;
+    /* Shadows on dark mode get inverted polarity for visibility. */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.45);
+    --shadow-lg: 0 12px 30px rgba(0, 0, 0, 0.55);
 }

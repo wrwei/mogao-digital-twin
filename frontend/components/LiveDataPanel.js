@@ -41,8 +41,6 @@ export default {
             allSensors: [],           // full list (admin-only)
             adminLoading: false,
             adminError: null,
-            newSensorForm: { name: '', model: '', serialNumber: '', cave: '' },
-            newSensorApiKey: null,    // returned once after registration
             csvFile: null,
             csvUploadResult: null,
             selectedSensorForUpload: '',
@@ -239,29 +237,6 @@ export default {
                 await window.api.sensors.unlinkArtifact(sensorGid, this.entity.gid);
                 await this.loadAllSensors();
                 await this.refresh();
-            } catch (err) {
-                this.adminError = err.response?.data?.error || err.message;
-            } finally {
-                this.adminLoading = false;
-            }
-        },
-
-        async registerSensor() {
-            if (!this.newSensorForm.name) return;
-            this.adminLoading = true;
-            this.adminError = null;
-            this.newSensorApiKey = null;
-            try {
-                const payload = {
-                    name: this.newSensorForm.name,
-                    model: this.newSensorForm.model || undefined,
-                    serialNumber: this.newSensorForm.serialNumber || undefined,
-                    location: { cave: this.newSensorForm.cave || undefined }
-                };
-                const res = await window.api.sensors.register(payload);
-                this.newSensorApiKey = res.data.apiKey;
-                this.newSensorForm = { name: '', model: '', serialNumber: '', cave: '' };
-                await this.loadAllSensors();
             } catch (err) {
                 this.adminError = err.response?.data?.error || err.message;
             } finally {
@@ -574,21 +549,10 @@ export default {
                         </div>
                     </div>
 
-                    <!-- Register new sensor -->
-                    <div>
-                        <div style="font-size: 11px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em;">Register new sensor</div>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 6px;">
-                            <input v-model="newSensorForm.name" placeholder="Name *" class="form-input" style="font-size: 12px; padding: 4px 8px;" />
-                            <input v-model="newSensorForm.model" placeholder="Model" class="form-input" style="font-size: 12px; padding: 4px 8px;" />
-                            <input v-model="newSensorForm.serialNumber" placeholder="Serial #" class="form-input" style="font-size: 12px; padding: 4px 8px;" />
-                            <input v-model="newSensorForm.cave" placeholder="Cave gid" class="form-input" style="font-size: 12px; padding: 4px 8px;" />
-                        </div>
-                        <button class="btn btn-xs" @click="registerSensor" :disabled="busy || !newSensorForm.name">Register sensor</button>
-                        <div v-if="newSensorApiKey" style="margin-top: 8px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 4px; padding: 8px; font-size: 11px;">
-                            <div style="font-weight: 600; color: #065f46; margin-bottom: 4px;">✓ Sensor registered — save this API key (shown once):</div>
-                            <code style="display: block; background: white; padding: 4px 6px; border-radius: 3px; word-break: break-all; user-select: all;">{{ newSensorApiKey }}</code>
-                        </div>
-                    </div>
+                    <!-- Register / edit / delete a sensor: handled exclusively
+                         on the Sensors page in the sidebar so this artefact
+                         view stays focused on viewing telemetry, not fleet
+                         management. -->
                 </div>
             </div>
 

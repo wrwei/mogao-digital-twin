@@ -17,13 +17,20 @@ const BCRYPT_ROUNDS = 10;
 
 function clamp(v, lo, hi) { return v < lo ? lo : (v > hi ? hi : v); }
 
-/** Validate a single sample. Returns null if OK, or an error string. */
+/**
+ * Validate a single sample. Returns null if OK, or an error string.
+ * temperature and humidity are individually optional (so a temperature-only
+ * or humidity-only sensor can post) but at least one must be present.
+ */
 function validateSample(s) {
     if (s.timestamp == null) return 'missing timestamp';
-    if (typeof s.temperature !== 'number' || s.temperature < -40 || s.temperature > 80) {
+    const hasT  = s.temperature != null;
+    const hasRH = s.humidity    != null;
+    if (!hasT && !hasRH) return 'sample must include temperature or humidity (or both)';
+    if (hasT && (typeof s.temperature !== 'number' || s.temperature < -40 || s.temperature > 80)) {
         return 'temperature out of range [-40, 80]';
     }
-    if (typeof s.humidity !== 'number' || s.humidity < 0 || s.humidity > 100) {
+    if (hasRH && (typeof s.humidity !== 'number' || s.humidity < 0 || s.humidity > 100)) {
         return 'humidity out of range [0, 100]';
     }
     if (s.lightKlux != null && (typeof s.lightKlux !== 'number' || s.lightKlux < 0)) {
@@ -34,12 +41,20 @@ function validateSample(s) {
     return null;
 }
 
-/** Apply the sensor's calibration offsets. */
+/**
+ * Apply the sensor's calibration offsets.
+ * Channels the sample doesn't own remain null on the way out so we don't
+ * fabricate readings for channels the sensor isn't measuring.
+ */
 function applyCalibration(sample, sensor) {
     const off = (sensor.calibration && sensor.calibration.offsets) || {};
     return {
-        temperature: sample.temperature + (off.temperature || 0),
-        humidity: clamp(sample.humidity + (off.humidity || 0), 0, 100),
+        temperature: sample.temperature != null
+            ? sample.temperature + (off.temperature || 0)
+            : null,
+        humidity: sample.humidity != null
+            ? clamp(sample.humidity + (off.humidity || 0), 0, 100)
+            : null,
         lightKlux: sample.lightKlux != null
             ? Math.max(0, sample.lightKlux + (off.lightKlux || 0))
             : null

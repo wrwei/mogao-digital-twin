@@ -37,6 +37,9 @@ adminRouter.delete('/:gid/link-artifact/:artifactGid', TelemetryController.unlin
 adminRouter.post('/:gid/rotate-key',               TelemetryController.rotateKey);
 adminRouter.get('/:gid/anomalies',
     require('../../controllers/domain/MaintenanceController').sensorAnomalies);
+adminRouter.get('/:gid/samples',   TelemetryController.getSensorSamples);
+adminRouter.get('/:gid/snapshots',
+    require('../../controllers/domain/SnapshotController').listForSensor);
 adminRouter.post(
     '/:gid/samples/upload',
     TelemetryController.csvUploadMiddleware,

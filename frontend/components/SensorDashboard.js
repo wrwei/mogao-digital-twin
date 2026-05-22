@@ -6,13 +6,17 @@
 import { useI18n } from '../i18n.js';
 import StatusBadge from './StatusBadge.js';
 import StatusCard from './StatusCard.js';
+import ModalDialog from './ModalDialog.js';
+import SensorHistoryModal from './SensorHistoryModal.js';
+import SensorKeyModal from './SensorKeyModal.js';
+import SensorEmulatorPanel from './SensorEmulatorPanel.js';
 
 const STALE_MS_WARNING  = 30 * 60 * 1000;       // > 30 min since last sample → warning
 const STALE_MS_OFFLINE  = 6  * 60 * 60 * 1000;  // > 6 h → offline
 
 export default {
     name: 'SensorDashboard',
-    components: { StatusBadge, StatusCard },
+    components: { StatusBadge, StatusCard, ModalDialog, SensorHistoryModal, SensorKeyModal, SensorEmulatorPanel },
     inject: ['$confirm'],
     setup() {
         const { t } = useI18n();
@@ -26,12 +30,17 @@ export default {
             error: null,
             search: '',
             statusFilter: 'all',      // all | online | warning | offline | inactive
+            kindFilter: 'all',        // all | climate | camera (channels 'image' → camera)
+            historySensor: null,      // currently-open sensor in the history modal (null = closed)
+            keySensor: null,          // currently-open sensor in the API-key modal (null = closed)
+            apiKeyCopyFlash: false,   // ✓ after the registration-modal Copy button is pressed
+            activeTab: 'fleet',       // 'fleet' | 'emulator' — top-of-page tab strip
 
             // Sensor form — used for both register and edit.
             // editingSensorGid === null → create; otherwise edit that sensor.
             showSensorForm: false,
             editingSensorGid: null,
-            sensorForm: { name: '', model: '', serialNumber: '', location: '', active: true },
+            sensorForm: { name: '', type: 'temperature', location: '', active: true },
             newSensorApiKey: null,
 
             // Bulk import
@@ -58,8 +67,12 @@ export default {
         },
         filteredSensors() {
             const q = this.search.trim().toLowerCase();
+            const has = (s, ch) => Array.isArray(s.channels) && s.channels.includes(ch);
             return this.sensorsDecorated.filter(s => {
                 if (this.statusFilter !== 'all' && s._health !== this.statusFilter) return false;
+                if (this.kindFilter === 'temperature' && !has(s, 'temperature')) return false;
+                if (this.kindFilter === 'humidity'    && !has(s, 'humidity'))    return false;
+                if (this.kindFilter === 'camera'      && !has(s, 'image'))       return false;
                 if (!q) return true;
                 return (s.name || '').toLowerCase().includes(q)
                     || (s.model || '').toLowerCase().includes(q)
@@ -205,10 +218,17 @@ export default {
 
         openEditForm(sensor) {
             this.editingSensorGid = sensor.gid;
+            const ch = Array.isArray(sensor.channels) ? sensor.channels : [];
+            // Legacy [temperature, humidity] sensors collapse to whichever
+            // channel is listed first — saving from this form will rewrite
+            // the channels array to match the chosen single type.
+            const type = ch.includes('image')      ? 'camera'
+                      : ch.includes('temperature') ? 'temperature'
+                      : ch.includes('humidity')    ? 'humidity'
+                      :                              'temperature';
             this.sensorForm = {
                 name: sensor.name || '',
-                model: sensor.model || '',
-                serialNumber: sensor.serialNumber || '',
+                type,
                 location: this.encodeLocation(sensor),
                 active: sensor.status?.active !== false
             };
@@ -228,26 +248,29 @@ export default {
             this.error = null;
             try {
                 const location = this.buildLocationPayload(this.sensorForm.location);
+                // Type maps 1:1 to a single channel in Sensor.channels:
+                //   temperature → ['temperature']
+                //   humidity    → ['humidity']
+                //   camera      → ['image']  (recognised by SnapshotService + sensor-kind filter)
+                const channels = [
+                    this.sensorForm.type === 'camera' ? 'image' : this.sensorForm.type
+                ];
                 if (this.editingSensorGid) {
-                    const patch = {
+                    await window.api.sensors.update(this.editingSensorGid, {
                         name: this.sensorForm.name,
-                        model: this.sensorForm.model || undefined,
-                        serialNumber: this.sensorForm.serialNumber || undefined,
+                        channels,
                         location,
                         active: this.sensorForm.active
-                    };
-                    await window.api.sensors.update(this.editingSensorGid, patch);
+                    });
                     this.closeSensorForm();
                 } else {
-                    const payload = {
+                    const res = await window.api.sensors.register({
                         name: this.sensorForm.name,
-                        model: this.sensorForm.model || undefined,
-                        serialNumber: this.sensorForm.serialNumber || undefined,
+                        channels,
                         location
-                    };
-                    const res = await window.api.sensors.register(payload);
+                    });
                     this.newSensorApiKey = res.data.apiKey;
-                    this.sensorForm = { name: '', model: '', serialNumber: '', location: '', active: true };
+                    this.sensorForm = { name: '', type: 'temperature', location: '', active: true };
                 }
                 await this.loadSensors();
             } catch (err) {
@@ -329,19 +352,36 @@ export default {
         clearBulkImport() {
             this.bulkFiles = [];
             this.bulkProgress = null;
+        },
+
+        async copyApiKey() {
+            if (!this.newSensorApiKey) return;
+            try {
+                await navigator.clipboard.writeText(this.newSensorApiKey);
+                this.apiKeyCopyFlash = true;
+                setTimeout(() => { this.apiKeyCopyFlash = false; }, 1500);
+            } catch (err) {
+                console.warn('Clipboard write failed:', err);
+            }
         }
     },
     template: `
         <div style="padding: 24px; max-width: 1400px; margin: 0 auto;">
 
             <!-- Header -->
-            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
                 <h2 style="margin: 0; font-size: 22px; font-weight: 700;">📡 {{ t('sensorDashboard.title') }}</h2>
                 <span style="flex: 1;"></span>
-                <button class="btn btn-sm" @click="loadSensors" :disabled="loading">{{ t('sensorDashboard.refresh') }}</button>
-                <button class="btn btn-sm btn-primary" @click="showSensorForm ? closeSensorForm() : openCreateForm()">
-                    {{ showSensorForm ? t('sensorDashboard.cancel') : t('sensorDashboard.registerSensor') }}
+                <button v-if="activeTab === 'fleet'" class="btn btn-sm" @click="loadSensors" :disabled="loading">{{ t('sensorDashboard.refresh') }}</button>
+                <button v-if="activeTab === 'fleet'" class="btn btn-sm btn-primary" @click="openCreateForm">
+                    {{ t('sensorDashboard.registerSensor') }}
                 </button>
+            </div>
+
+            <!-- Tab strip: Fleet (CRUD + history + bulk import) | Emulator (synthetic-data control plane). -->
+            <div class="tool-buttons-bar" style="margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 8px;">
+                <button class="tool-btn" :class="{ active: activeTab === 'fleet' }"    @click="activeTab = 'fleet'">{{ t('sensorDashboard.tabFleet')    || 'Fleet' }}</button>
+                <button class="tool-btn" :class="{ active: activeTab === 'emulator' }" @click="activeTab = 'emulator'">{{ t('sensorDashboard.tabEmulator') || 'Data Lab' }}</button>
             </div>
 
             <!-- Error -->
@@ -349,14 +389,20 @@ export default {
                 {{ error }}
             </div>
 
-            <!-- Register / edit sensor form -->
-            <div v-if="showSensorForm" class="sim-card" style="margin-bottom: 16px;">
-                <div class="sim-card-title">{{ editingSensorGid ? t('sensorDashboardForm.editTitle') : t('sensorDashboardForm.createTitle') }}</div>
+            <!-- Register / edit sensor modal -->
+            <modal-dialog
+                :show="showSensorForm"
+                :title="editingSensorGid ? t('sensorDashboardForm.editTitle') : t('sensorDashboardForm.createTitle')"
+                @close="closeSensorForm"
+            >
                 <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 8px;">
                     <input v-model="sensorForm.name" :placeholder="t('sensorDashboardForm.placeholderName')" class="form-input" />
-                    <input v-model="sensorForm.model" :placeholder="t('sensorDashboardForm.placeholderModel')" class="form-input" />
-                    <input v-model="sensorForm.serialNumber" :placeholder="t('sensorDashboardForm.placeholderSerial')" class="form-input" />
-                    <select v-model="sensorForm.location" class="form-input">
+                    <select v-model="sensorForm.type" class="form-input">
+                        <option value="temperature">{{ t('sensorDashboardForm.typeTemperature') || 'Temperature sensor' }}</option>
+                        <option value="humidity">{{ t('sensorDashboardForm.typeHumidity')    || 'Humidity sensor' }}</option>
+                        <option value="camera">{{ t('sensorDashboardForm.typeCamera')         || 'Camera (image)' }}</option>
+                    </select>
+                    <select v-model="sensorForm.location" class="form-input" style="grid-column: span 2;">
                         <option value="">{{ t('sensorDashboardForm.noArtifactLink') }}</option>
                         <optgroup v-if="artifacts.caves.length" :label="t('sensorDashboardForm.groupCaves')">
                             <option v-for="c in artifacts.caves" :key="c.gid" :value="'cave:' + c.gid">
@@ -396,23 +442,41 @@ export default {
                     <button class="btn btn-sm" @click="closeSensorForm" :disabled="loading">{{ t('sensorDashboardForm.cancel') }}</button>
                 </div>
                 <div v-if="newSensorApiKey" style="margin-top: 10px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 6px; padding: 10px;">
-                    <div style="font-weight: 600; color: #065f46; margin-bottom: 4px; font-size: 13px;">{{ t('sensorDashboardForm.apiKeyShown') }}</div>
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+                        <span style="font-weight: 600; color: #065f46; font-size: 13px;">{{ t('sensorDashboardForm.apiKeyShown') }}</span>
+                        <button class="btn btn-xs" @click="copyApiKey">
+                            {{ apiKeyCopyFlash ? '✓' : (t('sensorKey.copy') || 'Copy') }}
+                        </button>
+                    </div>
                     <code style="display: block; background: white; padding: 6px 8px; border-radius: 4px; word-break: break-all; user-select: all; font-size: 12px;">{{ newSensorApiKey }}</code>
                 </div>
+            </modal-dialog>
+
+            <!-- ── Fleet tab content ─────────────────────────────────────── -->
+            <template v-if="activeTab === 'fleet'">
+
+            <!-- Stats: overview row + filter row, sized so cards align uniformly -->
+            <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 10px;">
+                <status-card level="neutral" :title="t('sensorDashboard.total')"   :value="stats.total"></status-card>
+                <status-card level="info"    :title="t('sensorDashboard.samples')" :value="stats.totalSamples.toLocaleString()"></status-card>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px;">
+                <status-card level="ok"      :title="t('sensorDashboard.online')"   :value="stats.byHealth.online   || 0"
+                             clickable :active="statusFilter === 'online'"   @click="statusFilter = statusFilter === 'online'   ? 'all' : 'online'"></status-card>
+                <status-card level="medium"  :title="t('sensorDashboard.warning')"  :value="stats.byHealth.warning  || 0"
+                             clickable :active="statusFilter === 'warning'"  @click="statusFilter = statusFilter === 'warning'  ? 'all' : 'warning'"></status-card>
+                <status-card level="high"    :title="t('sensorDashboard.offline')"  :value="stats.byHealth.offline  || 0"
+                             clickable :active="statusFilter === 'offline'"  @click="statusFilter = statusFilter === 'offline'  ? 'all' : 'offline'"></status-card>
+                <status-card level="neutral" :title="t('sensorDashboard.inactive')" :value="stats.byHealth.inactive || 0"
+                             clickable :active="statusFilter === 'inactive'" @click="statusFilter = statusFilter === 'inactive' ? 'all' : 'inactive'"></status-card>
             </div>
 
-            <!-- Stats row -->
-            <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 16px;">
-                <status-card level="neutral" :title="t('sensorDashboard.total')" :value="stats.total"></status-card>
-                <status-card level="ok" :title="t('sensorDashboard.online')" :value="stats.byHealth.online || 0"
-                             clickable :active="statusFilter==='online'" @click="statusFilter='online'"></status-card>
-                <status-card level="medium" :title="t('sensorDashboard.warning')" :value="stats.byHealth.warning || 0"
-                             clickable :active="statusFilter==='warning'" @click="statusFilter='warning'"></status-card>
-                <status-card level="high" :title="t('sensorDashboard.offline')" :value="stats.byHealth.offline || 0"
-                             clickable :active="statusFilter==='offline'" @click="statusFilter='offline'"></status-card>
-                <status-card level="neutral" :title="t('sensorDashboard.inactive')" :value="stats.byHealth.inactive || 0"
-                             clickable :active="statusFilter==='inactive'" @click="statusFilter='inactive'"></status-card>
-                <status-card level="info" :title="t('sensorDashboard.samples')" :value="stats.totalSamples.toLocaleString()"></status-card>
+            <!-- Kind filter (All / Temperature / Humidity / Cameras) -->
+            <div class="tool-buttons-bar" style="margin-bottom: 10px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">
+                <button class="tool-btn" :class="{ active: kindFilter === 'all' }"         @click="kindFilter = 'all'">{{ t('sensorDashboard.kindAll')         || 'All' }}</button>
+                <button class="tool-btn" :class="{ active: kindFilter === 'temperature' }" @click="kindFilter = 'temperature'">{{ t('sensorDashboard.kindTemperature') || 'Temperature' }}</button>
+                <button class="tool-btn" :class="{ active: kindFilter === 'humidity' }"    @click="kindFilter = 'humidity'">{{ t('sensorDashboard.kindHumidity')    || 'Humidity' }}</button>
+                <button class="tool-btn" :class="{ active: kindFilter === 'camera' }"      @click="kindFilter = 'camera'">{{ t('sensorDashboard.kindCamera')      || 'Cameras' }}</button>
             </div>
 
             <!-- Search + filter -->
@@ -456,6 +520,8 @@ export default {
                                 {{ humanAge(s._ageMs) }}
                             </td>
                             <td style="padding: 8px 10px; white-space: nowrap;">
+                                <button class="btn btn-xs" @click="historySensor = s" style="margin-right: 4px;" :title="t('sensorDashboard.historyTitle') || 'View this sensor\\'s recorded history'">{{ t('sensorDashboard.history') || 'History' }}</button>
+                                <button class="btn btn-xs" @click="keySensor = s" style="margin-right: 4px;" :title="t('sensorDashboard.keyTitle') || 'View / rotate the API key'">{{ t('sensorDashboard.key') || '🔑 Key' }}</button>
                                 <button class="btn btn-xs" @click="openEditForm(s)" style="margin-right: 4px;" :title="t('sensorDashboardForm.editTitle2')">{{ t('sensorDashboardForm.edit') }}</button>
                                 <button v-if="s.status?.active" class="btn btn-xs" @click="deactivate(s.gid)" style="background: #fee2e2; color: #991b1b; margin-right: 4px;">{{ t('sensorDashboard.deactivate') }}</button>
                                 <button class="btn btn-xs" @click="remove(s)" style="background: #7f1d1d; color: white;" :title="t('sensorDashboard.deleteTitle') || 'Permanently delete sensor and all its samples'">{{ t('sensorDashboard.delete') || 'Delete' }}</button>
@@ -523,6 +589,18 @@ export default {
                     </div>
                 </div>
             </div>
+
+            </template>
+            <!-- ── /Fleet tab content ────────────────────────────────────── -->
+
+            <!-- ── Data Lab tab content ──────────────────────────────────── -->
+            <sensor-emulator-panel v-if="activeTab === 'emulator'"></sensor-emulator-panel>
+
+            <!-- Per-sensor history modal -->
+            <sensor-history-modal :sensor="historySensor" @close="historySensor = null"></sensor-history-modal>
+
+            <!-- Per-sensor API-key view / rotate modal -->
+            <sensor-key-modal :sensor="keySensor" @close="keySensor = null" @rotated="loadSensors"></sensor-key-modal>
 
         </div>
     `

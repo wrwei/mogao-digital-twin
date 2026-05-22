@@ -9,6 +9,7 @@ import PigmentAnalysisPanel from './PigmentAnalysisPanel.js';
 import * as Sim from '../services/SimulationEngine.js';
 import LiveDataPanel from './LiveDataPanel.js';
 import PredictionPanel from './PredictionPanel.js';
+import SnapshotsPanel from './SnapshotsPanel.js';
 import StatueForm from './StatueForm.js';
 import MuralForm from './MuralForm.js';
 import PaintingForm from './PaintingForm.js';
@@ -33,7 +34,7 @@ export default {
     },
     directives: { focusTrap: vFocusTrap },
     components: {
-        CaveCard, ModelViewer, SimulationPanel, PigmentAnalysisPanel, LiveDataPanel, PredictionPanel,
+        CaveCard, ModelViewer, SimulationPanel, PigmentAnalysisPanel, LiveDataPanel, PredictionPanel, SnapshotsPanel,
         StatueForm, MuralForm, PaintingForm, InscriptionForm, Skeleton, EmptyState
     },
     props: {
@@ -63,12 +64,13 @@ export default {
             editModal: false,
             editType: null,
             editItem: null,
-            // Right-side panel toggle
-            activePanel: 'pigment', // 'pigment' | 'simulation' | 'live'
+            // Right-side panel toggle — two tabs now (the merged simulation
+            // stack stacks Pigment Analysis + Environmental Simulation cards;
+            // monitoring stacks Live Data + Snapshots + Prediction cards).
+            activePanel: 'simulation', // 'simulation' | 'monitoring'
             // Panel busy state
             panelBusy: false,
-            textureProcessing: false,
-            simDisabledMsg: null
+            textureProcessing: false
         };
     },
     mounted() {
@@ -147,18 +149,6 @@ export default {
             } catch (err) { console.error('Failed to fetch heritage assets:', err); }
             finally { this.assetsLoading = false; }
         },
-        handleSimulationClick() {
-            if (!this.pigmentMap) {
-                // Surface a persistent hint instead of an auto-clearing toast.
-                // The hint is cleared by the pigmentMap watcher once analysis runs.
-                this.simDisabledMsg = this.t('simulation.pigmentRequiredHint')
-                    || 'Run Pigment Analysis first — the simulation reads its per-pigment class map.';
-                this.activePanel = 'pigment';
-                return;
-            }
-            this.simDisabledMsg = null;
-            this.activePanel = 'simulation';
-        },
         handlePixelDataReady(data) { this.texturePixelData = data; },
         handleTextureProcessing(v) { this.textureProcessing = v; },
         handleResetTexture() {
@@ -205,7 +195,9 @@ export default {
             const exhibit = list.find(x => x.gid === gid);
             if (exhibit) {
                 this.openExhibit3D(exhibit);
-                this.activePanel = 'prediction';
+                // Maintenance-queue drill-in lands on the merged Environment
+                // Monitoring tab where the Prediction card is stacked.
+                this.activePanel = 'monitoring';
             }
             this.$emit('drill-in-consumed');
         }
@@ -215,10 +207,6 @@ export default {
         pendingDrillIn(newVal) {
             if (newVal) this._processDrillIn(newVal);
         },
-        /** Clear the pigment-required hint as soon as analysis produces a map. */
-        pigmentMap(newVal) {
-            if (newVal) this.simDisabledMsg = null;
-        },
         /** Clear cross-exhibit state whenever the user opens a different 3D
          *  exhibit or returns to the cave view. Prevents pigment-map or
          *  simulation results from the previous exhibit bleeding into the new one. */
@@ -227,20 +215,17 @@ export default {
                 Sim.setPigmentMap(null);
                 Sim.setPigmentDisplayMode('current');
                 this.texturePixelData = null;
-                this.activePanel = 'pigment';
+                this.activePanel = 'simulation';
                 this.panelBusy = false;
                 this.textureProcessing = false;
-                this.simDisabledMsg = null;
             }
-        },
-        /** Force the pigment-map overlay off whenever the user is on the
-         *  Simulation panel so its effect (chemical/mould/etc.) wins. The
-         *  toggle on the Pigment panel itself sets it back. */
-        activePanel(newVal) {
-            if (newVal === 'simulation') Sim.setPigmentDisplayMode('current');
         }
     },
     computed: {
+        /** Bridge SimulationEngine's pigmentMap ref into Options-API
+         *  reactivity so the template's `v-if="pigmentMap"` flips true
+         *  the moment PigmentAnalysisPanel writes via Sim.setPigmentAnalysisResult. */
+        pigmentMap() { return Sim.pigmentMap.value; },
         viewerWidth() { return Math.max(500, this.windowWidth - 240 - this.simulationPanelWidth - 80); },
         viewerHeight() { return Math.max(400, this.windowHeight - 56 - 52 - 64); },
         filteredCaves() {
@@ -487,11 +472,8 @@ export default {
                     <span class="breadcrumb-current">{{ selectedExhibit.name }}</span>
                 </div>
                 <div class="tool-buttons-bar">
-                    <button class="tool-btn" :class="{ active: activePanel === 'pigment' }" :disabled="panelBusy || textureProcessing" @click="activePanel = 'pigment'">{{ t('pigmentAnalysis.title') }}</button>
-                    <button class="tool-btn" :class="{ active: activePanel === 'simulation', 'tool-btn-locked': !pigmentMap }" :disabled="panelBusy || textureProcessing" @click="handleSimulationClick" :title="!pigmentMap ? (t('simulation.pigmentRequiredHint') || 'Run Pigment Analysis first.') : ''">{{ t('simulation.title') }}</button>
-                    <button class="tool-btn" :class="{ active: activePanel === 'live' }" :disabled="panelBusy || textureProcessing" @click="activePanel = 'live'">{{ t('liveData.title') }}</button>
-                    <button class="tool-btn" :class="{ active: activePanel === 'prediction' }" :disabled="panelBusy || textureProcessing" @click="activePanel = 'prediction'">{{ t('prediction.title') }}</button>
-                    <span v-if="simDisabledMsg" class="tool-btn-hint">{{ simDisabledMsg }}</span>
+                    <button class="tool-btn" :class="{ active: activePanel === 'simulation' }"  :disabled="panelBusy || textureProcessing" @click="activePanel = 'simulation'">{{ t('simulation.title') }}</button>
+                    <button class="tool-btn" :class="{ active: activePanel === 'monitoring' }"  :disabled="panelBusy || textureProcessing" @click="activePanel = 'monitoring'">{{ t('liveData.title') }}</button>
                 </div>
                 <div style="flex: 1; display: flex; flex-direction: row; padding: 16px; overflow: hidden;">
                     <div style="flex: 1; display: flex; flex-direction: column; align-items: center; padding-right: 8px; overflow-y: auto;">
@@ -508,11 +490,19 @@ export default {
                     <div @mousedown="startDrag" :style="{ width: '6px', cursor: 'col-resize', background: isDragging ? 'var(--primary-color)' : '#e0dcd7', borderRadius: '3px', transition: isDragging ? 'none' : 'background 0.2s', flexShrink: 0, position: 'relative', userSelect: 'none', margin: '0 2px' }" @mouseenter="$event.target.style.background = 'var(--primary-color)'" @mouseleave="onResizerMouseLeave">
                         <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 3px; height: 32px; background: white; border-radius: 2px; opacity: 0.6;"></div>
                     </div>
-                    <div :style="{ width: simulationPanelWidth + 'px', flexShrink: 0, display: 'flex', flexDirection: 'column', height: '100%', overflowY: 'auto', scrollBehavior: 'smooth', paddingLeft: '8px' }">
-                        <simulation-panel v-show="activePanel === 'simulation'" :entity="selectedExhibit" :pixel-data="texturePixelData" :texture-processing="textureProcessing" @reset-texture="handleResetTexture" @busy-changed="panelBusy = $event"></simulation-panel>
-                        <pigment-analysis-panel v-show="activePanel === 'pigment'" :pixel-data="texturePixelData" @busy-changed="panelBusy = $event"></pigment-analysis-panel>
-                        <live-data-panel v-if="activePanel === 'live'" :entity="selectedExhibit" :is-admin="isAdmin" @busy-changed="panelBusy = $event"></live-data-panel>
-                        <prediction-panel v-if="activePanel === 'prediction'" :entity="selectedExhibit" @busy-changed="panelBusy = $event"></prediction-panel>
+                    <div :style="{ width: simulationPanelWidth + 'px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '12px', height: '100%', overflowY: 'auto', scrollBehavior: 'smooth', paddingLeft: '8px' }">
+                        <!-- Simulation: pigment analysis is the gateway; environmental
+                             simulation card stacks below it once a pigment map exists. -->
+                        <template v-if="activePanel === 'simulation'">
+                            <pigment-analysis-panel :pixel-data="texturePixelData" :entity="selectedExhibit" @busy-changed="panelBusy = $event"></pigment-analysis-panel>
+                            <simulation-panel v-if="pigmentMap" :entity="selectedExhibit" :pixel-data="texturePixelData" :texture-processing="textureProcessing" @reset-texture="handleResetTexture" @busy-changed="panelBusy = $event"></simulation-panel>
+                        </template>
+                        <!-- Environment Monitoring: live data, snapshots, prediction stacked. -->
+                        <template v-if="activePanel === 'monitoring'">
+                            <live-data-panel :entity="selectedExhibit" :is-admin="isAdmin" @busy-changed="panelBusy = $event"></live-data-panel>
+                            <snapshots-panel :entity="selectedExhibit" :is-admin="isAdmin" @busy-changed="panelBusy = $event"></snapshots-panel>
+                            <prediction-panel :entity="selectedExhibit" @busy-changed="panelBusy = $event"></prediction-panel>
+                        </template>
                     </div>
                 </div>
             </template>

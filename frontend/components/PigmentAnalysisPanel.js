@@ -2,16 +2,49 @@
  * Pigment Analysis Panel
  * HSV-threshold pigment-class segmentation. The output map drives the
  * per-pigment Arrhenius extension of the chemical fading model.
+ *
+ * Results are memoised server-side per artefact (see /pigment-analyses):
+ * when the panel mounts (or the entity changes), it tries to hydrate from
+ * the cache so a returning user sees the analysis card and the simulation
+ * card immediately. Re-running the classifier overwrites the cache.
  */
 import { identifyPigments } from '../pigment/PigmentAnalysis.js';
 import * as Sim from '../services/SimulationEngine.js';
 import { useI18n } from '../i18n.js';
+import { PIGMENT_DATABASE, PIGMENT_NAMES } from '../pigment/PigmentDatabase.js';
+
+// Texture URL doesn't change frequently for a given artefact; extracting the
+// UUID filename is sufficient to detect "is this the same texture as when
+// the cache was written?" without hashing the bytes.
+function textureFingerprint(reference) {
+    if (!reference) return null;
+    const url = reference.textureLocation || '';
+    const slash = url.lastIndexOf('/');
+    return slash === -1 ? url : url.slice(slash + 1);
+}
+
+// Re-derive the regionSummary the panel renders from a server-side summary
+// (which only carries id / name / count / percent — colours are looked up
+// locally from PIGMENT_DATABASE so the panel doesn't rely on the backend
+// for visual styling).
+function hydrateRegionSummary(serverSummary) {
+    if (!Array.isArray(serverSummary)) return null;
+    return serverSummary.map(r => {
+        const dbEntry = (r.pigmentName && PIGMENT_DATABASE[r.pigmentName]) || null;
+        return {
+            ...r,
+            color: r.color || (dbEntry ? dbEntry.targetRGB : [128, 128, 128])
+        };
+    });
+}
 
 export default {
     name: 'PigmentAnalysisPanel',
     props: {
         /** Original (current) RGBA pixel data from ModelViewer */
         pixelData: { type: Object, default: null }, // { data: Uint8ClampedArray, width, height }
+        /** The artefact this analysis belongs to (gid + reference.textureLocation). */
+        entity:    { type: Object, default: null }
     },
     emits: ['busy-changed'],
     setup() {
@@ -21,16 +54,19 @@ export default {
     data() {
         return {
             analyzing: false,
-            pigmentMap: null,
-            regionSummary: null,
+            hydrating: false,             // briefly true while loading the cached map
             displayMode: 'current', // 'current' | 'pigment-map'
             error: null,
+            cachedAt: null,               // ISO date string of last persisted analysis
             // Monotonic counter; bumped whenever pixelData changes so in-flight
             // analyses can check whether they're still valid before mutating
             // component state (prevents stale results from a previous exhibit
             // clobbering the new one).
             _taskGeneration: 0,
         };
+    },
+    mounted() {
+        this._tryHydrate();
     },
     methods: {
         async analyzePigments() {
@@ -49,11 +85,17 @@ export default {
                     this.pixelData.data, pxWidth, pxHeight
                 );
                 if (gen !== this._taskGeneration) return;
-                this.pigmentMap = result.pigmentMap;
-                this.regionSummary = result.regionSummary;
+                // Sim is the single source of truth for the analysis output —
+                // the panel's pigmentMap / regionSummary computeds read it back.
                 Sim.setPigmentAnalysisResult({
                     pigmentMap: result.pigmentMap,
                     regionSummary: result.regionSummary
+                });
+                // Persist to the backend so the next visit hydrates without
+                // re-running the classifier. Failure is non-blocking — the
+                // user still has a working analysis for this session.
+                this._persist(result, pxWidth, pxHeight).catch(err => {
+                    console.warn('Failed to persist pigment analysis:', err);
                 });
             } catch (err) {
                 if (gen !== this._taskGeneration) return;
@@ -67,6 +109,57 @@ export default {
             }
         },
 
+        async _persist(result, width, height) {
+            if (!this.entity || !this.entity.gid) return;
+            const fingerprint = textureFingerprint(this.entity.reference);
+            const res = await window.api.pigmentAnalyses.save(
+                this.entity.gid,
+                {
+                    regionSummary: result.regionSummary,
+                    pigmentNames: PIGMENT_NAMES,
+                    mapWidth: width,
+                    mapHeight: height,
+                    textureHash: fingerprint
+                },
+                result.pigmentMap
+            );
+            this.cachedAt = res?.data?.updatedAt || new Date().toISOString();
+        },
+
+        async _tryHydrate() {
+            if (!this.entity || !this.entity.gid) return;
+            // If Sim already holds the analysis (e.g. user just unmounted and
+            // remounted this panel via a tab switch within the same exhibit),
+            // skip the backend round-trip entirely — the computeds will
+            // already reflect the in-memory state.
+            if (Sim.pigmentMap.value) return;
+            const gen = this._taskGeneration;
+            this.hydrating = true;
+            this.error = null;
+            try {
+                const meta = (await window.api.pigmentAnalyses.get(this.entity.gid)).data;
+                // Texture-change invalidation: if the texture URL today doesn't
+                // match what was hashed at analysis time, ignore the cache and
+                // let the user re-run.
+                const fingerprint = textureFingerprint(this.entity && this.entity.reference);
+                if (meta.textureHash && fingerprint && meta.textureHash !== fingerprint) {
+                    return;
+                }
+                const { bytes } = await window.api.pigmentAnalyses.fetchMap(this.entity.gid);
+                if (gen !== this._taskGeneration) return;
+                this.cachedAt = meta.updatedAt || meta.createdAt || null;
+                Sim.setPigmentAnalysisResult({
+                    pigmentMap: bytes,
+                    regionSummary: meta.regionSummary
+                });
+            } catch (err) {
+                if (err.status === 404 || err.response?.status === 404) return; // none on file — expected
+                console.warn('Failed to hydrate pigment analysis:', err);
+            } finally {
+                if (gen === this._taskGeneration) this.hydrating = false;
+            }
+        },
+
         setDisplayMode(mode) {
             this.displayMode = mode;
             Sim.setPigmentDisplayMode(mode);
@@ -77,23 +170,43 @@ export default {
         }
     },
     computed: {
-        busy() { return this.analyzing; }
+        busy() { return this.analyzing || this.hydrating; },
+        /** Bridge SimulationEngine's refs into Options-API reactivity so the
+         *  panel's template survives tab-switch remounts: when this panel
+         *  unmounts (e.g. user switches to Environment Monitoring) and
+         *  re-mounts on return, the in-memory analysis in Sim is preserved
+         *  and the card auto-fills from these computeds without a backend
+         *  round-trip. */
+        pigmentMap()    { return Sim.pigmentMap.value; },
+        regionSummary() {
+            const raw = Sim.pigmentRegionSummary.value;
+            return raw ? hydrateRegionSummary(raw) : null;
+        }
     },
     watch: {
         /** Reset internal state when the underlying texture changes. */
         pixelData(newVal, oldVal) {
             if (newVal === oldVal) return;
             this._taskGeneration++;
-            this.pigmentMap = null;
-            this.regionSummary = null;
             this.displayMode = 'current';
             this.error = null;
+            // Sim.setPigmentMap(null) clears pigmentMap + pigmentRegionSummary
+            // + perPigmentParams in one go; the panel's computeds reflect that.
             Sim.setPigmentMap(null);
             Sim.setPigmentDisplayMode('current');
             if (this.analyzing) {
                 this.analyzing = false;
                 this.$emit('busy-changed', false);
             }
+        },
+        /** Re-hydrate when the artefact changes (drill-in to a different exhibit). */
+        entity(newVal, oldVal) {
+            if (!newVal || (oldVal && newVal.gid === oldVal.gid)) return;
+            this._taskGeneration++;
+            this.displayMode = 'current';
+            this.error = null;
+            this.cachedAt = null;
+            this._tryHydrate();
         }
     },
     template: `

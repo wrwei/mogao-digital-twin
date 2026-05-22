@@ -42,8 +42,9 @@
 }
 
 .settings-nav-item.active {
-    background: rgba(var(--primary-rgb, 212,165,116), 0.12);
-    border-left-color: var(--primary-color, #D4A574);
+    background: var(--surface-elevated);
+    border-left-color: var(--primary);
+    color: var(--primary-hover);
     font-weight: 600;
 }
 
@@ -191,21 +192,24 @@
 }
 
 .theme-card {
-    border: 2px solid var(--border, #e2e8f0);
-    border-radius: 8px;
+    border: 2px solid var(--border);
+    border-radius: 10px;
     padding: 14px;
     cursor: pointer;
     text-align: center;
-    transition: all 0.2s;
+    background: var(--surface);
+    transition: border-color 0.18s, background 0.18s, transform 0.18s;
 }
 
 .theme-card:hover {
-    border-color: var(--primary-color, #D4A574);
+    border-color: var(--primary);
+    transform: translateY(-1px);
 }
 
 .theme-card.active {
-    border-color: var(--primary-color, #D4A574);
-    background: rgba(var(--primary-rgb, 212,165,116), 0.08);
+    border-color: var(--primary);
+    background: var(--surface-elevated);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 14%, transparent);
 }
 
 .theme-colors {

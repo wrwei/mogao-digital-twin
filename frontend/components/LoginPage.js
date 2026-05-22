@@ -52,50 +52,69 @@ export default {
     },
     template: `
         <div class="login-page">
+            <!-- Hero: brand mark + tagline + feature cards over a warm gradient. -->
             <div class="login-hero">
+                <div class="login-hero-top">
+                    <div class="login-hero-brand">
+                        <span class="login-hero-brand-dot"></span>
+                        <span>M-Gemini · Mogao Digital Twin</span>
+                    </div>
+                </div>
+
                 <div class="login-hero-content">
-                    <h1>M-Gemini<span>{{ t('loginPage.heroTitle') }}</span></h1>
+                    <h1>{{ t('loginPage.heroTitle') }}<br/><strong>{{ t('loginPage.heroTitleStrong') || 'in living detail.' }}</strong></h1>
                     <p class="login-hero-subtitle">{{ t('loginPage.heroSubtitle') }}</p>
                     <div class="login-hero-features">
                         <div class="login-hero-feature">
                             <div class="login-hero-feature-icon">🏛️</div>
-                            <span>{{ t('loginPage.feature3D') }}</span>
+                            <span class="login-hero-feature-text">{{ t('loginPage.feature3D') }}</span>
                         </div>
                         <div class="login-hero-feature">
                             <div class="login-hero-feature-icon">📊</div>
-                            <span>{{ t('loginPage.featureMonitoring') }}</span>
+                            <span class="login-hero-feature-text">{{ t('loginPage.featureMonitoring') }}</span>
                         </div>
                         <div class="login-hero-feature">
                             <div class="login-hero-feature-icon">🔬</div>
-                            <span>{{ t('loginPage.featureSimulation') }}</span>
+                            <span class="login-hero-feature-text">{{ t('loginPage.featureSimulation') }}</span>
                         </div>
                         <div class="login-hero-feature">
                             <div class="login-hero-feature-icon">🤝</div>
-                            <span>{{ t('loginPage.featureCollaboration') }}</span>
+                            <span class="login-hero-feature-text">{{ t('loginPage.featureCollaboration') }}</span>
                         </div>
                     </div>
                 </div>
+
+                <div class="login-hero-footer">
+                    Mogao Digital Twin · {{ new Date().getFullYear() }}
+                </div>
             </div>
 
+            <!-- Form: focused, no duplicate branding on desktop. -->
             <div class="login-form-panel">
                 <div class="login-form-container">
+                    <!-- Mobile-only brand mark (shown when hero is hidden). -->
+                    <div class="login-form-mobile-brand">
+                        <span class="login-form-mobile-brand-dot"></span>
+                        <span>M-Gemini</span>
+                    </div>
+
                     <div class="login-form-header">
-                        <div class="login-form-logo">🏛️</div>
+                        <div class="login-form-header-eyebrow">{{ t('loginPage.formEyebrow') || 'Sign in' }}</div>
                         <h2>{{ t('loginPage.formTitle') }}</h2>
                         <p>{{ t('loginPage.formSubtitle') }}</p>
                     </div>
 
                     <div v-if="error" class="login-error">{{ error }}</div>
 
-                    <form @submit.prevent="handleSubmit">
+                    <form @submit.prevent="handleSubmit" novalidate>
                         <div class="login-field">
                             <label>{{ t('loginPage.usernameLabel') }}</label>
-                            <input v-model="username" type="text" :placeholder="t('loginPage.usernamePlaceholder')" required />
+                            <input v-model="username" type="text" :placeholder="t('loginPage.usernamePlaceholder')" autocomplete="username" required />
                         </div>
 
                         <div class="login-field">
                             <label>{{ t('loginPage.passwordLabel') }}</label>
-                            <input v-model="password" type="password" :placeholder="t('loginPage.passwordPlaceholder')" required />
+                            <input v-model="password" type="password" :placeholder="t('loginPage.passwordPlaceholder')" autocomplete="current-password" required />
                         </div>
 
                         <button type="submit" class="login-submit-btn" :disabled="loading">

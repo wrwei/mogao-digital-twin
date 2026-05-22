@@ -78,9 +78,20 @@ export default {
         // Subscribe to the SimulationEngine's render command. The engine
         // resolves activeModel + displayMode + pigmentMap into a single
         // mode + payload; the watcher dispatches via DeteriorationRenderer.
+        //
+        // We watch a tuple including `presetLoading` so this fires once more
+        // when a preset finishes applying (the engine sets presetLoading=false
+        // only after `_runAssessment` has updated assessmentResults +
+        // perPigmentParams). Intermediate emissions during the loading window
+        // are suppressed — that's what was causing "same preset, different
+        // texture" depending on whether the previous run's perPigmentParams
+        // happened to be fresh or stale.
         this._unwatchRenderCommand = this.$watch(
-            () => Sim.renderCommand.value,
-            (cmd) => this.handleRenderCommand(cmd),
+            () => [Sim.renderCommand.value, Sim.presetLoading.value],
+            ([cmd, loading]) => {
+                if (loading) return;
+                this.handleRenderCommand(cmd);
+            },
             { immediate: true }
         );
     },
@@ -122,11 +133,15 @@ export default {
             ));
             this.camera.position.set(0, 0, 5);
 
-            // Create renderer
+            // Create renderer.
+            // preserveDrawingBuffer is required so canvas.toBlob() works
+            // for the Screenshot button — without it, WebGL is free to clear
+            // the back buffer before toBlob reads it, yielding a blank image.
             this.renderer = markRaw(new THREE.WebGLRenderer({
                 antialias: true,
                 alpha: true,
                 powerPreference: 'high-performance',
+                preserveDrawingBuffer: true,
             }));
             this.renderer.setSize(this.width, this.height);
             this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -396,6 +411,30 @@ export default {
                 this.camera.lookAt(this.initialControlsTarget);
                 this.controls.update();
             }
+        },
+
+        /**
+         * Capture the current 3D view as a PNG and trigger a browser download.
+         * Renders one fresh frame first so the screenshot reflects whatever
+         * deterioration overlay / pigment-map is on the texture right now.
+         * Filename includes an ISO-ish timestamp for traceability.
+         */
+        takeScreenshot() {
+            if (!this.renderer || !this.scene || !this.camera) return;
+            this.renderer.render(this.scene, this.camera);
+            this.renderer.domElement.toBlob((blob) => {
+                if (!blob) return;
+                const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `mogao-${stamp}.png`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                // Revoke after a tick so the browser has a chance to start the download.
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+            }, 'image/png');
         },
 
         /**
@@ -682,6 +721,9 @@ export default {
             <div class="viewer-controls">
                 <button @click="resetCamera" class="btn btn-sm">
                     Reset Camera
+                </button>
+                <button @click="takeScreenshot" class="btn btn-sm" title="Save the current 3D view as a PNG">
+                    📸 Screenshot
                 </button>
             </div>
 

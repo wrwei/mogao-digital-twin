@@ -231,5 +231,31 @@ module.exports = {
             console.error('ingestCSV error:', err);
             res.status(500).json({ error: err.message });
         }
+    },
+
+    /**
+     * GET /sensors/:gid/samples — per-sensor history.
+     *
+     * Query params: from, to (ISO timestamps); interval=raw|hourly|daily;
+     * limit (max points returned by the aggregation pipeline).
+     * Returns { samples, summary } in the same shape as the per-exhibit
+     * endpoint, but scoped to a single sensor.
+     */
+    async getSensorSamples(req, res) {
+        try {
+            const sensor = await Sensor.findOne({ gid: req.params.gid });
+            if (!sensor) return res.status(404).json({ error: 'Sensor not found' });
+            const { from, to, interval, limit } = req.query;
+            const result = await TelemetryService.queryEnvironment([sensor._id], {
+                from,
+                to,
+                interval: interval || 'raw',
+                limit: limit ? Math.min(Number(limit), 50000) : 50000
+            });
+            res.json({ sensor: { gid: sensor.gid, name: sensor.name, channels: sensor.channels }, ...result });
+        } catch (err) {
+            console.error('getSensorSamples error:', err);
+            res.status(500).json({ error: err.message });
+        }
     }
 };

@@ -84,6 +84,26 @@ const { sensorRouter: telemetryIngestRouter, adminRouter: sensorAdminRouter }
     = require('./routers/domain/telemetryRouter');
 app.use('/telemetry', telemetryIngestRouter);
 
+// Snapshot ingestion is the visual counterpart to telemetry — same auth model.
+// - /snapshots/ingest      : X-Sensor-Key auth (camera push)
+// - /snapshots/:gid/image  : public (mirrors /exhibit_models pattern so <img src> works)
+// - /snapshots, DELETE     : JWT auth (mounted with the admin routes below)
+const {
+    sensorRouter:   snapshotIngestRouter,
+    publicRouter:   snapshotPublicRouter,
+    adminRouter:    snapshotAdminRouter
+} = require('./routers/domain/snapshotRouter');
+app.use('/snapshots/ingest', snapshotIngestRouter);
+app.use('/snapshots',        snapshotPublicRouter);
+
+// Pigment-analysis cache — binary map is public (like /exhibit_models),
+// metadata + upsert/delete behind JWT.
+const {
+    publicRouter: pigmentAnalysisPublicRouter,
+    adminRouter:  pigmentAnalysisAdminRouter
+} = require('./routers/domain/pigmentAnalysisRouter');
+app.use('/pigment-analyses', pigmentAnalysisPublicRouter);
+
 // Apply auth middleware to all subsequent routes
 app.use(authMiddleware);
 
@@ -129,7 +149,10 @@ app.use('/lightIntensities', lightIntensityRouter);
 app.use('/deterioration', deteriorationRouter);
 app.use('/exhibits', exhibitRouter);
 app.use('/sensors', sensorAdminRouter);
+app.use('/snapshots', snapshotAdminRouter);
+app.use('/pigment-analyses', pigmentAnalysisAdminRouter);
 app.use('/maintenance', maintenanceRouter);
+app.use('/emulator', require('./routers/domain/emulatorRouter'));
 
 // Health check endpoint
 app.get('/health', (req, res) => {

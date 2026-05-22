@@ -107,6 +107,12 @@ export const messages = {
             samples: '样本总数',
             search: '按名称、型号、ID或洞窟搜索传感器…',
             clearFilter: '清除筛选',
+            kindAll: '全部',
+            kindTemperature: '温度',
+            kindHumidity: '湿度',
+            kindCamera: '摄像头',
+            tabFleet: '设备清单',
+            tabEmulator: '数据实验室',
             registerSensor: '+ 注册传感器',
             cancel: '取消',
             refresh: '↻ 刷新',
@@ -117,6 +123,10 @@ export const messages = {
             colSamples: '样本数',
             colLastSeen: '最近数据',
             colActions: '操作',
+            history: '历史',
+            historyTitle: '查看该传感器的历史数据',
+            key: '🔑 密钥',
+            keyTitle: '查看 / 轮换 API 密钥',
             deactivate: '停用',
             deactivateConfirm: '是否停用此传感器？它将停止接受新数据。',
             delete: '删除',
@@ -529,14 +539,16 @@ export const messages = {
 
         // Login page
         loginPage: {
-            heroTitle: '莫高数字孪生平台',
-            heroSubtitle: '通过数字孪生技术保护莫高窟。监测、模拟并守护这一世界文化遗产。',
+            heroTitle: '守护千年文化遗产，',
+            heroTitleStrong: '纤毫毕现。',
+            heroSubtitle: '莫高窟交互式数字孪生平台。监测微环境、模拟劣化情景、规划保护干预 —— 全部基于经现场校准的物理模型。',
             feature3D: '洞窟与文物的 3D 数字副本',
             featureMonitoring: '实时环境监测与分析',
             featureSimulation: '劣化模拟与保护规划',
             featureCollaboration: '跨机构协同研究',
-            formTitle: 'M-Gemini',
-            formSubtitle: '莫高数字孪生平台',
+            formEyebrow: '登录',
+            formTitle: '欢迎回来',
+            formSubtitle: '请登录以进入平台',
             usernameLabel: '用户名',
             usernamePlaceholder: '请输入用户名',
             passwordLabel: '密码',
@@ -599,6 +611,68 @@ export const messages = {
             methodology: 'ℹ 评分：得分 = 1.0·损伤 + 1.0·(1/ETA_y) + 0.5·异常计数 + 0.3·巡检年龄 + 0.8·状态严重度。≥ 2.5 紧急、≥ 1.5 高、≥ 0.8 中，否则低。展开任意行查看分项明细、累积状态、异常和全部建议。'
         },
 
+        // Sensor data emulator ("Data Lab")
+        emulator: {
+            intro: '合成数据发布工具，用于开发和演示。每个传感器都有自己的运行实例 —— 调整参数后点击"开始"即可按指定节奏发射样本。"回填"会一次性填充过去的历史数据。',
+            noSensors: '尚未注册任何传感器。请先在"设备清单"标签页中添加。',
+            start: '开始',
+            stop: '停止',
+            targetT: '温度',
+            targetRH: '湿度',
+            cadence: '节奏',
+            paramsToggle: '合成数据参数',
+            sampleCount: '样本数',
+            startedAt: '开始时间',
+            lastSample: '最近样本',
+            catchupLabel: '回填',
+            catchupUnit: '天，10 分钟节奏',
+            catchupRun: '↺ 运行回填',
+            catchupRunning: '生成中……',
+            catchupConfirm: '为该传感器回填 {days} 天合成样本？同分钟桶中已存在的样本将被保留（去重）。',
+            catchupDone: '回填完成：{accepted} 已接受，{duplicates} 重复，{rejected} 已拒绝。'
+        },
+
+        // Per-sensor API-key modal
+        sensorKey: {
+            keyPrefix: 'API 密钥前缀',
+            newKey: '新 API 密钥 — 请立即保存',
+            newKeyHint: '此密钥将不再显示。请立即复制并保存；任何仍使用旧密钥的设备需要更新。',
+            bcryptNote: '密钥的私密部分以 bcrypt 哈希形式存储，无法恢复。如需获取可复制的密钥，请轮换密钥 — 之前的密钥将失效。',
+            rotate: '🔄 轮换 API 密钥',
+            rotateAgain: '再次轮换',
+            rotating: '轮换中……',
+            rotateConfirm: '此操作将使当前 API 密钥失效。任何使用旧密钥的设备将无法继续推送数据，直至重新配置。是否继续？',
+            endpoints: '数据接入端点',
+            copy: '复制'
+        },
+
+        // Per-sensor history modal
+        sensorHistory: {
+            range24h: '24 小时',
+            range7d: '7 天',
+            range30d: '30 天',
+            range90d: '90 天',
+            rangeall: '全部',
+            refresh: '↻ 刷新',
+            loading: '加载中……',
+            count: '样本数',
+            daysCovered: '覆盖天数',
+            light: '光照（klux）',
+            timestamp: '时间戳',
+            noSamples: '所选时间范围内无样本。',
+            noSnapshots: '所选时间范围内无快照。'
+        },
+
+        // Snapshots panel (camera frame time-lapse)
+        snapshots: {
+            title: '快照',
+            refresh: '刷新',
+            loading: '加载中……',
+            empty: '尚无此文物的快照。摄像头通过 /snapshots/ingest 推送图像，需提供传感器密钥。',
+            delete: '删除',
+            deleteConfirm: '删除此快照？'
+        },
+
         // Prediction panel (per-artifact replay + threshold ETA)
         prediction: {
             title: '🔮 预测',
@@ -654,6 +728,9 @@ export const messages = {
             placeholderName: '名称 *',
             placeholderModel: '型号（如 HOBO MX2301A）',
             placeholderSerial: '序列号',
+            typeTemperature: '温度传感器',
+            typeHumidity: '湿度传感器',
+            typeCamera: '摄像头（图像）',
             noArtifactLink: '— 未关联文物 —',
             groupCaves: '洞窟（整窟范围）',
             groupStatues: '雕像（按文物）',
@@ -769,6 +846,12 @@ export const messages = {
             samples: 'Samples',
             search: 'Search sensors by name, model, gid, or cave…',
             clearFilter: 'Clear filter',
+            kindAll: 'All',
+            kindTemperature: 'Temperature',
+            kindHumidity: 'Humidity',
+            kindCamera: 'Cameras',
+            tabFleet: 'Fleet',
+            tabEmulator: 'Data Lab',
             registerSensor: '+ Register sensor',
             cancel: 'Cancel',
             refresh: '↻ Refresh',
@@ -779,6 +862,10 @@ export const messages = {
             colSamples: 'Samples',
             colLastSeen: 'Last seen',
             colActions: 'Actions',
+            history: 'History',
+            historyTitle: 'View this sensor\'s recorded history',
+            key: '🔑 Key',
+            keyTitle: 'View / rotate the API key',
             deactivate: 'Deactivate',
             deactivateConfirm: 'Deactivate this sensor? It will stop accepting new samples.',
             delete: 'Delete',
@@ -1191,14 +1278,16 @@ export const messages = {
 
         // Login page
         loginPage: {
-            heroTitle: 'Mogao Digital Twin Platform',
-            heroSubtitle: 'Preserving the Mogao Grottoes through digital twin technology. Monitor, simulate, and protect this UNESCO World Heritage site.',
+            heroTitle: 'Preserve a thousand-year heritage,',
+            heroTitleStrong: 'in living detail.',
+            heroSubtitle: 'An interactive digital twin for the Mogao Grottoes. Monitor microclimate, simulate deterioration scenarios, and plan conservation interventions — all grounded in physics-based models calibrated to the site.',
             feature3D: '3D digital replicas of cave temples and artefacts',
             featureMonitoring: 'Real-time environmental monitoring and analysis',
             featureSimulation: 'Deterioration simulation and conservation planning',
             featureCollaboration: 'Collaborative research across institutions',
-            formTitle: 'M-Gemini',
-            formSubtitle: 'Mogao Digital Twin Platform',
+            formEyebrow: 'Sign in',
+            formTitle: 'Welcome back',
+            formSubtitle: 'Sign in to access the platform',
             usernameLabel: 'Username',
             usernamePlaceholder: 'Enter your username',
             passwordLabel: 'Password',
@@ -1261,6 +1350,68 @@ export const messages = {
             methodology: 'ℹ Scoring: composite = 1.0·damage + 1.0·(1/ETA_years) + 0.5·anomalyCount + 0.3·inspectionAge + 0.8·statusSeverity. Score ≥ 2.5 = critical, ≥ 1.5 = high, ≥ 0.8 = medium, else low. Expand any row for the per-index breakdown, full cumulative state, active anomalies, and all recommendations.'
         },
 
+        // Sensor data emulator ("Data Lab")
+        emulator: {
+            intro: 'Synthetic data publisher for development and demos. Each sensor gets its own runner — adjust parameters then Start to begin emitting samples at the chosen cadence. Catchup fills past history in one go.',
+            noSensors: 'No sensors registered yet. Add one from the Fleet tab first.',
+            start: 'Start',
+            stop: 'Stop',
+            targetT: 'Temperature',
+            targetRH: 'Humidity',
+            cadence: 'Cadence',
+            paramsToggle: 'Synthetic-data parameters',
+            sampleCount: 'Samples',
+            startedAt: 'Started',
+            lastSample: 'Last',
+            catchupLabel: 'Backfill',
+            catchupUnit: 'days @ 10-min cadence',
+            catchupRun: '↺ Run catchup',
+            catchupRunning: 'Generating…',
+            catchupConfirm: 'Backfill {days} days of synthetic samples for this sensor? Existing samples in the same minute-buckets will be left alone (deduped).',
+            catchupDone: 'Catchup complete: {accepted} accepted, {duplicates} duplicates, {rejected} rejected.'
+        },
+
+        // Per-sensor API-key modal
+        sensorKey: {
+            keyPrefix: 'API key prefix',
+            newKey: 'New API key — store this now',
+            newKeyHint: 'This key will not be shown again. Copy and store it now; any device still using the previous key will need to be updated.',
+            bcryptNote: 'The secret portion of the key is stored as a bcrypt hash and cannot be recovered. To obtain a copyable key, rotate it below — the previous key will be invalidated.',
+            rotate: '🔄 Rotate API key',
+            rotateAgain: 'Rotate again',
+            rotating: 'Rotating…',
+            rotateConfirm: 'This invalidates the current API key. Any device using the old key will stop being able to push data until reconfigured. Continue?',
+            endpoints: 'Ingestion endpoints',
+            copy: 'Copy'
+        },
+
+        // Per-sensor history modal
+        sensorHistory: {
+            range24h: '24h',
+            range7d: '7d',
+            range30d: '30d',
+            range90d: '90d',
+            rangeall: 'All',
+            refresh: '↻ Refresh',
+            loading: 'Loading…',
+            count: 'Samples',
+            daysCovered: 'Days covered',
+            light: 'Light (klux)',
+            timestamp: 'Timestamp',
+            noSamples: 'No samples in this range.',
+            noSnapshots: 'No snapshots in this range.'
+        },
+
+        // Snapshots panel (camera frame time-lapse)
+        snapshots: {
+            title: 'Snapshots',
+            refresh: 'Refresh',
+            loading: 'Loading…',
+            empty: 'No snapshots have been ingested for this artefact yet. Cameras push frames to /snapshots/ingest with their sensor key.',
+            delete: 'Delete',
+            deleteConfirm: 'Delete this snapshot?'
+        },
+
         // Prediction panel (per-artifact replay + threshold ETA)
         prediction: {
             title: '🔮 Prediction',
@@ -1316,6 +1467,9 @@ export const messages = {
             placeholderName: 'Name *',
             placeholderModel: 'Model (e.g. HOBO MX2301A)',
             placeholderSerial: 'Serial #',
+            typeTemperature: 'Temperature sensor',
+            typeHumidity: 'Humidity sensor',
+            typeCamera: 'Camera (image)',
             noArtifactLink: '— No artifact link —',
             groupCaves: 'Caves (whole-cave scope)',
             groupStatues: 'Statues (per-artifact)',

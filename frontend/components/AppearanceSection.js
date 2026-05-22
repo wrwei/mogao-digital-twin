@@ -8,15 +8,18 @@ import { useI18n } from '../i18n.js';
 
 const { ref, watch } = Vue;
 
+// Curated theme list. Each entry mirrors the matching [data-theme] block in
+// main.css; the three preview dots show sidebar / primary / accent so users
+// recognise the palette before applying it. Dropped 'ember' — too close to
+// the default Mogao Sand and added little visual distinction.
 const THEMES = [
-    { id: 'mogao', name: 'Mogao Sand', sidebar: '#5C3D2E', primary: '#D4A574', accent: '#8B4513' },
-    { id: 'ocean', name: 'Ocean Blue', sidebar: '#1e3a5f', primary: '#5b9bd5', accent: '#2c5f8a' },
-    { id: 'forest', name: 'Forest Green', sidebar: '#2d4a3e', primary: '#6db58a', accent: '#3a7d5c' },
-    { id: 'slate', name: 'Modern Slate', sidebar: '#2d3748', primary: '#a0aec0', accent: '#4a5568' },
-    { id: 'plum', name: 'Royal Plum', sidebar: '#3d2b4e', primary: '#b39ddb', accent: '#6a4c93' },
-    { id: 'ember', name: 'Warm Ember', sidebar: '#4a2020', primary: '#e07a5f', accent: '#8b3a3a' },
-    { id: 'midnight', name: 'Midnight Dark', sidebar: '#1a1a2e', primary: '#7c83db', accent: '#3a3a5c' },
-    { id: 'sakura', name: 'Sakura Blossom', sidebar: '#4a3040', primary: '#e8a0bf', accent: '#8b4f6e' }
+    { id: 'mogao',    name: 'Mogao Sand',     sidebar: '#2c1810', primary: '#b25a24', accent: '#d4a574' },
+    { id: 'ocean',    name: 'Ocean Blue',     sidebar: '#0f2a44', primary: '#2570a8', accent: '#5b9bd5' },
+    { id: 'forest',   name: 'Forest Green',   sidebar: '#1f3a2e', primary: '#3a7d5c', accent: '#6db58a' },
+    { id: 'slate',    name: 'Modern Slate',   sidebar: '#1f2733', primary: '#4a5568', accent: '#a0aec0' },
+    { id: 'plum',     name: 'Royal Plum',     sidebar: '#2d1f3d', primary: '#6a4c93', accent: '#b39ddb' },
+    { id: 'sakura',   name: 'Sakura Blossom', sidebar: '#3a2030', primary: '#8b4f6e', accent: '#e8a0bf' },
+    { id: 'midnight', name: 'Midnight Dark',  sidebar: '#0a0c12', primary: '#7c83db', accent: '#b8baf5' }
 ];
 
 export default {

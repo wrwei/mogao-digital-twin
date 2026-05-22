@@ -41,10 +41,21 @@ apiClient.interceptors.response.use(
         return response;
     },
     (error) => {
-        console.error('[API] Response error:', error.response?.status, error.response?.data || error.message);
+        // Callers can pass `silentStatuses: [404]` (or `silent: true` for any)
+        // in the axios request config to suppress the interceptor's console
+        // log for expected error responses — e.g. "no cached analysis yet"
+        // from /pigment-analyses on first visit.
+        const cfg = error.config || {};
+        const status = error.response?.status;
+        const silenced =
+            cfg.silent === true
+            || (Array.isArray(cfg.silentStatuses) && cfg.silentStatuses.includes(status));
+        if (!silenced) {
+            console.error('[API] Response error:', status, error.response?.data || error.message);
+        }
 
         // Handle session expiration — redirect to login
-        if (error.response?.status === 401 && !error.config?.url?.includes('/users/login')) {
+        if (status === 401 && !cfg.url?.includes('/users/login')) {
             localStorage.removeItem('mgemini-token');
             localStorage.removeItem('mgemini-user');
             window.location.reload();
@@ -162,6 +173,8 @@ const api = {
             apiClient.delete(`/sensors/${gid}/link-artifact/${artifactGid}`),
         rotateKey: (gid) => apiClient.post(`/sensors/${gid}/rotate-key`),
         anomalies: (gid) => apiClient.get(`/sensors/${gid}/anomalies`),
+        samples:   (gid, opts = {}) => apiClient.get(`/sensors/${gid}/samples`,   { params: opts, timeout: 60000 }),
+        snapshots: (gid, opts = {}) => apiClient.get(`/sensors/${gid}/snapshots`, { params: opts }),
         uploadCSV: (gid, file) => {
             const fd = new FormData();
             fd.append('file', file);
@@ -178,6 +191,91 @@ const api = {
         queue:       ()    => apiClient.get('/maintenance/queue', { timeout: 120000 }),
         artifact:    (gid) => apiClient.get(`/maintenance/artifact/${gid}`, { timeout: 60000 }),
         anomalies:   ()    => apiClient.get('/maintenance/anomalies'),
+    },
+
+    snapshots: {
+        listForArtefact: (artifactGid, limit = 100) =>
+            apiClient.get('/snapshots', { params: { artifactGid, limit } }),
+        imageUrl: (gid) => `${API_BASE_URL}/snapshots/${gid}/image`,
+        remove:   (gid) => apiClient.delete(`/snapshots/${gid}`),
+    },
+
+    emulator: {
+        status:  ()                  => apiClient.get('/emulator/status'),
+        start:   (gid, body)         => apiClient.post(`/emulator/sensors/${encodeURIComponent(gid)}/start`,   body),
+        stop:    (gid)               => apiClient.post(`/emulator/sensors/${encodeURIComponent(gid)}/stop`),
+        // PATCH is debounced from the panel — 404 means "no live runner";
+        // silenced so the console doesn't spam when sliders are moved before
+        // pressing Start.
+        update:  (gid, body)         => apiClient.patch(`/emulator/sensors/${encodeURIComponent(gid)}/config`, body, { silentStatuses: [404] }),
+        catchup: (gid, body)         => apiClient.post(`/emulator/sensors/${encodeURIComponent(gid)}/catchup`, body, { timeout: 120000 })
+    },
+
+    pigmentAnalyses: {
+        // Fetch the cached analysis metadata for an artefact. 404 = none on
+        // file, which is the normal first-visit case — silenced via the
+        // interceptor's silentStatuses hook to keep the console clean.
+        get: (artifactGid) =>
+            apiClient.get('/pigment-analyses', {
+                params: { artifactGid },
+                silentStatuses: [404]
+            }),
+        // Binary map fetcher: returns a Uint8Array of the pigment-class indices,
+        // de-gzipping if the server flagged X-Map-Encoding: gzip.
+        async fetchMap(artifactGid) {
+            const url = `${API_BASE_URL}/pigment-analyses/${encodeURIComponent(artifactGid)}/map`;
+            const res = await fetch(url, { cache: 'no-store' });
+            if (!res.ok) {
+                const err = new Error(`Map fetch failed: ${res.status}`);
+                err.status = res.status;
+                throw err;
+            }
+            const encoding = res.headers.get('X-Map-Encoding') || 'raw';
+            const width  = Number(res.headers.get('X-Map-Width')  || 0);
+            const height = Number(res.headers.get('X-Map-Height') || 0);
+            let bytes;
+            if (encoding === 'gzip' && typeof DecompressionStream === 'function') {
+                const stream = res.body.pipeThrough(new DecompressionStream('gzip'));
+                const decompressed = await new Response(stream).arrayBuffer();
+                bytes = new Uint8Array(decompressed);
+            } else {
+                bytes = new Uint8Array(await res.arrayBuffer());
+            }
+            return { bytes, width, height };
+        },
+        // Upsert. Compresses the pigmentMap with gzip in-browser so the wire
+        // transfer is a few MB rather than the full ~64 MB raw.
+        async save(artifactGid, { regionSummary, pigmentNames, mapWidth, mapHeight, textureHash }, pigmentMap) {
+            let body = pigmentMap;
+            let encoding = 'raw';
+            if (typeof CompressionStream === 'function') {
+                const stream = new Response(pigmentMap).body.pipeThrough(new CompressionStream('gzip'));
+                body = new Uint8Array(await new Response(stream).arrayBuffer());
+                encoding = 'gzip';
+            }
+            const fd = new FormData();
+            fd.append('artifactGid',   artifactGid);
+            fd.append('regionSummary', JSON.stringify(regionSummary || []));
+            fd.append('pigmentNames',  JSON.stringify(pigmentNames  || []));
+            fd.append('mapWidth',      String(mapWidth));
+            fd.append('mapHeight',     String(mapHeight));
+            fd.append('textureHash',   textureHash || '');
+            fd.append('mapEncoding',   encoding);
+            fd.append('map', new Blob([body], { type: 'application/octet-stream' }), 'pigment-map.bin');
+            // The apiClient defaults Content-Type to application/json; setting
+            // it to undefined here lets axios pick the correct multipart
+            // header (with boundary) for the FormData body. Without this,
+            // multer sees a JSON-typed request and rejects with
+            // "map file field is required".
+            return apiClient.post('/pigment-analyses', fd, {
+                headers: { 'Content-Type': undefined },
+                timeout: 60000,
+                maxBodyLength: 100 * 1024 * 1024,
+                maxContentLength: 100 * 1024 * 1024
+            });
+        },
+        remove: (artifactGid) =>
+            apiClient.delete(`/pigment-analyses/${encodeURIComponent(artifactGid)}`),
     },
 
     // Health check

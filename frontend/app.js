@@ -75,22 +75,24 @@ const app = createApp({
         const paintingsComposable = useEntity('Painting', 'paintings', 'paintings');
         const inscriptionsComposable = useEntity('Inscription', 'inscriptions', 'inscriptions');
 
-        // Provide isGuest as a reactive computed for all child components
-        const isGuest = Vue.computed(() => {
-            const user = JSON.parse(localStorage.getItem('mgemini-user') || 'null');
-            return user && user.role === 'guest';
-        });
+        // Auth state lives here as Vue refs so isAdmin / isGuest can track
+        // it reactively. Reading localStorage inside a computed doesn't work:
+        // localStorage isn't a Vue reactive source, so the computed evaluates
+        // once on first access (before login) and never re-runs — the
+        // admin-only sidebar items would stay hidden even after the role
+        // came back as 'admin' from /users/login.
+        const currentUser = Vue.ref(JSON.parse(localStorage.getItem('mgemini-user') || 'null'));
+        const isAuthenticated = Vue.ref(!!localStorage.getItem('mgemini-token'));
+        const isGuest = Vue.computed(() => !!(currentUser.value && currentUser.value.role === 'guest'));
+        const isAdmin = Vue.computed(() => !!(currentUser.value && currentUser.value.role === 'admin'));
         Vue.provide('isGuest', isGuest);
 
-        const isAdmin = Vue.computed(() => {
-            const user = JSON.parse(localStorage.getItem('mgemini-user') || 'null');
-            return !!(user && user.role === 'admin');
-        });
-
         return {
+            currentUser,
+            isAuthenticated,
             isAdmin,
-            locale, t, setLocale,
             isGuest,
+            locale, t, setLocale,
             dashCaves: cavesComposable,
             dashStatues: statuesComposable,
             dashMurals: muralsComposable,
@@ -100,9 +102,8 @@ const app = createApp({
     },
     data() {
         return {
-            // Auth state
-            isAuthenticated: !!localStorage.getItem('mgemini-token'),
-            currentUser: JSON.parse(localStorage.getItem('mgemini-user') || 'null'),
+            // Auth state (isAuthenticated, currentUser) lifted into setup()
+            // as refs — see comment there.
 
             // Application state. mounted() reconciles this with the URL hash
             // and runs the route-arrival side effects (admin guard, fetches).
