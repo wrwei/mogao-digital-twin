@@ -72,3 +72,6 @@ backend/models/
 
 # Windows artifacts
 nul
+
+# Reference papers (copyrighted, large PDFs — local working copies only)
+papers/
