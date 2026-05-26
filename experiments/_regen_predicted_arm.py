@@ -49,7 +49,7 @@ ws_pred = wb["恒温恒湿"]
 # RH scaling factor
 q = 0.8
 RH_target = 80
-RH_ref = 40
+RH_ref = 10   # chamber RH (corrected 2026-05-26 from stale 40 %)
 scale = (RH_target / RH_ref) ** q
 print(f"RH scaling factor (80/40)^0.8 = {scale:.3f}")
 
