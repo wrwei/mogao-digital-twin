@@ -49,14 +49,28 @@ def is_date(v):
         return False
     return bool(DATE_RE.match(str(v).strip()))
 
-# Spots to smooth (all non-HR spots in the chamber arm)
-TARGETS = [
-    ("G",  [11, 14, 17]),  # malachite block, 3 spots
-    ("B",  [20, 23, 26]),  # azurite block, 3 spots
-    ("TR", [29, 32]),      # vermilion pedestal, 2 spots
-    ("TG", [35, 38]),      # malachite pedestal, 2 spots
-    ("TB", [41, 44]),      # azurite pedestal, 2 spots
-]
+# Sheet-specific spot targets:
+#   恒温 (chamber): HR.1, HR.2, HR.3 were already smoothed by hand, so the
+#                   script only re-smooths the other 12 spots there.
+#   室温 (room):    No manual smoothing yet, so apply to all 15 spots
+#                   including HR.1, HR.2, HR.3.
+SHEET_TARGETS = {
+    "恒温": [
+        ("G",  [11, 14, 17]),
+        ("B",  [20, 23, 26]),
+        ("TR", [29, 32]),
+        ("TG", [35, 38]),
+        ("TB", [41, 44]),
+    ],
+    "室温": [
+        ("R",  [2, 5, 8]),
+        ("G",  [11, 14, 17]),
+        ("B",  [20, 23, 26]),
+        ("TR", [29, 32]),
+        ("TG", [35, 38]),
+        ("TB", [41, 44]),
+    ],
+}
 
 src = "experiments/敦煌变化数据_predicted.xlsx"
 bak = src + ".bak"
@@ -65,11 +79,6 @@ print(f"Backing up {src} -> {bak}")
 shutil.copy2(src, bak)
 
 wb = openpyxl.load_workbook(src)
-ws = wb["恒温"]
-
-# Determine the data rows (date column non-empty and parseable)
-rows = [r for r in range(4, ws.max_row + 1) if is_date(ws.cell(r, 1).value)]
-print(f"Data rows: {len(rows)} (rows {rows[0]}..{rows[-1]})")
 
 smoothed_fill = PatternFill(start_color="FFE9D6", end_color="FFE9D6", fill_type="solid")
 
@@ -100,31 +109,35 @@ def hampel_replace(series):
             changes.append((i, x, m))
     return out, changes
 
-print()
-print(f"{'Group':6s} {'Spot':5s} {'Chan':5s} {'Changes (row -> new val)':40s}")
-print("-" * 70)
+grand_total = 0
+for sheet_name, targets in SHEET_TARGETS.items():
+    ws = wb[sheet_name]
+    rows = [r for r in range(4, ws.max_row + 1) if is_date(ws.cell(r, 1).value)]
+    print()
+    print(f"=== Sheet: {sheet_name} ({len(rows)} data rows) ===")
+    print(f"{'Group':6s} {'Spot':5s} {'Chan':5s} {'Changes (row -> new val)':40s}")
+    print("-" * 70)
+    sheet_total = 0
+    for grp, cols in targets:
+        for sidx, c in enumerate(cols):
+            for ch_off, ch_name in [(0, "L*"), (1, "a*"), (2, "b*")]:
+                series = [to_f(ws.cell(r, c + ch_off).value) for r in rows]
+                new_series, changes = hampel_replace(series)
+                if not changes:
+                    continue
+                change_strs = []
+                for i, old, new in changes:
+                    r = rows[i]
+                    ws.cell(r, c + ch_off).value = new
+                    ws.cell(r, c + ch_off).fill = smoothed_fill
+                    change_strs.append(f"r{r} {old:.2f}->{new:.2f}")
+                print(f"{grp:6s} {sidx + 1:>5d} {ch_name:5s} {', '.join(change_strs)}")
+                sheet_total += len(changes)
+    print(f"  Sheet total: {sheet_total} cells")
+    grand_total += sheet_total
 
-total_changes = 0
-for grp, cols in TARGETS:
-    for sidx, c in enumerate(cols):
-        for ch_off, ch_name in [(0, "L*"), (1, "a*"), (2, "b*")]:
-            # Read series
-            series = [to_f(ws.cell(r, c + ch_off).value) for r in rows]
-            new_series, changes = hampel_replace(series)
-            if not changes:
-                continue
-            # Write changes back
-            change_strs = []
-            for i, old, new in changes:
-                r = rows[i]
-                ws.cell(r, c + ch_off).value = new
-                ws.cell(r, c + ch_off).fill = smoothed_fill
-                change_strs.append(f"r{r} {old:.2f}->{new:.2f}")
-            print(f"{grp:6s} {sidx + 1:>5d} {ch_name:5s} {', '.join(change_strs)}")
-            total_changes += len(changes)
-
 print()
-print(f"Total cells smoothed: {total_changes}")
+print(f"Grand total cells smoothed: {grand_total}")
 wb.save(src)
 print(f"Saved -> {src}")
 print(f"(Backup at {bak} if anything looks wrong.)")
