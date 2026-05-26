@@ -162,7 +162,12 @@ export default {
                 this.chart.update('none');
                 return;
             }
-            this.chart = new Chart(canvas, {
+            // Vue.markRaw prevents Vue's reactivity proxy from wrapping the
+            // Chart.js instance. Without it, Chart.js's color animator hits a
+            // circular toRaw chain and recurses into a stack overflow loop
+            // (visible as "Maximum call stack size exceeded" + 100+ rAF-driven
+            // "Cannot read properties of undefined" errors in the console).
+            this.chart = Vue.markRaw(new Chart(canvas, {
                 type: 'line',
                 data: {
                     labels,
@@ -185,7 +190,7 @@ export default {
                         yRH: { type: 'linear', position: 'right', title: { display: true, text: '%RH', font: { size: 11 } }, min: 0, max: 100, grid: { display: false } }
                     }
                 }
-            });
+            }));
         },
 
         formatDuration(ms) {

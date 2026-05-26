@@ -174,16 +174,29 @@ const api = {
         rotateKey: (gid) => apiClient.post(`/sensors/${gid}/rotate-key`),
         anomalies: (gid) => apiClient.get(`/sensors/${gid}/anomalies`),
         samples:   (gid, opts = {}) => apiClient.get(`/sensors/${gid}/samples`,   { params: opts, timeout: 60000 }),
+        clearSamples: (gid) => apiClient.delete(`/sensors/${gid}/samples`, { timeout: 120000 }),
         snapshots: (gid, opts = {}) => apiClient.get(`/sensors/${gid}/snapshots`, { params: opts }),
         uploadCSV: (gid, file) => {
             const fd = new FormData();
             fd.append('file', file);
+            // Two gotchas, both burned us before:
+            //   1. Setting Content-Type explicitly to 'multipart/form-data'
+            //      WITHOUT a boundary parameter overrides axios's auto-detected
+            //      header (which has the boundary), and multer then can't parse
+            //      the body — the server sees an empty file and ingestCSV
+            //      reports "0 accepted, 0 dup, 0 rejected". Set the header to
+            //      undefined so axios picks 'multipart/form-data; boundary=...'.
+            //   2. The default apiClient timeout is 10 s; CSVs with ~52 k rows
+            //      take 30-60 s of server-side validation + bulk insert.
             return apiClient.post(`/sensors/${gid}/samples/upload`, fd, {
-                headers: { 'Content-Type': 'multipart/form-data' }
+                headers: { 'Content-Type': undefined },
+                timeout: 300000,                                    // 5 minutes
+                maxBodyLength: 50 * 1024 * 1024,
+                maxContentLength: 50 * 1024 * 1024
             });
         },
         batch: (gid, samples) =>
-            apiClient.post(`/sensors/${gid}/samples/batch`, { samples }),
+            apiClient.post(`/sensors/${gid}/samples/batch`, { samples }, { timeout: 300000 }),
     },
 
     // Maintenance queue (prediction + anomalies composite)

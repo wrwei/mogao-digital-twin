@@ -145,6 +145,45 @@ const TelemetryService = {
     },
 
     /**
+     * Delete every sample a sensor has produced, but keep the sensor record
+     * itself (and its api key) intact. Resets the status counters so the
+     * dashboard reflects the empty state, and invalidates the replay cache.
+     */
+    async clearSamples(gid) {
+        const sensor = await Sensor.findOne({ gid });
+        if (!sensor) return null;
+
+        const t0 = Date.now();
+        const sampleResult = await EnvironmentSample.deleteMany({ sensor: sensor._id });
+        const tDelete = Date.now() - t0;
+
+        await Sensor.updateOne(
+            { _id: sensor._id },
+            { $set: {
+                'status.samplesTotal': 0,
+                'status.firstSeenAt': null,
+                'status.lastSeenAt': null
+            }}
+        );
+
+        const explicit = (sensor.location && sensor.location.explicitArtifacts) || [];
+        const caveGid  = sensor.location && sensor.location.cave;
+        const invalidate = replayService().invalidateArtifact;
+        if (typeof invalidate === 'function') {
+            for (const g of explicit) invalidate(g);
+            if (caveGid) {
+                try {
+                    const artifacts = await this._artifactsInCave(caveGid);
+                    for (const g of artifacts) invalidate(g);
+                } catch (_) { /* best-effort */ }
+            }
+        }
+        console.log(`[clearSamples] ${gid}: deleted ${sampleResult.deletedCount} samples in ${tDelete}ms (total ${Date.now() - t0}ms)`);
+
+        return { gid, samplesDeleted: sampleResult.deletedCount || 0 };
+    },
+
+    /**
      * Partial update of a sensor's mutable fields. Disallows changes to
      * gid, apiKey*, samplesTotal, firstSeenAt, lastSeenAt.
      */
@@ -209,12 +248,24 @@ const TelemetryService = {
      */
     async ingestBatch(sensor, samples) {
         if (!Array.isArray(samples) || samples.length === 0) {
-            return { accepted: 0, duplicates: 0, rejected: 0, errors: [] };
+            return { accepted: 0, duplicates: 0, rejected: 0, skipped: 0, errors: [] };
         }
+
+        // A sensor only stores the channels it physically measures. A
+        // temperature-only sensor receiving a T+RH CSV writes T and drops RH
+        // (and vice versa); the user is expected to point the RH side at the
+        // sister humidity sensor in a second pass. Samples whose channels are
+        // *all* dropped are counted as `skipped` (not rejected — the input
+        // isn't bad, it just doesn't apply to this sensor).
+        const owned = Array.isArray(sensor.channels) ? sensor.channels : ['temperature', 'humidity'];
+        const ownsT  = owned.includes('temperature');
+        const ownsRH = owned.includes('humidity');
+        const ownsL  = owned.includes('light') || owned.includes('lightKlux');
 
         const ops = [];
         const errors = [];
         let rejected = 0;
+        let skipped = 0;
         let minTs = null, maxTs = null;
 
         for (const raw of samples) {
@@ -225,6 +276,13 @@ const TelemetryService = {
                 continue;
             }
             const corrected = applyCalibration(raw, sensor);
+            const storedT  = ownsT  ? corrected.temperature : null;
+            const storedRH = ownsRH ? corrected.humidity    : null;
+            const storedL  = ownsL  ? corrected.lightKlux   : null;
+            if (storedT == null && storedRH == null && storedL == null) {
+                skipped++;
+                continue;
+            }
             const timestamp = new Date(raw.timestamp);
             if (minTs === null || timestamp < minTs) minTs = timestamp;
             if (maxTs === null || timestamp > maxTs) maxTs = timestamp;
@@ -234,9 +292,9 @@ const TelemetryService = {
                     document: {
                         sensor: sensor._id,
                         timestamp,
-                        temperature: corrected.temperature,
-                        humidity: corrected.humidity,
-                        lightKlux: corrected.lightKlux,
+                        temperature: storedT,
+                        humidity:    storedRH,
+                        lightKlux:   storedL,
                         raw: true
                     }
                 }
@@ -245,16 +303,44 @@ const TelemetryService = {
 
         let accepted = 0, duplicates = 0;
         if (ops.length > 0) {
-            try {
-                const result = await EnvironmentSample.bulkWrite(ops, { ordered: false });
-                accepted = result.insertedCount || 0;
-            } catch (err) {
-                // unordered bulkWrite surfaces duplicate-key errors as writeErrors
-                accepted = err.result ? err.result.insertedCount || 0 : 0;
-                const writeErrors = (err.writeErrors || []);
-                duplicates = writeErrors.filter(e => e.code === 11000).length;
-                const realErrors = writeErrors.filter(e => e.code !== 11000);
-                for (const e of realErrors) errors.push({ error: e.errmsg });
+            // Pre-filter duplicates. With the (sensor, timestamp) unique
+            // index, every duplicate insert costs an index probe + a write
+            // error — re-importing a 53k-row CSV that fully overlaps takes
+            // tens of seconds because the driver has to bounce back 53k
+            // E11000s. A single `distinct` over the candidate timestamp range
+            // is one indexed read that returns ~1 MB and lets us skip the
+            // bulkWrite entirely when everything is a dup.
+            const existing = await EnvironmentSample.distinct('timestamp', {
+                sensor: sensor._id,
+                timestamp: { $gte: minTs, $lte: maxTs }
+            });
+            const existingMs = new Set(existing.map(d => d.getTime()));
+            const freshOps = ops.filter(o => !existingMs.has(o.insertOne.document.timestamp.getTime()));
+            duplicates += ops.length - freshOps.length;
+
+            // Chunk the bulkWrite. Sending all ops in one command can exhaust
+            // the driver's socket — "connection N to 127.0.0.1:27017 closed"
+            // with 0 insertedCount and 0 writeErrors looks identical to a
+            // successful no-op. Chunking keeps each write under the BSON size
+            // limit and inside socketTimeout.
+            const CHUNK_SIZE = 1000;
+            for (let off = 0; off < freshOps.length; off += CHUNK_SIZE) {
+                const chunk = freshOps.slice(off, off + CHUNK_SIZE);
+                try {
+                    const result = await EnvironmentSample.bulkWrite(chunk, { ordered: false });
+                    accepted += result.insertedCount || 0;
+                } catch (err) {
+                    // A race against another writer could still surface dup-key
+                    // errors here (distinct is point-in-time); count them too.
+                    accepted += err.result?.insertedCount || 0;
+                    const writeErrors = err.writeErrors || [];
+                    duplicates += writeErrors.filter(e => e.code === 11000).length;
+                    const realErrors = writeErrors.filter(e => e.code !== 11000);
+                    for (const e of realErrors) errors.push({ error: e.errmsg });
+                    if (writeErrors.length === 0 && (err.result?.insertedCount || 0) === 0) {
+                        errors.push({ error: `bulkWrite chunk [${off}, ${off + chunk.length}) failed: ${err.message}` });
+                    }
+                }
             }
         }
 
@@ -284,7 +370,7 @@ const TelemetryService = {
             }
         }
 
-        return { accepted, duplicates, rejected, errors };
+        return { accepted, duplicates, rejected, skipped, errors };
     },
 
     /** Collect gids of every artifact in a cave by walking cave.exhibits. */
@@ -364,13 +450,14 @@ const TelemetryService = {
      *   2. Any sensor whose location.cave matches the artifact's parent cave
      */
     async sensorsForArtifact(artifactGid, caveGid) {
-        const explicit = await Sensor.find({
-            'location.explicitArtifacts': artifactGid,
-            'status.active': true
-        });
+        // Soft-deleted sensors (status.active=false) still hold valid historical
+        // samples — replay, environment display, and anomaly detection are all
+        // historical-data paths and should see them. Callers that need a
+        // live-only view (e.g. dispatching alerts) should filter the result.
+        const explicit = await Sensor.find({ 'location.explicitArtifacts': artifactGid });
         if (explicit.length > 0) return explicit;
         if (caveGid) {
-            return Sensor.find({ 'location.cave': caveGid, 'status.active': true });
+            return Sensor.find({ 'location.cave': caveGid });
         }
         return [];
     },

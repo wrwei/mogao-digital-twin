@@ -107,6 +107,133 @@ export default {
                     color: '#3b82f6'
                 }
             ];
+        },
+        // Rule-based conservation recommendations (Bizot Green Protocol +
+        // common conservation-science targets). Each rec is keyed to a model
+        // so the worst-ETA model gets surfaced first; "ok" items are still
+        // shown so the user knows what's holding the line.
+        recommendations() {
+            const c = this.result?.climateSummary;
+            if (!c) return [];
+            const status = this.modelStatus;
+            const etaYears = (eta) => {
+                if (typeof eta !== 'string') return Infinity;
+                const m = eta.match(/in\s+([\d.]+)\s*y/);
+                return m ? parseFloat(m[1]) : Infinity;
+            };
+            const worst = status
+                .filter(m => m.eta && m.eta !== 'crossed')
+                .map(m => ({ key: m.key, years: etaYears(m.eta) }))
+                .sort((a, b) => a.years - b.years)[0];
+
+            const recs = [];
+            const f1 = v => (v != null ? v.toFixed(1) : '—');
+            const pct = v => (v != null ? Math.round(v * 100) : '—');
+
+            // ── Mean T (Arrhenius lever — chemical fading + lifetime) ────
+            const targetTHigh = 22, targetTLow = 16;
+            if (c.T?.mean != null) {
+                if (c.T.mean > targetTHigh) {
+                    recs.push({
+                        level: 'warn', model: 'equivYears',
+                        title: `Lower mean T below ${targetTHigh}°C`,
+                        current: `${f1(c.T.mean)}°C`,
+                        action: `Chemical aging roughly doubles every +10°C (Arrhenius). Drop the HVAC setpoint or improve thermal mass.`
+                    });
+                } else if (c.T.mean < targetTLow) {
+                    recs.push({
+                        level: 'info', model: 'equivYears',
+                        title: `T is cooler than the Bizot band (${targetTLow}–${targetTHigh}°C)`,
+                        current: `${f1(c.T.mean)}°C`,
+                        action: `Cool conditions slow chemical decay — keep them, but ensure RH doesn't drift up as T drops.`
+                    });
+                } else {
+                    recs.push({
+                        level: 'ok', model: 'equivYears',
+                        title: 'Mean T within target',
+                        current: `${f1(c.T.mean)}°C (target ${targetTLow}–${targetTHigh}°C)`,
+                        action: 'Hold the current setpoint.'
+                    });
+                }
+            }
+
+            // ── Mean RH (Bizot 40–60 %) ──────────────────────────────────
+            const rhLow = 40, rhHigh = 60;
+            if (c.RH?.mean != null) {
+                if (c.RH.mean > rhHigh) {
+                    recs.push({
+                        level: 'warn', model: 'mouldIndex',
+                        title: `Reduce mean RH below ${rhHigh}%`,
+                        current: `${f1(c.RH.mean)}%`,
+                        action: `Above ~65% the VTT mould model engages. Add desiccation or improve ventilation.`
+                    });
+                } else if (c.RH.mean < rhLow) {
+                    recs.push({
+                        level: 'warn', model: 'fatigueDamage',
+                        title: `Raise mean RH to at least ${rhLow}%`,
+                        current: `${f1(c.RH.mean)}%`,
+                        action: `Sustained <40% RH embrittles organic binders. Add a humidifier or passive water reservoir.`
+                    });
+                } else {
+                    recs.push({
+                        level: 'ok', model: 'mouldIndex',
+                        title: 'Mean RH within Bizot band',
+                        current: `${f1(c.RH.mean)}% (target ${rhLow}–${rhHigh}%)`,
+                        action: 'Maintain.'
+                    });
+                }
+            }
+
+            // ── Daily RH amplitude (fatigue lever) ───────────────────────
+            const dRHTarget = 5;
+            if (c.deltaRH?.mean != null) {
+                if (c.deltaRH.mean > dRHTarget) {
+                    recs.push({
+                        level: 'warn', model: 'fatigueDamage',
+                        title: `Dampen daily ΔRH below ${dRHTarget}%`,
+                        current: `mean ${f1(c.deltaRH.mean)}% / day, peak ${f1(c.deltaRH.max)}%`,
+                        action: `Hygro-mechanical fatigue is driven by daily RH swing. Add passive RH-buffering (silica/Art Sorb) or tighten the HVAC deadband.`
+                    });
+                } else {
+                    recs.push({
+                        level: 'ok', model: 'fatigueDamage',
+                        title: 'Daily RH swing within target',
+                        current: `${f1(c.deltaRH.mean)}% / day (target <${dRHTarget}%)`,
+                        action: 'Buffering is doing its job.'
+                    });
+                }
+            }
+
+            // ── Salt cycling (DRH-band crossings) ────────────────────────
+            if (c.pctDaysDRHCrossing != null) {
+                const p = c.pctDaysDRHCrossing;
+                if (p > 0.05) {
+                    recs.push({
+                        level: 'warn', model: 'saltCumulative',
+                        title: `Keep RH bounded away from the 65–80% DRH band`,
+                        current: `${pct(p)}% of days crossed`,
+                        action: `Soluble salts crystallise/deliquesce across ~65–80% RH. Pick a setpoint clearly below (≤60%) or above (≥85%) the band; don't let daily swings straddle it.`
+                    });
+                } else {
+                    recs.push({
+                        level: 'ok', model: 'saltCumulative',
+                        title: 'RH stays clear of the DRH band',
+                        current: `${pct(p)}% of days crossed`,
+                        action: 'No salt cycling pressure.'
+                    });
+                }
+            }
+
+            // Pull the worst-ETA model's rec to the front so the user sees
+            // the most urgent lever first; ties broken by original order.
+            if (worst) {
+                recs.sort((a, b) => {
+                    const aPri = (a.model === worst.key && a.level === 'warn') ? -1 : 0;
+                    const bPri = (b.model === worst.key && b.level === 'warn') ? -1 : 0;
+                    return aPri - bPri;
+                });
+            }
+            return recs;
         }
     },
     watch: {
@@ -198,7 +325,10 @@ export default {
                 this.chart.update('none');
                 return;
             }
-            this.chart = new Chart(canvas, {
+            // Wrap in Vue.markRaw — see LiveDataPanel.drawChart for the
+            // rationale. Without it Chart.js + Vue 3's reactive proxy enter
+            // a circular toRaw recursion.
+            this.chart = Vue.markRaw(new Chart(canvas, {
                 type: 'line',
                 data: { labels, datasets },
                 options: {
@@ -219,7 +349,7 @@ export default {
                         }
                     }
                 }
-            });
+            }));
         },
 
         _annotations(historyEnd) { return {}; },
@@ -335,6 +465,41 @@ export default {
                     <div v-if="m.eta" style="margin-top: 4px;">
                         <status-badge v-if="m.eta === 'crossed'" level="critical" variant="solid" label="already crossed" icon="⚠"></status-badge>
                         <status-badge v-else level="medium" variant="soft" :label="'ETA: ' + m.eta"></status-badge>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Conservation actions -->
+            <div v-if="cum && recommendations.length" style="background: white; border: 1px solid #e5e5e5; border-radius: 8px; padding: 10px 12px; margin-bottom: 12px;">
+                <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px; font-size: 13px; font-weight: 600;">
+                    <span>🛠</span>
+                    <span>Conservation actions</span>
+                    <span style="font-size: 10px; color: var(--text-secondary); font-weight: 400; margin-left: auto;">
+                        Targets:
+                        <a href="https://en.wikipedia.org/wiki/Bizot_Group"
+                           target="_blank" rel="noopener"
+                           style="color: inherit; text-decoration: underline;">Bizot Green Protocol (2014)</a>
+                    </span>
+                </div>
+                <div v-for="(r, idx) in recommendations" :key="idx"
+                     :style="{
+                        display: 'grid',
+                        gridTemplateColumns: '20px 1fr',
+                        gap: '8px',
+                        padding: '8px 10px',
+                        marginBottom: '6px',
+                        borderRadius: '6px',
+                        background: r.level === 'warn' ? 'var(--severity-high-soft, #fef2f2)'
+                                  : r.level === 'info' ? 'var(--severity-medium-soft, #fffbeb)'
+                                  : 'var(--severity-low-soft, #f0fdf4)',
+                        borderLeft: '3px solid ' + (r.level === 'warn' ? '#dc2626' : r.level === 'info' ? '#d97706' : '#16a34a'),
+                        fontSize: '12px'
+                     }">
+                    <div style="font-size: 14px;">{{ r.level === 'warn' ? '⚠' : r.level === 'info' ? 'ℹ' : '✓' }}</div>
+                    <div>
+                        <div style="font-weight: 600;">{{ r.title }}</div>
+                        <div style="color: var(--text-secondary); margin: 2px 0;">Currently {{ r.current }}.</div>
+                        <div>{{ r.action }}</div>
                     </div>
                 </div>
             </div>

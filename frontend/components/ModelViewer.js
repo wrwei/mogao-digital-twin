@@ -60,6 +60,17 @@ export default {
         };
     },
     created() {
+        // Render-on-demand dirty flag. Set true to make the next animate()
+        // tick run renderer.render(); the flag clears itself after the
+        // frame. Kept as a non-reactive instance property — Vue reactivity
+        // is irrelevant here and the value flips many times per second.
+        this._needsRender = true;
+        // True while the user is actively interacting with the camera; we
+        // render every frame in this window (including a short tail after
+        // release to let damping decay finish) so the input never feels
+        // laggy. Idle state still consumes zero render time.
+        this._interactive = false;
+        this._interactiveTimeout = null;
         // Store Three.js objects as non-reactive instance properties
         // to avoid Vue's proxy wrapping which breaks Three.js
         this.scene = null;
@@ -106,6 +117,9 @@ export default {
         autoRotate(newVal) {
             if (this.controls) {
                 this.controls.autoRotate = newVal;
+                // Toggling autoRotate on needs to kick the loop awake;
+                // toggling off should still render one final frame.
+                this.invalidate();
             }
         },
         assetReference: {
@@ -170,6 +184,28 @@ export default {
             this.controls.dampingFactor = 0.05;
             this.controls.autoRotate = this.autoRotate;
             this.controls.autoRotateSpeed = 2.0;
+
+            // Render-on-demand wiring. 'start' marks the beginning of a
+            // user drag/zoom; 'end' marks release. Between them, AND for a
+            // grace period after release (so damping decay completes
+            // smoothly), the render loop runs at full frame rate. 'change'
+            // is kept as a secondary invalidation source for edge cases.
+            this.controls.addEventListener('start', () => {
+                this._interactive = true;
+                if (this._interactiveTimeout) {
+                    clearTimeout(this._interactiveTimeout);
+                    this._interactiveTimeout = null;
+                }
+            });
+            this.controls.addEventListener('end', () => {
+                // Damping at dampingFactor=0.05 typically decays in <30
+                // frames (~0.5s); 1s is a safe overshoot.
+                this._interactiveTimeout = setTimeout(() => {
+                    this._interactive = false;
+                    this._interactiveTimeout = null;
+                }, 1000);
+            });
+            this.controls.addEventListener('change', this.invalidate);
 
             // Start animation loop
             this.animate();
@@ -392,15 +428,32 @@ export default {
             }
         },
 
+        /**
+         * Mark the scene dirty so the next animation tick renders a frame.
+         * Cheap to call repeatedly — the render itself runs at most once
+         * per rAF cycle regardless of how many invalidations land.
+         */
+        invalidate() {
+            this._needsRender = true;
+        },
+
         animate() {
             this.animationId = requestAnimationFrame(this.animate);
 
-            if (this.controls) {
-                this.controls.update();
-            }
+            // controls.update() must run every frame so damping decay,
+            // autoRotate, and queued pointer input all integrate. It's
+            // cheap when nothing changed; the GPU work is what we want
+            // to skip during idle.
+            if (this.controls) this.controls.update();
 
-            if (this.renderer && this.scene && this.camera) {
+            // Render every frame while the user is interacting (covers
+            // drag + post-release damping decay) or while autoRotate is
+            // on. Otherwise only render when something external has
+            // invalidated the scene (texture mutation, reset, etc.).
+            const continuous = this.controls?.autoRotate || this._interactive;
+            if ((continuous || this._needsRender) && this.renderer && this.scene && this.camera) {
                 this.renderer.render(this.scene, this.camera);
+                this._needsRender = false;
             }
         },
 
@@ -435,6 +488,77 @@ export default {
                 // Revoke after a tick so the browser has a chance to start the download.
                 setTimeout(() => URL.revokeObjectURL(url), 1000);
             }, 'image/png');
+        },
+
+        /**
+         * Capture the current 3D view as a single-page PDF with the image
+         * plus a small metadata block (timestamp + current simulation state).
+         * Uses the global jsPDF UMD bundle loaded in index.html — same one
+         * the Prediction panel uses for its Export PDF feature.
+         */
+        exportPDF() {
+            if (!this.renderer || !this.scene || !this.camera) return;
+            const jsPDFCtor = window.jspdf && window.jspdf.jsPDF;
+            if (!jsPDFCtor) {
+                console.warn('jsPDF not loaded; PDF export unavailable.');
+                return;
+            }
+
+            this.renderer.render(this.scene, this.camera);
+            const canvas = this.renderer.domElement;
+            const dataUrl = canvas.toDataURL('image/png');
+
+            // Landscape A4 (297 × 210 mm) to match typical 3D-viewer aspect.
+            const pdf = new jsPDFCtor({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+            const pageW = pdf.internal.pageSize.getWidth();
+            const pageH = pdf.internal.pageSize.getHeight();
+            const margin = 10;
+
+            // Header.
+            pdf.setFontSize(14);
+            pdf.setFont('helvetica', 'bold');
+            pdf.text('Mogao Digital Twin — 3D View Capture', margin, margin + 5);
+
+            pdf.setFontSize(9);
+            pdf.setFont('helvetica', 'normal');
+            pdf.setTextColor(110, 93, 74);
+            pdf.text(new Date().toLocaleString(), margin, margin + 11);
+
+            // Footer with the SimulationEngine's current scenario state — gives the
+            // capture context (what T/RH/exposure produced this look).
+            const footerY = pageH - margin;
+            try {
+                const T = Sim.env.temperature;
+                const RH = Sim.env.humidity;
+                const I  = Sim.env.simLight;
+                const years = (Sim.totalDays.value / 365.25).toFixed(2);
+                pdf.setFontSize(9);
+                pdf.setTextColor(110, 93, 74);
+                pdf.text(
+                    `Scenario:  T = ${T.toFixed(1)} °C   ·   RH = ${RH.toFixed(1)} %   ·   Light = ${I} klux   ·   Exposure = ${years} y`,
+                    margin, footerY
+                );
+            } catch (_) { /* Sim state unavailable — skip the line */ }
+
+            // Image: fit width, preserve aspect ratio, sit below the header
+            // with a small gap, never overrun the footer.
+            const headerSpace = 18;
+            const footerSpace = 10;
+            const availW = pageW - 2 * margin;
+            const availH = pageH - margin - headerSpace - footerSpace;
+            const imgAspect = canvas.width / canvas.height;
+            let imgW = availW;
+            let imgH = imgW / imgAspect;
+            if (imgH > availH) {
+                imgH = availH;
+                imgW = imgH * imgAspect;
+            }
+            const imgX = (pageW - imgW) / 2;
+            const imgY = margin + headerSpace;
+            pdf.addImage(dataUrl, 'PNG', imgX, imgY, imgW, imgH);
+
+            const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+            pdf.save(`mogao-${stamp}.pdf`);
         },
 
         /**
@@ -574,6 +698,7 @@ export default {
                     child.material.needsUpdate = true;
                 }
             });
+            this.invalidate();
         },
 
         /**
@@ -595,6 +720,7 @@ export default {
                     }
                 }
             });
+            this.invalidate();
         },
 
         /**
@@ -724,6 +850,9 @@ export default {
                 </button>
                 <button @click="takeScreenshot" class="btn btn-sm" title="Save the current 3D view as a PNG">
                     📸 Screenshot
+                </button>
+                <button @click="exportPDF" class="btn btn-sm" title="Export the current 3D view as a PDF with scenario metadata">
+                    📄 Export PDF
                 </button>
             </div>
 

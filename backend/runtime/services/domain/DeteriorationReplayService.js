@@ -387,9 +387,42 @@ module.exports = {
             cumulative: replay.cumulative,
             thresholds: replay.thresholds,
             thresholdsCrossed: replay.thresholdsCrossed,
+            climateSummary: summariseClimate(buckets),
             forecast: forecastResult
         };
         cacheSet(key, result);
         return result;
     }
 };
+
+/**
+ * Roll the daily buckets up into a small climate fingerprint the UI can
+ * compare against conservation benchmarks (Bizot Green Protocol etc).
+ * `pctDays*` are days satisfying the predicate / total days, ∈ [0, 1].
+ */
+function summariseClimate(buckets) {
+    if (!buckets || buckets.length === 0) return null;
+    const Ts = buckets.map(b => b.T_mean).filter(v => v != null);
+    const RHs = buckets.map(b => b.RH_mean).filter(v => v != null);
+    const dRHs = buckets
+        .map(b => (b.RH_max != null && b.RH_min != null) ? b.RH_max - b.RH_min : null)
+        .filter(v => v != null);
+    const mean = arr => arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : null;
+    const max  = arr => arr.length ? Math.max(...arr) : null;
+    const min  = arr => arr.length ? Math.min(...arr) : null;
+    // DRH crossing band: NaCl ≈ 75 %, but most common efflorescent salts
+    // re-crystallise somewhere in 65–80 %. Counting days where today's RH
+    // straddles that band is a cheap proxy for "are we cycling salts".
+    const drhCrossings = buckets.filter(b =>
+        b.RH_min != null && b.RH_max != null && b.RH_min < 80 && b.RH_max > 65
+    ).length;
+    const mouldRiskDays = buckets.filter(b => b.RH_max != null && b.RH_max > 70).length;
+    return {
+        days: buckets.length,
+        T:  { mean: mean(Ts),  min: min(Ts),  max: max(Ts)  },
+        RH: { mean: mean(RHs), min: min(RHs), max: max(RHs) },
+        deltaRH:    { mean: mean(dRHs), max: max(dRHs) },
+        pctDaysMouldRisk:   mouldRiskDays / buckets.length,
+        pctDaysDRHCrossing: drhCrossings  / buckets.length
+    };
+}

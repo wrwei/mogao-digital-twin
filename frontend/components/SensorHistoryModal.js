@@ -19,7 +19,7 @@ export default {
     props: {
         sensor: { type: Object, default: null }     // null = closed
     },
-    emits: ['close'],
+    emits: ['close', 'cleared'],
     setup() {
         const { t } = useI18n();
         return { t };
@@ -32,7 +32,8 @@ export default {
             samples: [],                            // climate variant
             summary: null,                          // climate variant
             snapshots: [],                          // camera variant
-            lightbox: null                          // camera variant
+            lightbox: null,                         // camera variant
+            clearing: false                         // 'clear all samples' in flight
         };
     },
     computed: {
@@ -83,6 +84,29 @@ export default {
             }
         },
         setRange(r) { this.range = r; this.fetch(); },
+        async clearAll() {
+            if (!this.sensor) return;
+            const total = this.sensor.status?.samplesTotal ?? this.summary?.count;
+            const totalLabel = total != null ? total.toLocaleString() : 'all';
+            const ok = window.confirm(
+                `Permanently delete ${totalLabel} sample(s) from "${this.sensor.name || this.sensor.gid}"?\n\n` +
+                `The sensor record and its API key will be kept; only the historical samples are removed. ` +
+                `This cannot be undone.`
+            );
+            if (!ok) return;
+            this.clearing = true;
+            this.error = null;
+            try {
+                const { data } = await window.api.sensors.clearSamples(this.sensor.gid);
+                this.samples = [];
+                this.summary = null;
+                this.$emit('cleared', { gid: this.sensor.gid, samplesDeleted: data.samplesDeleted });
+            } catch (err) {
+                this.error = err.response?.data?.error || err.message;
+            } finally {
+                this.clearing = false;
+            }
+        },
         imageUrl(gid) { return window.api.snapshots.imageUrl(gid); },
         openLightbox(snap) { this.lightbox = snap; },
         closeLightbox() { this.lightbox = null; },
@@ -161,6 +185,22 @@ export default {
                                 </tr>
                             </tbody>
                         </table>
+                    </div>
+
+                    <!-- Danger zone: wipe-all -->
+                    <div style="margin-top: 18px; padding: 12px; border: 1px solid var(--severity-high-bg, #fca5a5); background: var(--severity-high-soft, #fef2f2); border-radius: 6px;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+                            <div style="font-size: 12px; color: var(--severity-high-soft-fg, #7f1d1d);">
+                                <strong>Danger zone.</strong>
+                                Permanently delete every sample for this sensor (the sensor record + API key are kept).
+                                Useful when swapping in a new CSV profile.
+                            </div>
+                            <button class="btn btn-sm" :disabled="clearing"
+                                    @click="clearAll"
+                                    style="background: #b91c1c; color: white; flex-shrink: 0;">
+                                {{ clearing ? 'Clearing…' : 'Clear all samples' }}
+                            </button>
+                        </div>
                     </div>
                 </template>
 

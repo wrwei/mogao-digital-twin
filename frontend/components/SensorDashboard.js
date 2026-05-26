@@ -67,12 +67,12 @@ export default {
         },
         filteredSensors() {
             const q = this.search.trim().toLowerCase();
-            const has = (s, ch) => Array.isArray(s.channels) && s.channels.includes(ch);
             return this.sensorsDecorated.filter(s => {
                 if (this.statusFilter !== 'all' && s._health !== this.statusFilter) return false;
-                if (this.kindFilter === 'temperature' && !has(s, 'temperature')) return false;
-                if (this.kindFilter === 'humidity'    && !has(s, 'humidity'))    return false;
-                if (this.kindFilter === 'camera'      && !has(s, 'image'))       return false;
+                // Classify each sensor by its single primary type so that a
+                // legacy combined ['temperature','humidity'] sensor only shows
+                // up under one tab. Same priority order as openEditForm() uses.
+                if (this.kindFilter !== 'all' && this.primaryType(s) !== this.kindFilter) return false;
                 if (!q) return true;
                 return (s.name || '').toLowerCase().includes(q)
                     || (s.model || '').toLowerCase().includes(q)
@@ -216,16 +216,28 @@ export default {
             this.showSensorForm = true;
         },
 
+        primaryType(sensor) {
+            const ch = Array.isArray(sensor.channels) ? sensor.channels : [];
+            if (ch.includes('image')) return 'camera';
+            // Single canonical type per sensor. Saving the edit form rewrites
+            // the channels array to match, so newly-created sensors stay clean.
+            // Legacy combined ['temperature','humidity'] sensors get classified
+            // by name as a one-shot heuristic — saving once cleans up channels.
+            const hasT  = ch.includes('temperature');
+            const hasRH = ch.includes('humidity');
+            if (hasT && hasRH) {
+                const name = (sensor.name || '').toLowerCase();
+                if (/humid|rh\b/.test(name)) return 'humidity';
+                return 'temperature';
+            }
+            if (hasT)  return 'temperature';
+            if (hasRH) return 'humidity';
+            return 'temperature';
+        },
+
         openEditForm(sensor) {
             this.editingSensorGid = sensor.gid;
-            const ch = Array.isArray(sensor.channels) ? sensor.channels : [];
-            // Legacy [temperature, humidity] sensors collapse to whichever
-            // channel is listed first — saving from this form will rewrite
-            // the channels array to match the chosen single type.
-            const type = ch.includes('image')      ? 'camera'
-                      : ch.includes('temperature') ? 'temperature'
-                      : ch.includes('humidity')    ? 'humidity'
-                      :                              'temperature';
+            const type = this.primaryType(sensor);
             this.sensorForm = {
                 name: sensor.name || '',
                 type,
@@ -311,13 +323,29 @@ export default {
         },
 
         // ── Bulk import ─────────────────────────────────────────────────
+        sensorsByType(type) {
+            return this.sensors.filter(s => this.primaryType(s) === type);
+        },
+
         onBulkFilesChange(e) {
             const files = Array.from(e.target.files || []);
+            const tSensors  = this.sensorsByType('temperature');
+            const rhSensors = this.sensorsByType('humidity');
             this.bulkFiles = files.map(file => {
-                // Try to auto-match sensor by filename containing the sensor gid
-                const stem = file.name.replace(/\.[^.]+$/, '');
-                const match = this.sensors.find(s => stem.includes(s.gid) || stem.includes(s.name.replace(/\s+/g, '-')));
-                return { file, sensorGid: match ? match.gid : '' };
+                // Auto-match each channel target: try filename → sensor first
+                // (gid or name match), otherwise fall back to the first sensor
+                // of that type so a generic profile CSV pre-fills both targets.
+                const stem = file.name.replace(/\.[^.]+$/, '').toLowerCase();
+                const matchIn = list => list.find(s =>
+                    stem.includes(s.gid.toLowerCase()) || stem.includes(s.name.toLowerCase().replace(/\s+/g, '-'))
+                );
+                return {
+                    file,
+                    targets: {
+                        temperature: (matchIn(tSensors)  || tSensors[0]  || {}).gid || '',
+                        humidity:    (matchIn(rhSensors) || rhSensors[0] || {}).gid || ''
+                    }
+                };
             });
             this.bulkProgress = null;
         },
@@ -327,23 +355,30 @@ export default {
         },
 
         async runBulkImport() {
-            if (this.bulkFiles.some(f => !f.sensorGid)) {
-                alert('Every file must be assigned to a sensor before importing.');
+            if (this.bulkFiles.some(f => !f.targets.temperature && !f.targets.humidity)) {
+                alert('Every file needs at least one target sensor (Temperature or Humidity).');
                 return;
             }
             this.bulkRunning = true;
-            this.bulkProgress = this.bulkFiles.map(f => ({ name: f.file.name, status: 'pending', result: null }));
+            this.bulkProgress = this.bulkFiles.map(f => ({
+                name: f.file.name,
+                status: 'pending',
+                results: { temperature: null, humidity: null }
+            }));
             for (let i = 0; i < this.bulkFiles.length; i++) {
                 const entry = this.bulkFiles[i];
                 this.bulkProgress[i].status = 'uploading';
-                try {
-                    const res = await window.api.sensors.uploadCSV(entry.sensorGid, entry.file);
-                    this.bulkProgress[i].status = 'done';
-                    this.bulkProgress[i].result = res.data;
-                } catch (err) {
-                    this.bulkProgress[i].status = 'failed';
-                    this.bulkProgress[i].result = { error: err.response?.data?.error || err.message };
+                for (const channel of ['temperature', 'humidity']) {
+                    const gid = entry.targets[channel];
+                    if (!gid) continue;
+                    try {
+                        const res = await window.api.sensors.uploadCSV(gid, entry.file);
+                        this.bulkProgress[i].results[channel] = { ok: true, data: res.data };
+                    } catch (err) {
+                        this.bulkProgress[i].results[channel] = { ok: false, error: err.response?.data?.error || err.message };
+                    }
                 }
+                this.bulkProgress[i].status = 'done';
             }
             this.bulkRunning = false;
             await this.loadSensors();
@@ -352,6 +387,14 @@ export default {
         clearBulkImport() {
             this.bulkFiles = [];
             this.bulkProgress = null;
+        },
+
+        async onHistoryCleared() {
+            // Samples were wiped from inside the History modal: refresh the
+            // fleet so sample counts and last-seen badges reflect the empty
+            // state without the user having to hit the page-level Refresh.
+            this.historySensor = null;
+            await this.loadSensors();
         },
 
         async copyApiKey() {
@@ -546,7 +589,8 @@ export default {
                             <tr style="background: #f5f5f5;">
                                 <th style="text-align: left; padding: 6px;">File</th>
                                 <th style="text-align: left; padding: 6px;">Size</th>
-                                <th style="text-align: left; padding: 6px;">Target sensor</th>
+                                <th style="text-align: left; padding: 6px;">🌡 Temperature target</th>
+                                <th style="text-align: left; padding: 6px;">💧 Humidity target</th>
                                 <th style="text-align: left; padding: 6px;">Status</th>
                                 <th style="padding: 6px;"></th>
                             </tr>
@@ -556,21 +600,38 @@ export default {
                                 <td style="padding: 6px;">{{ entry.file.name }}</td>
                                 <td style="padding: 6px; color: var(--text-secondary);">{{ (entry.file.size / 1024).toFixed(1) }} KB</td>
                                 <td style="padding: 6px;">
-                                    <select v-model="entry.sensorGid" :disabled="bulkRunning" class="preset-select" style="padding: 3px 6px; font-size: 11px;">
-                                        <option value="" disabled>Select…</option>
-                                        <option v-for="s in sensors" :key="s.gid" :value="s.gid">{{ s.name }} ({{ s.gid.substring(0, 20) }}…)</option>
+                                    <select v-model="entry.targets.temperature" :disabled="bulkRunning" class="preset-select" style="padding: 3px 6px; font-size: 11px;">
+                                        <option value="">— skip —</option>
+                                        <option v-for="s in sensorsByType('temperature')" :key="s.gid" :value="s.gid">{{ s.name }}</option>
+                                    </select>
+                                </td>
+                                <td style="padding: 6px;">
+                                    <select v-model="entry.targets.humidity" :disabled="bulkRunning" class="preset-select" style="padding: 3px 6px; font-size: 11px;">
+                                        <option value="">— skip —</option>
+                                        <option v-for="s in sensorsByType('humidity')" :key="s.gid" :value="s.gid">{{ s.name }}</option>
                                     </select>
                                 </td>
                                 <td style="padding: 6px;">
                                     <span v-if="bulkProgress && bulkProgress[i]">
                                         <span v-if="bulkProgress[i].status === 'pending'" style="color: var(--text-secondary);">pending</span>
                                         <span v-else-if="bulkProgress[i].status === 'uploading'" style="color: #3b82f6;">uploading…</span>
-                                        <span v-else-if="bulkProgress[i].status === 'done'" style="color: #10b981;">
-                                            ✓ {{ bulkProgress[i].result.accepted }} accepted,
-                                            {{ bulkProgress[i].result.duplicates }} dup,
-                                            {{ bulkProgress[i].result.rejected }} rejected
-                                        </span>
-                                        <span v-else style="color: #ef4444;">✗ {{ bulkProgress[i].result.error }}</span>
+                                        <template v-else-if="bulkProgress[i].status === 'done'">
+                                            <div v-for="(r, ch) in bulkProgress[i].results" :key="ch" v-if="r" style="margin-bottom: 2px;">
+                                                <span style="color: var(--text-secondary); font-size: 10px;">{{ ch === 'temperature' ? '🌡 T' : '💧 RH' }}:</span>
+                                                <template v-if="r.ok">
+                                                    <span :style="{ color: r.data.accepted > 0 ? '#10b981' : '#f59e0b' }">
+                                                        {{ r.data.accepted > 0 ? '✓' : '⚠' }}
+                                                        {{ r.data.accepted }} accepted, {{ r.data.duplicates }} dup<span v-if="r.data.skipped">, {{ r.data.skipped }} skipped</span><span v-if="r.data.rejected">, {{ r.data.rejected }} rejected</span>
+                                                    </span>
+                                                    <span v-if="r.data.errors && r.data.errors.length"
+                                                          style="color: #ef4444; font-size: 10px; margin-left: 4px;"
+                                                          :title="JSON.stringify(r.data.errors.slice(0, 5), null, 2)">
+                                                        (first err: {{ r.data.errors[0].error || r.data.errors[0] }})
+                                                    </span>
+                                                </template>
+                                                <span v-else style="color: #ef4444;">✗ {{ r.error }}</span>
+                                            </div>
+                                        </template>
                                     </span>
                                     <span v-else style="color: var(--text-secondary);">ready</span>
                                 </td>
@@ -597,7 +658,7 @@ export default {
             <sensor-emulator-panel v-if="activeTab === 'emulator'"></sensor-emulator-panel>
 
             <!-- Per-sensor history modal -->
-            <sensor-history-modal :sensor="historySensor" @close="historySensor = null"></sensor-history-modal>
+            <sensor-history-modal :sensor="historySensor" @close="historySensor = null" @cleared="onHistoryCleared"></sensor-history-modal>
 
             <!-- Per-sensor API-key view / rotate modal -->
             <sensor-key-modal :sensor="keySensor" @close="keySensor = null" @rotated="loadSensors"></sensor-key-modal>

@@ -79,6 +79,19 @@ module.exports = {
         }
     },
 
+    async clearSamples(req, res) {
+        try {
+            if (!req.user || req.user.role !== 'admin') {
+                return res.status(403).json({ error: 'Only admin can clear samples' });
+            }
+            const result = await TelemetryService.clearSamples(req.params.gid);
+            if (!result) return res.status(404).json({ error: 'Sensor not found' });
+            res.json({ message: 'Samples cleared', ...result });
+        } catch (err) {
+            res.status(500).json({ error: err.message });
+        }
+    },
+
     async updateSensor(req, res) {
         try {
             if (!req.user || req.user.role !== 'admin') {

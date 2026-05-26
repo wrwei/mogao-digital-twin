@@ -250,15 +250,23 @@ function saltDeliquescenceRH(T_celsius, params = {}) {
     return Math.max(0, Math.min(100, DRH_ref + DRH_slope * (T_celsius - T_ref)));
 }
 
-function saltCrystallization(T_celsius, RH_percent, totalDays, params = {}) {
+function saltCrystallization(T_celsius, RH_percent, totalDays, params = {}, RH_amplitude = 0) {
     const { Vm, tensileStrength, cyclesPerYear } = { ...SALT_DEFAULTS, ...params };
     const T_kelvin = T_celsius + 273.15;
     const DRH = saltDeliquescenceRH(T_celsius, params);
-    const isCrystallizing = RH_percent < DRH;
+
+    // Real-world RH cycles. Evaluate pressure at the cycle TROUGH where
+    // supersaturation peaks — the wet half of the cycle contributes
+    // essentially zero pressure because RH there exceeds DRH. Previously the
+    // model used the mean RH only, so a "Poor Storage 80 % ± 20 %" preset
+    // computed pressure at RH=80 (just below DRH=83 → barely damaging)
+    // and missed the genuinely damaging trough at RH=60.
+    const RH_trough = Math.max(0.01, RH_percent - (RH_amplitude || 0) / 2);
+    const isCrystallizing = RH_trough < DRH;
 
     let pressure_MPa = 0;
-    if (isCrystallizing && RH_percent > 0) {
-        const S = (DRH / 100) / (RH_percent / 100);
+    if (isCrystallizing && RH_trough > 0) {
+        const S = (DRH / 100) / (RH_trough / 100);
         pressure_MPa = ((R * T_kelvin) / Vm) * Math.log(S) / 1e6;
     }
 
@@ -275,9 +283,16 @@ function saltCrystallization(T_celsius, RH_percent, totalDays, params = {}) {
 
     const risk = Math.min(100, damageRatio * 25);
 
+    // Visual effect scales with the accumulated damage over the exposure
+    // period, NOT the instantaneous damageRatio. Salt damage is a long-term
+    // accretion: a 50-year poor-storage scenario should clearly show
+    // efflorescence even if any one snapshot's pressure is "moderate", and
+    // a 1-day snapshot at the same RH shouldn't fake decades of damage.
+    const cumNorm = Math.min(1, cumulativeDamage / 100);
     return {
         pressure_MPa: Math.round(pressure_MPa * 100) / 100,
         DRH: Math.round(DRH * 10) / 10,
+        RH_trough: Math.round(RH_trough * 10) / 10,
         isCrystallizing,
         damageRatio: Math.round(damageRatio * 100) / 100,
         cumulativeDamage: Math.round(cumulativeDamage * 10) / 10,
@@ -285,9 +300,9 @@ function saltCrystallization(T_celsius, RH_percent, totalDays, params = {}) {
         label,
         visualEffect: {
             type: 'salt',
-            intensity: Math.min(1, damageRatio),
-            coverage: Math.min(1, damageRatio / 5),
-            spalling: Math.min(1, damageRatio / 3),
+            intensity: cumNorm,
+            coverage: cumNorm,
+            spalling: Math.min(1, cumNorm * 1.5),
             damageRatio: Math.round(damageRatio * 100) / 100
         }
     };
@@ -363,7 +378,7 @@ function assess(params) {
         chemical: chemicalFading(T_celsius, RH_percent, light_klux, totalDays, chemicalParams),
         lifetime: lifetimeMultiplier(T_celsius, RH_percent, totalDays, lifetimeParams),
         mould: mouldGrowth(T_celsius, RH_percent, totalDays, prevMouldIndex, mouldParams),
-        saltCryst: saltCrystallization(T_celsius, RH_percent, totalDays, saltCrystParams),
+        saltCryst: saltCrystallization(T_celsius, RH_percent, totalDays, saltCrystParams, RH_amplitude),
         fatigue: fatigueDamage(RH_amplitude, totalDays, fatigueParams)
     };
 }

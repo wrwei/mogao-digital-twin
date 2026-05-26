@@ -87,7 +87,7 @@ module.exports = {
     // POST /deterioration/salt — salt crystallization only
     async salt(req, res) {
         try {
-            const { T_celsius, RH_percent, totalDays, params } = req.body;
+            const { T_celsius, RH_percent, totalDays, params, RH_amplitude } = req.body;
 
             if (T_celsius == null || RH_percent == null || totalDays == null) {
                 return res.status(400).json({
@@ -95,7 +95,9 @@ module.exports = {
                 });
             }
 
-            const result = DeteriorationService.saltCrystallization(T_celsius, RH_percent, totalDays, params);
+            const result = DeteriorationService.saltCrystallization(
+                T_celsius, RH_percent, totalDays, params, RH_amplitude || 0
+            );
             res.json(result);
         } catch (error) {
             console.error('Salt crystallization error:', error);
