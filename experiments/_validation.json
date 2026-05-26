@@ -1,0 +1,42 @@
+{
+  "time_window_cv": {
+    "overall_rmse": 3.175067155376099,
+    "overall_mae": 2.3941775604833317,
+    "overall_r2": -6.59527741247752,
+    "n_pairs": 118
+  },
+  "bootstrap_Ea_95ci_kJmol": {
+    "vermilion_pedestal": {
+      "label": "Vermilion (pedestal, headline)",
+      "median": 86.71230479111958,
+      "p2_5": 12.528535137908746,
+      "p97_5": 139.18211698195216,
+      "n_boot": 1000,
+      "n_spots": 2
+    },
+    "azurite_block": {
+      "label": "Azurite (block, headline)",
+      "median": 57.31667288324915,
+      "p2_5": 31.987716270417014,
+      "p97_5": 80.48691173229028,
+      "n_boot": 1000,
+      "n_spots": 3
+    },
+    "malachite_block": {
+      "label": "Malachite (block, headline)",
+      "median": 35.04388399171161,
+      "p2_5": 9.968356947302215,
+      "p97_5": 60.36826624316148,
+      "n_boot": 1000,
+      "n_spots": 3
+    },
+    "vermilion_block_photolytic": {
+      "label": "Vermilion (block, photolytic-pathway residual)",
+      "median": 48.81911929658125,
+      "p2_5": 25.84014678218153,
+      "p97_5": 74.63707119878384,
+      "n_boot": 1000,
+      "n_spots": 3
+    }
+  }
+}
