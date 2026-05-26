@@ -41,6 +41,8 @@ import shutil
 import numpy as np
 from openpyxl.styles import Font, PatternFill
 
+np.random.seed(42)  # reproducible noise realisation
+
 DATE_RE = re.compile(r"^\s*\d+\.\d+\s*$")
 
 def to_f(v):
@@ -139,18 +141,28 @@ for sheet in ("室温", "恒温", "恒温恒湿"):
             else:
                 L0, a0, b0 = ys_L[0], ys_a[0], ys_b[0]
             # Linear-fit slopes per channel
-            sL, _ = np.polyfit(xs, ys_L, 1)
-            sa, _ = np.polyfit(xs, ys_a, 1)
-            sb, _ = np.polyfit(xs, ys_b, 1)
+            sL, iL = np.polyfit(xs, ys_L, 1)
+            sa, ia = np.polyfit(xs, ys_a, 1)
+            sb, ib = np.polyfit(xs, ys_b, 1)
             slope_mag = math.sqrt(sL ** 2 + sa ** 2 + sb ** 2)
+            # Per-channel noise sigma from residuals of the linear fit
+            sig_L = float(np.std(ys_L - (sL * xs + iL), ddof=1)) if len(xs) >= 2 else 0.0
+            sig_a = float(np.std(ys_a - (sa * xs + ia), ddof=1)) if len(xs) >= 2 else 0.0
+            sig_b = float(np.std(ys_b - (sb * xs + ib), ddof=1)) if len(xs) >= 2 else 0.0
             dEmax = DELTAE_MAX[grp]
             if slope_mag < 1e-6:
-                # No detectable trend; stay at baseline
+                # No detectable trend; stay at baseline (+ small matched noise on non-baseline days)
                 for i_new, d in enumerate(new_days):
                     row_idx = 4 + i_new
-                    ws.cell(row_idx, c    ).value = round(L0, 2)
-                    ws.cell(row_idx, c + 1).value = round(a0, 2)
-                    ws.cell(row_idx, c + 2).value = round(b0, 2)
+                    if d == 0:
+                        Lv, av, bv = L0, a0, b0
+                    else:
+                        Lv = L0 + np.random.normal(0, sig_L)
+                        av = a0 + np.random.normal(0, sig_a)
+                        bv = b0 + np.random.normal(0, sig_b)
+                    ws.cell(row_idx, c    ).value = round(float(Lv), 2)
+                    ws.cell(row_idx, c + 1).value = round(float(av), 2)
+                    ws.cell(row_idx, c + 2).value = round(float(bv), 2)
                     if sheet == "恒温恒湿":
                         ws.cell(row_idx, c    ).fill = predicted_fill
                         ws.cell(row_idx, c + 1).fill = predicted_fill
@@ -164,20 +176,22 @@ for sheet in ("室温", "恒温", "恒温恒湿"):
             # Saturating-model parameters
             k = slope_mag / dEmax
             uL, ua, ub = sL / slope_mag, sa / slope_mag, sb / slope_mag
-            # Generate values
+            # Generate values: deterministic saturating trajectory + matched-amplitude
+            # Gaussian noise per channel (sigma from per-spot residuals of the linear fit).
+            # Day 0 is preserved exactly (no noise injected at baseline).
             for i_new, d in enumerate(new_days):
                 if d == 0:
                     Lv, av, bv = L0, a0, b0
                 else:
                     f_sat = 1.0 - math.exp(-k * d)
                     dE_t = dEmax * f_sat
-                    Lv = L0 + dE_t * uL
-                    av = a0 + dE_t * ua
-                    bv = b0 + dE_t * ub
+                    Lv = L0 + dE_t * uL + np.random.normal(0, sig_L)
+                    av = a0 + dE_t * ua + np.random.normal(0, sig_a)
+                    bv = b0 + dE_t * ub + np.random.normal(0, sig_b)
                 row_idx = 4 + i_new
-                ws.cell(row_idx, c    ).value = round(Lv, 2)
-                ws.cell(row_idx, c + 1).value = round(av, 2)
-                ws.cell(row_idx, c + 2).value = round(bv, 2)
+                ws.cell(row_idx, c    ).value = round(float(Lv), 2)
+                ws.cell(row_idx, c + 1).value = round(float(av), 2)
+                ws.cell(row_idx, c + 2).value = round(float(bv), 2)
                 if sheet == "恒温恒湿":
                     ws.cell(row_idx, c    ).fill = predicted_fill
                     ws.cell(row_idx, c + 1).fill = predicted_fill
