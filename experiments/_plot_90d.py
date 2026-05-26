@@ -56,15 +56,15 @@ def load_arm(sheet_name):
     return per_spot
 
 arms = {
-    "23 C / 40%RH (room, lit)":         load_arm("室温"),
-    "40 C / 10%RH (chamber, dark)":     load_arm("恒温"),
-    "40 C / 80%RH (predicted, dark)":   load_arm("恒温恒湿"),
+    "23 C / 40%RH (room, lit)  --  measured d 0-34 / saturating model d 36-90":   load_arm("室温"),
+    "40 C / 10%RH (chamber, dark)  --  measured d 0-34 / saturating model d 36-90": load_arm("恒温"),
+    "40 C / 80%RH (predicted, dark)  --  model output throughout (RH-scaled, never measured)": load_arm("恒温恒湿"),
 }
 
 styles = {
-    "23 C / 40%RH (room, lit)":       {"color": "#2E86AB", "marker": "o", "ls": "-"},
-    "40 C / 10%RH (chamber, dark)":   {"color": "#E63946", "marker": "s", "ls": "-"},
-    "40 C / 80%RH (predicted, dark)": {"color": "#6A4C93", "marker": "^", "ls": "--"},
+    "23 C / 40%RH (room, lit)  --  measured d 0-34 / saturating model d 36-90":   {"color": "#2E86AB", "marker": "o", "ls": "-"},
+    "40 C / 10%RH (chamber, dark)  --  measured d 0-34 / saturating model d 36-90": {"color": "#E63946", "marker": "s", "ls": "-"},
+    "40 C / 80%RH (predicted, dark)  --  model output throughout (RH-scaled, never measured)": {"color": "#6A4C93", "marker": "^", "ls": "--"},
 }
 
 fig, axes = plt.subplots(2, 3, figsize=(14, 7.5), sharex=True)
@@ -84,10 +84,12 @@ for row, (geom, grps) in enumerate(geom_groups):
                 if not np.isnan(m): row_max = max(row_max, m)
     for col, grp in enumerate(grps):
         ax = axes[row, col]
-        # vertical guide at day 34 (end of measured window)
-        ax.axvline(34, color="gray", lw=0.8, ls=":", alpha=0.6)
-        ax.text(34, row_max * 1.05, " measured | extrapolated", fontsize=7,
-                color="gray", ha="left", va="top", alpha=0.7) if (row == 0 and col == 0) else None
+        # vertical guide at day 34 (end of measured window) -- now on EVERY subplot
+        ax.axvline(34, color="#999999", lw=1.0, ls=":", alpha=0.85)
+        ax.text(34 - 1, row_max * 1.05, "measured", fontsize=7.5,
+                color="#555555", ha="right", va="top", alpha=0.85, style="italic")
+        ax.text(34 + 1, row_max * 1.05, "model extrapolation", fontsize=7.5,
+                color="#555555", ha="left", va="top", alpha=0.85, style="italic")
 
         cols = spec_cols[grp]
         for arm_label, per_spot in arms.items():
@@ -118,12 +120,16 @@ for row, (geom, grps) in enumerate(geom_groups):
                 fontsize=7, alpha=0.6, style="italic")
 
 handles, labels = axes[0, 0].get_legend_handles_labels()
-fig.legend(handles, labels, loc="upper center", ncol=3,
-           frameon=False, fontsize=9.5, bbox_to_anchor=(0.5, 0.965))
+fig.legend(handles, labels, loc="upper center", ncol=1,
+           frameon=False, fontsize=7.5, bbox_to_anchor=(0.5, 0.93))
 
-fig.suptitle("Per-pigment dE* trajectories extended to 3 months (90 days, 3-day intervals)",
-             y=0.99, fontsize=12, fontweight="bold")
-plt.subplots_adjust(top=0.88, bottom=0.10, left=0.07, right=0.99, hspace=0.30, wspace=0.20)
+fig.suptitle("Per-pigment $\\Delta E^*_{ab}$ trajectories: 34-day measured pilot + 56-day first-order saturating model projection",
+             y=0.99, fontsize=11.5, fontweight="bold")
+fig.text(0.5, 0.025,
+         "Days 0-34: outlier-filtered colorimetry pilot data.  Days 36-90: first-order saturating model per spot with matched-amplitude noise.  "
+         "40 C/80%RH arm is RH-scaled prediction from 10%RH chamber, never measured experimentally.",
+         ha="center", va="bottom", fontsize=7.5, style="italic", color="#555555", wrap=True)
+plt.subplots_adjust(top=0.83, bottom=0.13, left=0.07, right=0.99, hspace=0.30, wspace=0.20)
 
 out = "experiments/deltaE_trajectories_90d.png"
 plt.savefig(out, dpi=150, bbox_inches="tight")
