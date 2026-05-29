@@ -1,113 +1,164 @@
-# Companion code repository — design spec
+# Public companion repository — design spec
 
 **Date:** 2026-05-29
-**Topic:** Public model-library companion repo for the npj Heritage Science paper
+**Topic:** Public code repository accompanying the npj Heritage Science paper
 ("A Model-Based Digital Twin for Predicting Deterioration of Mogao Polychrome Sculpture")
 
 ## Purpose
 
-Readers of the paper need a citable, self-contained code artifact they can refer
-to from the Code Availability section. The live digital-twin application
-(`mogao-digital-twin`: Vue frontend + Node/MongoDB runtime + Micronaut/EGL
-design-time) is too heavy and operationally entangled to serve that role. This
-spec defines a **pure Python model library** that extracts only the paper's
-scientific substance — the seven deterioration/segmentation model kernels — into
-a new standalone repository.
+The paper's Code Availability section needs a citable, public repository that
+lets readers and reviewers inspect the code behind the work. The live
+application (`mogao-digital-twin`: Vue frontend + Node/MongoDB runtime +
+Micronaut/EGL design-time) is too operationally entangled (database, auth,
+sensor API, keys) to publish wholesale.
+
+This spec defines a curated **three-component public repository** that exposes
+code for **all four of the paper's contributions** while leaving the operational
+runtime private.
+
+## Contribution → component coverage
+
+| Paper contribution | Public component |
+| --- | --- |
+| 1. Arrhenius + Paltakari–Karlsson fading kinetics | `models/` |
+| 2. 3D physical twin | `viewer/` |
+| 3. Multi-mechanism composite risk | `models/` |
+| 4. Generic MDE / metamodel framework | `mde/` |
+
+The Node/MongoDB **operational runtime** (`backend/runtime/`: telemetry, auth,
+sensor REST API) is **not** a paper contribution and stays private.
 
 ## Scope decisions (locked)
 
 | Decision | Choice |
 | --- | --- |
-| Repo type | Reproducibility package — no server, no database |
-| Model code | One clean Python library; the paper's model math lives here once |
-| Data files | **None** — no measured pilot colorimetry, no derived `.xlsx` |
-| Figure scripts | **None** — `figures/` excluded entirely |
-| Climate driver | **None** — `climate.py` excluded; readers supply their own inputs |
+| Repo type | Curated public release — no operational backend, no database |
+| Organisation | **One repository, three top-level component folders** |
+| Languages | Python (`models/`), Java + Epsilon (`mde/`), JavaScript (`viewer/`) |
+| Measured data | **None** — no pilot colorimetry, no `.xlsx`, no heritage images |
+| Demo 3D asset | **One** generic, licence-clean model + texture bundled so `viewer/` renders out of the box (a generic asset, not measured heritage data) |
+| Segmenter | JS `PigmentIdentifier.js` in `viewer/` is Model 1's single public home; **no** Python port |
 | Licence | MIT, with `CITATION.cff` pointing at the paper |
-| App repo | Untouched — this is a clean extraction, not a refactor of `mogao-digital-twin` |
+| App repo | Untouched — clean extraction, no changes to `mogao-digital-twin` |
 
 ## Repository
 
-A new standalone git repository at `c:/Users/willr/Git/mogao-deterioration-models`
-(name provisional), pushed to a fresh GitHub remote and linked from the paper.
+A new standalone git repository at `c:/Users/willr/Git/mogao-digital-twin-public`
+(name provisional — alternatives: `mogao-dt-paper`, `mogao-polychrome-dt`),
+pushed to a fresh GitHub remote and linked from the paper.
 
 ```
-mogao-deterioration-models/
-├── README.md            # overview, install, per-model usage snippets, model→paper-equation map, "not included" note
+mogao-digital-twin-public/
+├── README.md            # top-level: component→contribution map, paper link, per-component pointers
 ├── LICENSE              # MIT
 ├── CITATION.cff         # cite the npj paper
-├── pyproject.toml       # single runtime dependency: numpy
-└── mogao_models/
-    ├── __init__.py      # re-exports the public function of each module
-    ├── pigment.py       # Model 1 — HSV-threshold pigment-class segmenter
-    ├── chemical.py      # Model 2 — Arrhenius + Paltakari–Karlsson chemical fading
-    ├── lifetime.py      # Model 3 — Michalski lifetime multiplier
-    ├── mould.py         # Model 4 — VTT Hukka–Viitanen mould index
-    ├── salt.py          # Model 5 — Steiger crystallisation pressure + DRH thresholds
-    ├── fatigue.py       # Model 6 — hygro-mechanical Miner-rule fatigue damage
-    └── composite.py     # composite-risk aggregation (weighted sum of normalised sub-indices)
+│
+├── models/              # Component 1 — deterioration kernels  [contributions 1, 3]
+│   ├── README.md        # install, per-model usage snippets, model→paper-equation map
+│   ├── pyproject.toml   # single runtime dependency: numpy
+│   └── mogao_models/
+│       ├── __init__.py
+│       ├── chemical.py    # Model 2 — Arrhenius + Paltakari–Karlsson fading (first-order saturating ΔE*)
+│       ├── lifetime.py    # Model 3 — Michalski lifetime multiplier
+│       ├── mould.py       # Model 4 — VTT Hukka–Viitanen index
+│       ├── salt.py        # Model 5 — Steiger pressure + DRH thresholds
+│       ├── fatigue.py     # Model 6 — hygro-mechanical Miner-rule damage
+│       └── composite.py   # composite-risk aggregation (weighted normalised sub-indices)
+│
+├── mde/                 # Component 2 — MDE design-time  [contribution 4]
+│   ├── README.md        # what the metamodel/codegen does, how to run transformations
+│   ├── pom.xml          # Maven build
+│   └── src/main/
+│       ├── java/.../codegen/CodeGenerator.java, util/EpsilonModelManager.java
+│       └── resources/
+│           ├── metamodel/mogao_dt.ecore (+ .emf)        # the domain metamodel
+│           ├── templates/...egl                          # EGL code-generation templates
+│           ├── eol-scripts/...eol                        # EOL domain operations
+│           └── models/instances/...                      # example model instances (flexmi/model)
+│
+└── viewer/              # Component 3 — 3D physical twin + segmenter  [contribution 2, Model 1]
+    ├── README.md        # how to serve demo.html, where the demo asset lives
+    ├── demo.html        # standalone viewer demo (from frontend/model-viewer-demo.html), no backend
+    ├── components/ModelViewer.js
+    ├── services/DeteriorationRenderer.js
+    ├── services/SimulationEngine.js     # api/backend coupling stubbed or made optional for the demo
+    ├── pigment/PigmentIdentifier.js, PigmentDatabase.js, PigmentAnalysis.js   # Model 1
+    ├── styles/ + css/ (viewer + simulation styling only)
+    └── assets/demo/      # one bundled licence-clean model + texture
 ```
 
-## Module contracts
+## Component contracts
 
-Each module is one self-contained unit: one clear public function (plus private
-helpers), a docstring citing the corresponding paper model/equation, and
-parameter names matching the paper's notation. A reader can understand and use
-each module without reading the others.
+### `models/` (Python, numpy only)
+One module per model; one clear public function plus private helpers; docstring
+citing the paper model/equation; parameters named to match the paper. Source of
+truth is the existing Python in `experiments/_make_figure_*.py` (which produced
+the committed paper figures), consolidated and cleaned. Each kernel is
+cross-checked against `backend/runtime/services/domain/DeteriorationService.js`,
+and any **intentional** divergence (e.g. the mould module's softer desiccation
+decay chosen for figure legibility) is documented in the docstring. README shows
+each function run on small hand-written toy arrays. No climate driver, no
+figures, no data.
 
-- **pigment.py** — `segment(rgb_array) -> class_map`. Vectorised RGB→HSV plus the
-  eight-class threshold ladder; a faithful Python port of
-  `frontend/pigment/PigmentIdentifier.js`. Operates on a caller-supplied RGB
-  numpy array; no bundled demo image (stated in README).
-- **chemical.py** — `k(T, RH)` / fading rate using Arrhenius `A·exp(-Ea/RT)` with
-  the Paltakari–Karlsson humidity coupling `(RH/RH_ref)**q`, plus the first-order
-  saturating ΔE* form `ΔE*_max·(1 - exp(-k·t))`. Per-pigment Arrhenius parameters
-  exposed as documented defaults.
-- **lifetime.py** — Michalski cumulative-dose lifetime multiplier.
-- **mould.py** — `vtt_step(M, T, RH, dt)` integrating the Hukka–Viitanen index
-  with `RH_crit(T) = 96 - 0.8·T_C`. Documents the intentional softer desiccation
-  decay used for the monitored-climate figure vs the paper's instantaneous value.
-- **salt.py** — `crystallisation_pressure(T, RH, phase)` (Steiger ideal-solution
-  form) and the mirabilite/thenardite DRH threshold fits; trough-RH evaluation
-  noted.
-- **fatigue.py** — Miner-rule cumulative damage from RH cycling amplitude.
-- **composite.py** — `composite_risk(sub_indices, weights)` aggregating the five
-  normalised mechanism indices; default weights documented against the paper's
-  table.
+### `mde/` (Java + Epsilon, Maven)
+Extracted verbatim from `backend/src/` plus `backend/pom.xml`. Demonstrates the
+generic MDE contribution: the Ecore metamodel, the EGL templates that generate
+the Mongoose models/controllers/routers/services and EOL operations, and the
+Java codegen driver. Sample texture `.jpg` files under `resources/exhibit_models/`
+are dropped (images). Example model instances are kept (they demonstrate the
+metamodel, are not heritage data). README explains the transformation workflow
+(the existing `RUN_TRANSFORMATIONS.md` is the basis).
+
+### `viewer/` (JavaScript, browser)
+A focused standalone demo of the 3D physical twin — **not** the whole Vue SPA.
+Includes `ModelViewer.js` (Three.js, with the render-on-demand + PDF-export
+behaviour), `DeteriorationRenderer.js`, `SimulationEngine.js`, the pigment
+segmenter (Model 1), and the viewer/simulation styling. `demo.html` (derived
+from `model-viewer-demo.html`) serves it with no backend; `SimulationEngine.js`
+back-end calls are stubbed or guarded so the demo runs offline. One bundled
+licence-clean model+texture under `assets/demo/` so it renders immediately.
+Excludes `app.js`, `api.js`, login/dashboard/sensor components, and i18n unless
+strictly needed by the viewer.
 
 ## Provenance and fidelity
 
-The library is **consolidated from the existing Python** in
-`experiments/_make_figure_*.py`, which already implements each model and produced
-the figures committed to the paper. That Python is the source of truth for the
-extraction. Each kernel is additionally cross-checked against its JavaScript
-counterpart in `backend/runtime/services/domain/DeteriorationService.js`, and any
-**intentional** divergence (e.g. the mould module's softer desiccation decay,
-chosen so the monitored-climate trajectory is legible) is documented in the
-module docstring rather than silently reconciled.
+- `models/` is consolidated from the figure-generating Python, cross-checked
+  against the canonical JS kernels, with divergences documented.
+- `mde/` and `viewer/` ship the actual project source (curated subset), so they
+  faithfully represent the deployed system rather than a re-implementation.
 
-## README contents
+## README contents (top-level)
 
-1. One-paragraph overview and link back to the paper.
-2. Install: `pip install -e .` (numpy only).
-3. Per-model usage snippet using small hand-written toy input arrays.
-4. A module → paper model/equation-number table.
-5. Explicit **"Not included (yet)"** note: measured pilot colorimetry, the
-   image-dependent figures (pigment map, composite render), and the
-   data-dependent figures (pilot trajectories, validation) are withheld for now;
-   available on request / a future release.
+1. One-paragraph overview and link to the paper.
+2. The contribution→component table above.
+3. Per-component quick-start pointers (each component has its own README).
+4. Explicit **"Not included"** note: the operational Node/MongoDB runtime
+   (telemetry, auth, sensor API), measured pilot colorimetry, heritage images,
+   and the data-/image-dependent figures — available from the authors on request.
 
 ## Explicitly out of scope
 
-`figures/`, any `.xlsx` data, the central-Buddha texture images, the synthetic
-climate driver (`climate.py`), the JavaScript originals, and any server/database
-code. No changes to the `mogao-digital-twin` repository.
+`backend/runtime/` operational code; any `.xlsx` data; central-Buddha and other
+heritage images; the Python segmenter port; figure scripts; the full Vue SPA
+shell. No changes to the `mogao-digital-twin` repository.
+
+## Open implementation risks
+
+- **Demo asset licence:** `model-viewer-demo.html` references a
+  "kneeling-attendant-bodhisattva" model that may be a Met open-access object.
+  Implementation must confirm a licence-clean asset (that one, or another) and
+  bundle it; otherwise point the demo at a generic placeholder.
+- **`SimulationEngine.js` backend coupling:** must verify which `api.` calls are
+  load-bearing for the demo and stub/guard them so the viewer runs offline.
 
 ## Success criteria
 
-- `pip install -e .` succeeds with numpy as the only runtime dependency.
-- Every public function imports and runs on toy inputs as shown in the README.
-- Each module docstring names its paper model/equation and any divergence from
-  the canonical JS kernel.
-- The repo contains no measured data, no images, no figure scripts.
-- MIT `LICENSE` and a `CITATION.cff` resolving to the paper are present.
+- `models/`: `pip install -e .` succeeds (numpy only); every public function runs
+  on the README's toy inputs; docstrings name the paper model/equation and any
+  divergence from the JS kernel.
+- `mde/`: `mvn` build resolves; the transformation workflow is documented and the
+  metamodel + templates are present.
+- `viewer/`: `demo.html` renders the bundled asset in a browser with no backend
+  running.
+- Repo contains no operational runtime, no measured data, no heritage images.
+- MIT `LICENSE` and a `CITATION.cff` resolving to the paper are present at the root.
