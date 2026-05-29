@@ -91,14 +91,27 @@ mogao-digital-twin-public/
 
 ### `models/` (Python, numpy only)
 One module per model; one clear public function plus private helpers; docstring
-citing the paper model/equation; parameters named to match the paper. Source of
-truth is the existing Python in `experiments/_make_figure_*.py` (which produced
-the committed paper figures), consolidated and cleaned. Each kernel is
-cross-checked against `backend/runtime/services/domain/DeteriorationService.js`,
-and any **intentional** divergence (e.g. the mould module's softer desiccation
-decay chosen for figure legibility) is documented in the docstring. README shows
-each function run on small hand-written toy arrays. No climate driver, no
-figures, no data.
+citing the paper model/equation; parameters named to match the paper. **Source
+of truth is the canonical deployed kernels in
+`backend/runtime/services/domain/DeteriorationService.js`** — the model the live
+twin actually runs — ported 1:1 to Python and **verified numerically against the
+JavaScript** via a committed reference fixture (a node script dumps `assess()`
+outputs over a grid of inputs; Python tests assert parity). Rendering-only
+fields (`visualEffect`) are omitted; the functions return the scientific
+quantities. The five-mechanism composite (`composite.py`) is the paper's
+`R_composite` equation (weights from the committed
+`experiments/_make_figure_scenarios.py`); it is not present in
+`DeteriorationService.js`, and the deployed `MaintenanceService.js` composite (a
+different operational score) is deliberately excluded. README shows each function
+run on small hand-written toy inputs. No climate driver, no figures, no data.
+
+> **Provenance note:** an earlier draft of this spec named the figure scripts
+> (`experiments/_make_figure_*.py`) as the source of truth, on the rationale that
+> they reproduce the published figures. Since `figures/` was dropped from the
+> repo, that rationale no longer applies, and the canonical deployed kernels were
+> chosen instead. The figure scripts use illustrative/simplified variants (e.g.
+> split-salt Steiger, linear mould `RH_crit`) that differ materially from the
+> deployed kernels and are not used here.
 
 ### `mde/` (Java + Epsilon, Maven)
 Extracted verbatim from `backend/src/` plus `backend/pom.xml`. Demonstrates the
@@ -122,8 +135,8 @@ strictly needed by the viewer.
 
 ## Provenance and fidelity
 
-- `models/` is consolidated from the figure-generating Python, cross-checked
-  against the canonical JS kernels, with divergences documented.
+- `models/` is a 1:1 Python port of the canonical JS kernels
+  (`DeteriorationService.js`), verified numerically against the JS.
 - `mde/` and `viewer/` ship the actual project source (curated subset), so they
   faithfully represent the deployed system rather than a re-implementation.
 
