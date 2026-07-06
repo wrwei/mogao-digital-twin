@@ -52,8 +52,8 @@ arms = {
 data = {label: load_arm(sh) for label,(sh,_,_) in arms.items()}
 
 fig, axes = plt.subplots(2, 3, figsize=(14, 7.6), sharex=True)
-geom = [("block (10x10x4 cm tile)", ["R","G","B"]),
-        ("pedestal (1:5 lotus base)", ["TR","TG","TB"])]
+geom = [("block (10x10x4 cm tile)", ["TR","TG","TB"]),
+        ("pedestal (1:5 lotus base)", ["R","G","B"])]
 
 for row, (gname, grps) in enumerate(geom):
     row_max = 0.0

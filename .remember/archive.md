@@ -8,4 +8,7 @@ Heritage-Sciences paper finalized (figs 1, 3, 6-10: climate, pigmentation, mould
 
 ## Week of 2026-06-02
 Demo infrastructure (baseURL, asset paths) stabilized; E2E test suite validated (19 tasks, 20 commits); CC0 model integration & paper consolidation begun.
+
+## Week of 2026-06-22
+Heritage-Sciences paper finalized (Methods 12→7 eqs, 8 figs, notation); repositioned as "calibration platform" w/ 90-day RH-corrected predictions. Mogao digital-twin repo built & verified (CSV import, sensor filtering, Chart.js). Case study identified (Kneeling Attendant Bodhisattva, Mogao 328) w/ citations; replica montage complete.
 ```

@@ -192,8 +192,8 @@ styles = {
 }
 
 fig, axes = plt.subplots(2, 3, figsize=(14, 8), sharex=True)
-geom_groups = [("block (10x10x4 cm)", ["R", "G", "B"]),
-               ("pedestal (1:5 lotus base)", ["TR", "TG", "TB"])]
+geom_groups = [("block (10x10x4 cm)", ["TR", "TG", "TB"]),
+               ("pedestal (1:5 lotus base)", ["R", "G", "B"])]
 
 for row, (geom, groups) in enumerate(geom_groups):
     row_max = 0.0

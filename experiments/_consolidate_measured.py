@@ -22,7 +22,8 @@ def date_to_day(d):
 
 spec_cols = {"R":[2,5,8],"G":[11,14,17],"B":[20,23,26],"TR":[29,32],"TG":[35,38],"TB":[41,44]}
 PIGMENT   = {"R":"Vermilion","TR":"Vermilion","G":"Malachite","TG":"Malachite","B":"Azurite","TB":"Azurite"}
-GEOMETRY  = {"R":"block","G":"block","B":"block","TR":"pedestal","TG":"pedestal","TB":"pedestal"}
+# 'T' in the label = Tile = BLOCK; no-T = PEDESTAL (lotus base). (Was swapped.)
+GEOMETRY  = {"R":"pedestal","G":"pedestal","B":"pedestal","TR":"block","TG":"block","TB":"block"}
 SHEETS = {   # only the two experimentally-measured arms (40C/80%RH sheet is empty)
     # NB: both arms share the SAME lighting (per experimenter) -- they differ only in
     # temperature and humidity. Earlier "lit"/"dark" labels were incorrect and removed.

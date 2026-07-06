@@ -55,8 +55,8 @@ ARMS = {"室温":("23 C / 40%RH (room, lit)", "#2E86AB", "o"),
         "恒温":("40 C / 10%RH (chamber, dark)", "#E63946", "s")}
 
 fig, axes = plt.subplots(2, 3, figsize=(14, 7.5), sharex=True)
-geom = [("block (10x10x4 cm tile)", ["R","G","B"]),
-        ("pedestal (1:5 lotus base)", ["TR","TG","TB"])]
+geom = [("block (10x10x4 cm tile)", ["TR","TG","TB"]),
+        ("pedestal (1:5 lotus base)", ["R","G","B"])]
 
 row_max_all = 0.0
 cache = {}

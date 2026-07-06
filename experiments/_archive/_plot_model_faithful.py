@@ -63,8 +63,8 @@ if os.path.exists("experiments/_interp_days.json"):
     INTERP_DAYS = set(json.load(open("experiments/_interp_days.json"))["interp_days"])
 
 fig, axes = plt.subplots(2, 3, figsize=(14, 7.5), sharex=True)
-geom = [("block (10x10x4 cm tile)", ["R","G","B"]),
-        ("pedestal (1:5 lotus base)", ["TR","TG","TB"])]
+geom = [("block (10x10x4 cm tile)", ["TR","TG","TB"]),
+        ("pedestal (1:5 lotus base)", ["R","G","B"])]
 
 for row, (gname, grps) in enumerate(geom):
     row_max = 0.0

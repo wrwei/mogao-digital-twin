@@ -39,19 +39,20 @@ def date_to_day(d):
     return (sum(dpm[: int(m) - 1]) + int(day)) - (sum(dpm[:3]) + 17)
 
 # Specimen layout (matches original columns):
-#   R/G/B  = block-tile specimens (vermilion/malachite/azurite), 3 spots each
-#   TR/TG/TB = pedestal specimens (vermilion/malachite/azurite), 2 spots each
+#   R/G/B  = pedestal specimens (vermilion/malachite/azurite), 3 spots each
+#   TR/TG/TB = block-tile specimens (vermilion/malachite/azurite), 2 spots each
+#   ('T' = Tile = block; no-T = pedestal/lotus base.)
 specimen_cols = {
     "R":  [2, 5, 8],   "G":  [11, 14, 17], "B":  [20, 23, 26],
     "TR": [29, 32],    "TG": [35, 38],     "TB": [41, 44],
 }
 group_meta = {
-    "R":  ("vermilion", "朱砂", "HgS",                  "block (10×10×4 cm tile)"),
-    "G":  ("malachite", "石绿", "Cu₂CO₃(OH)₂",           "block (10×10×4 cm tile)"),
-    "B":  ("azurite",   "石青", "Cu₃(CO₃)₂(OH)₂",        "block (10×10×4 cm tile)"),
-    "TR": ("vermilion", "朱砂", "HgS",                  "pedestal (1:5 lotus base)"),
-    "TG": ("malachite", "石绿", "Cu₂CO₃(OH)₂",           "pedestal (1:5 lotus base)"),
-    "TB": ("azurite",   "石青", "Cu₃(CO₃)₂(OH)₂",        "pedestal (1:5 lotus base)"),
+    "R":  ("vermilion", "朱砂", "HgS",                  "pedestal (1:5 lotus base)"),
+    "G":  ("malachite", "石绿", "Cu₂CO₃(OH)₂",           "pedestal (1:5 lotus base)"),
+    "B":  ("azurite",   "石青", "Cu₃(CO₃)₂(OH)₂",        "pedestal (1:5 lotus base)"),
+    "TR": ("vermilion", "朱砂", "HgS",                  "block (10×10×4 cm tile)"),
+    "TG": ("malachite", "石绿", "Cu₂CO₃(OH)₂",           "block (10×10×4 cm tile)"),
+    "TB": ("azurite",   "石青", "Cu₃(CO₃)₂(OH)₂",        "block (10×10×4 cm tile)"),
 }
 sheet_meta = {
     "室温":     ("Room temperature / lit",      "23 °C",        "40 %",   "ambient laboratory light", "measured"),
@@ -210,12 +211,12 @@ kv("Azurite (石青)",    "Cu₃(CO₃)₂(OH)₂, copper carbonate. Greens to m
 row += 1
 
 section("Specimen codes (legacy wide-format sheets)")
-kv("R.1, R.2, R.3",     "3 templated spots on the vermilion block tile")
-kv("G.1, G.2, G.3",     "3 spots on the malachite block tile")
-kv("B.1, B.2, B.3",     "3 spots on the azurite block tile")
-kv("TR.1, TR.2",        "2 spots on the vermilion 1:5 lotus pedestal")
-kv("TG.1, TG.2",        "2 spots on the malachite 1:5 lotus pedestal")
-kv("TB.1, TB.2",        "2 spots on the azurite 1:5 lotus pedestal")
+kv("R.1, R.2, R.3",     "3 templated spots on the vermilion 1:5 lotus pedestal")
+kv("G.1, G.2, G.3",     "3 spots on the malachite 1:5 lotus pedestal")
+kv("B.1, B.2, B.3",     "3 spots on the azurite 1:5 lotus pedestal")
+kv("TR.1, TR.2",        "2 spots on the vermilion block tile")
+kv("TG.1, TG.2",        "2 spots on the malachite block tile")
+kv("TB.1, TB.2",        "2 spots on the azurite block tile")
 row += 1
 
 section("Status flags (in the Measurements sheet)")

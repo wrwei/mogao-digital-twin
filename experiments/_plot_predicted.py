@@ -72,8 +72,8 @@ styles = {
 
 fig, axes = plt.subplots(2, 3, figsize=(13, 7.5), sharex=True)
 geom_groups = [
-    ("block (10x10x4 cm tile)",   ["R",  "G",  "B"]),
-    ("pedestal (1:5 lotus base)", ["TR", "TG", "TB"]),
+    ("block (10x10x4 cm tile)",   ["TR", "TG", "TB"]),
+    ("pedestal (1:5 lotus base)", ["R",  "G",  "B"]),
 ]
 
 for row, (geom, grps) in enumerate(geom_groups):
