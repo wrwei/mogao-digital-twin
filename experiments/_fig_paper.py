@@ -87,6 +87,6 @@ fig.legend(handles, labels, loc="upper center", ncol=3, frameon=False,
 
 fig.subplots_adjust(left=0.075, right=0.99, bottom=0.17, top=0.83, wspace=0.12)
 for ext in ("pdf","png"):
-    fig.savefig(f"experiments/fig_pigment_deltaE_pedestal.{ext}", dpi=300, bbox_inches="tight")
+    fig.savefig(f"experiments/pigment_deltaE_pedestal.{ext}", dpi=300, bbox_inches="tight")
 print(f"sigma={SIG:.2f}, floor={FLOOR:.2f}")
-print("Saved: experiments/fig_pigment_deltaE_pedestal.pdf / .png")
+print("Saved: experiments/pigment_deltaE_pedestal.pdf / .png")

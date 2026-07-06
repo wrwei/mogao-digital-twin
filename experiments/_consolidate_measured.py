@@ -87,7 +87,7 @@ readme = [
     ("The 40C/80%RH condition was never run (empty in the source) and is absent here.", False),
     ("", False),
     ("Cadence: 14 real timepoints over days 0-61, with two holiday gaps (day 12->25 and 41->53).", False),
-    ("Spots: 3 per pigment on block tiles, 2 per pigment on pedestals.", False),
+    ("Spots: 3 per pigment on pedestals, 2 per pigment on block tiles.", False),
     ("", False),
     (f"KNOWN GROSS OUTLIERS (ΔE > {OUTLIER_dE:.0f}, left in place - review before use):", True),
 ]
