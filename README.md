@@ -145,11 +145,10 @@ mogao-digital-twin/
 │   │   └── SettingsView.js                     # User settings
 │   ├── pigment/                                # PigmentDatabase, PigmentIdentifier, PigmentAnalysis
 │   ├── workers/
-│   │   ├── deterioration-worker.js
-│   │   └── pigment-deterioration-worker.js
+│   │   └── effects-worker.js                    # Single consolidated Web Worker
 │   └── css/
 │
-├── experiments/inpainting/                     # PyTorch U-Net training scripts (not wired into runtime)
+├── ml/inpainting/                              # PyTorch U-Net training scripts (not wired into runtime)
 ├── ARCHITECTURE.md
 └── README.md                                   # This file
 ```
@@ -252,8 +251,7 @@ If you regenerate from the metamodel, these files survive untouched (the generat
 - [System Architecture & Deterioration Models](ARCHITECTURE.md) — full technical reference
 - [Deterioration Simulation Guide](frontend/DETERIORATION_SIMULATION.md) — Strlic dose-response framework
 - Pigment analysis subsystem: [ARCHITECTURE.md §10](ARCHITECTURE.md#10-pigment-analysis-system)
-- [Predictive Analytics Plan](PREDICTION-PLAN.md) — roadmap for historical replay, forecast ETA, anomaly detection, and maintenance triage built on top of the telemetry pipeline
-- [i18n Guide](frontend/I18N_README.md) — multilingual support
+- [Predictive Analytics Plan](PREDICTION-PLAN.md) — delivered-status doc for historical replay, forecast ETA, anomaly detection, and maintenance triage built on top of the telemetry pipeline
 
 ## Troubleshooting
 

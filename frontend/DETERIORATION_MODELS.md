@@ -1,14 +1,17 @@
 # Deterioration Models - Modular Heritage Degradation Engine
 
+> **Historical / superseded.** The current design runs five server-side models in `backend/runtime/services/domain/DeteriorationService.js` (see ARCHITECTURE.md §5). This document is retained for background and may not reflect the current architecture — in particular, there is no client-side `DeteriorationEngine.js`; the models run on the backend and results are returned to the client for rendering.
+
 ## Overview
 
-This document describes the **modular deterioration engine** added to the Mogao Digital Twin simulation system. The engine extracts and extends the original Strlič dose-response chemical fading model into a standalone module (`DeteriorationEngine.js`), and adds three additional scientifically-grounded models:
+This document describes the **modular deterioration engine** of the Mogao Digital Twin simulation system. The engine extends the original Strlič dose-response chemical fading model and adds four additional scientifically-grounded models:
 
 1. **Michalski Lifetime Multiplier** (Climate for Culture eLM variant)
 2. **VTT / Finnish Mould Growth Model** (Hukka & Viitanen 1999)
 3. **Salt Crystallization Pressure** (Scherer 1999 / Steiger 2005)
+4. **Hygro-mechanical Fatigue** (Basquin / Miner, after Bratasz 2013)
 
-All four models run in the simulation panel and feed into the 3D model viewer for real-time visual feedback on the texture.
+All five models run server-side in `DeteriorationService.js` (invoked via `POST /deterioration/assess`), and their results feed the simulation panel and 3D model viewer for real-time visual feedback on the texture.
 
 ---
 

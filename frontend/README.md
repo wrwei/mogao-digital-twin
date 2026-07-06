@@ -40,7 +40,7 @@ frontend/
 ├── app.js                        # Main Vue app (routing, auth, views, sidebar)
 ├── i18n.js                       # Internationalisation (zh + en)
 │
-├── components/                   # 27 Vue components
+├── components/                   # 56 Vue components
 │   ├── CaveCard.js              #   ┐
 │   ├── CaveList.js              #   │ Generated CRUD components
 │   ├── CaveForm.js              #   │ (6 entities x 4 types = 24)
@@ -54,7 +54,7 @@ frontend/
 │   └── useEntity.js             # Factory: shared CRUD/loading/error state per entity
 │
 ├── workers/
-│   └── deterioration-worker.js  # Web Worker for texture processing
+│   └── effects-worker.js        # Single consolidated Web Worker for texture processing
 │
 ├── css/
 │   ├── main.css                 # Theme, layout, sidebar
@@ -92,7 +92,7 @@ frontend/
 - Real-time deterioration texture effects via Web Worker
 
 ### Deterioration Simulation (`SimulationPanel.js`)
-- Four peer-reviewed conservation science models
+- Five peer-reviewed conservation science models (chemical fading, Michalski lifetime, VTT mould, salt crystallisation, hygro-mechanical fatigue)
 - Environmental controls (temperature, humidity, light, exposure time)
 - Time progression with play/pause
 - Chart.js time-series visualisation

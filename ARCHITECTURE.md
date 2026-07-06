@@ -10,7 +10,7 @@ The Mogao Digital Twin is a model-driven engineering (MDE) system for heritage c
 
 1. **Model-driven code generation** — A single Ecore metamodel drives automatic generation of backend services, frontend components, and data transfer objects via Epsilon EGL templates
 2. **3D visualisation** — Interactive Three.js-based rendering of heritage artefacts (statues, murals, paintings, inscriptions) with real-time deterioration effects applied to textures via Web Worker
-3. **Scientific deterioration simulation** — Four peer-reviewed conservation science models computed server-side via REST API, with configurable parameters and reactive UI
+3. **Scientific deterioration simulation** — Five peer-reviewed conservation science models computed server-side via REST API, with configurable parameters and reactive UI
 
 ### Technology Stack
 
@@ -119,7 +119,7 @@ Adding a new heritage artefact type (e.g., a `Textile` class) to the Ecore metam
 | `SettingsView.js` + section components (Profile / Appearance / UserMgmt / DatabaseStats) | | ✓ |
 | `LiveDataPanel.js`, `PredictionPanel.js`, `MaintenanceQueue.js`, `SensorDashboard.js` | | ✓ |
 | `config.js`, `api.js`, `utils/` (a11y, keyboard, router) | | ✓ |
-| Web Workers (`deterioration-worker.js`, `pigment-deterioration-worker.js`) | | ✓ |
+| Web Worker (`effects-worker.js`, single consolidated worker) | | ✓ |
 | CSS styles | | ✓ |
 
 ---
@@ -146,7 +146,7 @@ Adding a new heritage artefact type (e.g., a `Textile` class) to the Ecore metam
 │  ┌──────────────────────────────────┐                           │
 │  │  Frontend (Vue 3 SPA) :8009      │                           │
 │  │  ┌────────┐ ┌─────────────────┐  │                           │
-│  │  │ app.js │ │ Components (28) │  │                           │
+│  │  │ app.js │ │ Components (56) │  │                           │
 │  │  └────────┘ └─────────────────┘  │                           │
 │  │  ┌────────┐ ┌─────────────────┐  │                           │
 │  │  │ api.js │ │ Web Worker      │  │                           │
@@ -187,7 +187,7 @@ HTTP Request → Express Router → Controller → Service → Mongoose Model �
 - **Deterioration API:** Scientific models computed server-side via `/deterioration/*` endpoints
 - **Port:** 8008 (default)
 
-**API routes (16 routers, 16 controllers):**
+**API routes (13 generated CRUD routers + controllers, plus hand-written domain routers):**
 
 | Route | Methods | Description |
 |-------|---------|-------------|
@@ -206,7 +206,7 @@ HTTP Request → Express Router → Controller → Service → Mongoose Model �
 | `/assetReferences` | CRUD + `/gid/:gid` variants | 3D model/texture references |
 | `/dTPackages` | CRUD + `/gid/:gid` variants | Digital twin packages |
 | `/exhibits` | CRUD + `/gid/:gid` variants | Exhibit entities (polymorphic) |
-| `/deterioration` | POST assess/chemical/lifetime/mould/salt, GET defaults | Deterioration calculations |
+| `/deterioration` | POST assess/chemical/lifetime/mould/salt/fatigue, GET defaults | Deterioration calculations |
 | `/health` | GET | Health check (inline in app.js) |
 | `/api/upload` | POST | File upload (multipart, inline in app.js) |
 | `/api/avatar` | POST | Avatar upload (inline in app.js) |
@@ -242,9 +242,7 @@ index.html
 │   ├── SimulationPanel.js             ← Hand-written (deterioration UI)
 │   └── SettingsView.js                ← Hand-written (profile, themes, admin)
 ├── workers/
-│   └── deterioration-worker.js        ← Web Worker (texture processing)
-├── deterioration/
-│   └── DeteriorationEngine.js         ← Legacy client-side models (kept for reference)
+│   └── effects-worker.js              ← Single consolidated Web Worker (texture processing)
 └── css/
     ├── main.css, components.css, drawers.css, forms.css,
     ├── simulation.css, login.css
@@ -269,14 +267,14 @@ index.html
 │  SimulationPanel.js                                             │
 │  ├── Temperature / RH / Light / Exposure sliders                │
 │  ├── Calls POST /deterioration/assess (debounced 150ms)         │
-│  ├── Model toggle checkboxes (4 models)                         │
+│  ├── Model toggle checkboxes (5 models)                         │
 │  └── $emit('simulation-changed', { ... })                       │
 │           │                                                     │
 │           ▼                                                     │
 │  ModelViewer.js                                                 │
 │  ├── Three.js scene (OBJ + texture loading)                     │
 │  ├── Sends pixel data to Web Worker for processing              │
-│  │   └── deterioration-worker.js (off main thread)              │
+│  │   └── effects-worker.js (off main thread)                    │
 │  │       ├── Chemical fading (per-pixel desaturation)            │
 │  │       └── Yellowing effect                                   │
 │  ├── Receives processed pixels, applies mould spots             │
@@ -303,7 +301,8 @@ index.html
 │  ├── Chemical fading (Arrhenius + Paltakari-Karlsson)            │
 │  ├── Lifetime multiplier (Michalski eLM)                         │
 │  ├── Mould growth (VTT Finnish model)                            │
-│  └── Salt crystallization (Scherer/Steiger)                      │
+│  ├── Salt crystallization (Scherer/Steiger)                      │
+│  └── Hygro-mechanical fatigue (Basquin/Miner)                    │
 │                                                                  │
 │  FileUpload (Multer)                                             │
 │  └── 3D model + texture file storage (exhibit_models/)           │
@@ -373,7 +372,7 @@ index.html
 
 ## 5. Deterioration Simulation Engine
 
-The deterioration engine (`DeteriorationService.js`) runs server-side as a Node.js module exposed via REST API. The SimulationPanel calls `POST /deterioration/assess` with environmental parameters and receives computed results. All four models are evaluated per request.
+The deterioration engine (`backend/runtime/services/domain/DeteriorationService.js`) runs server-side as a Node.js module exposed via REST API. The SimulationPanel calls `POST /deterioration/assess` with environmental parameters and receives computed results. All five models are evaluated per request.
 
 ### 5.1 Model 1: Chemical Pigment Fading
 
@@ -550,15 +549,43 @@ $$\text{totalCycles} = \frac{\text{totalDays}}{365.25} \times \text{cyclesPerYea
 | 20 °C / 70% RH | ~2.9 MPa | ~1.0× | Moderate — crystallizing |
 | 20 °C / 85% RH | 0 MPa | 0× | Safe — dissolved |
 
-### 5.5 Deterioration API
+---
+
+### 5.5 Model 5: Hygro-mechanical Fatigue (Basquin / Miner)
+
+**Scientific basis:** Cyclic relative-humidity swings drive differential dimensional strain between the paint layer and its substrate. Repeated strain cycles accumulate mechanical fatigue that eventually manifests as craquelure and flaking. The model combines Basquin's fatigue-life power law with Miner's linear damage-accumulation rule, following the Bratasz / HERIe approach to climate-induced mechanical risk.
+
+**References:**
+- Bratasz, Ł. (2013). Allowable microclimatic variations for painted wood. *Studies in Conservation*, 58(2):65–79
+- Mecklenburg, M.F. et al. (1998). Structural response of painted wood surfaces to changes in ambient relative humidity. *APT / Getty*
+
+**Method** — for a per-day RH amplitude ΔRH over the exposure period:
+
+$$\varepsilon = \beta_{\text{diff}} \cdot \Delta RH, \qquad \sigma = E \cdot \varepsilon$$
+
+$$N(\sigma) = \left(\frac{\sigma_{\text{fail}}}{\sigma}\right)^{b}, \qquad D = \frac{1}{N(\sigma)} \cdot (\text{cyclesPerYear} \cdot \text{years})$$
+
+where $\varepsilon$ is the differential strain amplitude, $\sigma$ the induced stress, $N(\sigma)$ the Basquin cycles-to-failure, and $D$ the cumulative Miner damage.
+
+**Interpretation:**
+- $D = 1$ → first cracks appear
+- $D > 2$ → widespread cracking
+- $D \gg 3$ → severe flaking
+
+Implemented in `backend/runtime/services/domain/DeteriorationService.js` (`fatigueDamage`, ~L311–365). The result carries `stress_MPa`, `cyclesToFailure`, `cumulativeDamage`, `crackDensity`, and a risk label (`low` / `moderate` / `high` / `critical`).
+
+---
+
+### 5.6 Deterioration API
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/deterioration/assess` | POST | Run all 4 models, return combined results |
+| `/deterioration/assess` | POST | Run all 5 models, return combined results |
 | `/deterioration/chemical` | POST | Chemical pigment fading only |
 | `/deterioration/lifetime` | POST | Lifetime multiplier only |
 | `/deterioration/mould` | POST | Mould growth only |
 | `/deterioration/salt` | POST | Salt crystallization only |
+| `/deterioration/fatigue` | POST | Hygro-mechanical fatigue only |
 | `/deterioration/defaults` | GET | Return default parameter sets |
 
 **Request body** (for `/assess`):
@@ -631,7 +658,7 @@ The simulation panel provides:
 - **Exposure Time** slider (0–200 years) — in advanced settings
 
 ### 7.2 Deterioration Models Card
-A master control card showing all 4 model toggles with enable/disable checkboxes and a counter (e.g., "3 / 4").
+A master control card showing all 5 model toggles with enable/disable checkboxes and a counter (e.g., "4 / 5").
 
 ### 7.3 Per-Model Result Cards
 Each enabled model displays a dedicated card:
@@ -701,11 +728,11 @@ mogao-digital-twin/
 │   │   ├── start.bat                              Start script (Windows)
 │   │   ├── middleware/auth.js                     JWT + guest auth middleware
 │   │   ├── util/jwt.js                            JWT generation/verification
-│   │   ├── models/                                Mongoose schemas (14 models)
-│   │   ├── routers/                               Express routers (16 routers)
-│   │   ├── controllers/                           Request handlers (16 controllers)
-│   │   ├── services/                              Business logic (16 services)
-│   │   │   └── DeteriorationService.js            Scientific models (hand-written)
+│   │   ├── models/                                26 Mongoose schema models (one per EClass)
+│   │   ├── routers/                               13 generated CRUD routers + hand-written domain/ routers
+│   │   ├── controllers/                           13 generated CRUD controllers + hand-written domain/ controllers
+│   │   ├── services/                              13 generated CRUD services + hand-written domain/ services
+│   │   │   └── domain/DeteriorationService.js     Scientific models (hand-written)
 │   │   └── exhibit_models/                        Uploaded 3D models + textures
 │   └── exhibit_models/                            Static 3D model storage
 ├── frontend/
@@ -725,9 +752,7 @@ mogao-digital-twin/
 │   │   ├── ModelViewer.js                         Three.js 3D viewer
 │   │   └── SimulationPanel.js                     Deterioration simulation UI
 │   ├── workers/
-│   │   └── deterioration-worker.js                Web Worker (texture processing)
-│   ├── deterioration/
-│   │   └── DeteriorationEngine.js                 Legacy client-side models
+│   │   └── effects-worker.js                      Single consolidated Web Worker (texture processing)
 │   ├── css/
 │   │   ├── main.css, components.css, drawers.css, forms.css,
 │   │   ├── simulation.css, login.css
@@ -767,7 +792,7 @@ Texture (originalPixelData captured at load via fetch → ImageBitmap → canvas
                                                targetRGB, fadedRGB,
                                                agingTint } }
                     │
-              pigment-deterioration-worker.js
+              effects-worker.js
               (per-pixel: fade toward fadedRGB + apply agingTint)
                     │
               Region-aware texture degradation
@@ -781,13 +806,15 @@ Eight Dunhuang-specific pigment classes with per-pigment Arrhenius kinetic param
 | ID | Pigment | Chinese | Ea_dark (J/mol) | Ea_light (J/mol) | Stability | Degradation behaviour |
 |----|---------|---------|-----------------|-------------------|-----------|----------------------|
 | 0 | Background/substrate | 底色 | 70,000 | 25,000 | Moderate | Uniform warm-grey fading |
-| 1 | Azurite | 石青 | 85,000 | 18,000 | Low (light) | Green shift (CuO formation) |
-| 2 | Malachite | 石绿 | 90,000 | 22,000 | Moderate | Relatively stable |
-| 3 | Vermilion | 朱砂 | 75,000 | 15,000 | Low (light) | Darkens/blackens (meta-cinnabar) |
+| 1 | Azurite | 石青 | 49,000 | 18,000 | Low (light) | Green shift (CuO formation) |
+| 2 | Malachite | 石绿 | 43,000 | 22,000 | Moderate | Relatively stable |
+| 3 | Vermilion | 朱砂 | 53,000 | 18,000 | Low (light) | Darkens/blackens (meta-cinnabar) |
 | 4 | Lead white | 铅白 | 65,000 | 30,000 | Moderate | Yellowing, darkens with H₂S |
 | 5 | Gold leaf | 金箔 | 120,000 | 50,000 | Very high | Minimal tarnishing |
 | 6 | Red ochre | 赭石 | 95,000 | 35,000 | Very high | Very lightfast (Fe₂O₃) |
 | 7 | Carbon black | 墨 | 110,000 | 45,000 | Very high | Extremely stable |
+
+`Ea_dark` for vermilion, azurite, and malachite (53/49/43 kJ/mol) are the effective ambient-light activation energies measured in the accelerated-ageing pilot; the remaining pigments use literature estimates. The `k0` pre-exponentials are illustrative demo constants for the interactive simulation, not the paper's anchor-calibrated values.
 
 Vermilion, azurite, and lead white also carry an `agingTint: { amount, dR, dG, dB }` field that the worker applies as a secondary effect on top of the base fade.
 
@@ -815,7 +842,7 @@ Single seam in front of the pigment subsystem. Three stateless functions:
 
 PigmentAnalysisPanel and SimulationEngine and ModelViewer all import from this module — none reach for PigmentIdentifier or PigmentDatabase directly.
 
-### 10.6 Per-Pigment Deterioration Worker (`frontend/workers/pigment-deterioration-worker.js`)
+### 10.6 Per-Pigment Deterioration Worker (`frontend/workers/effects-worker.js`, the single consolidated worker)
 
 Runs off the main thread. For each pixel:
 
@@ -844,7 +871,7 @@ The panel writes results directly into `SimulationEngine.setPigmentAnalysisResul
 | `frontend/pigment/PigmentDatabase.js` | Data: 8 pigment classes with Arrhenius params, target/faded RGB, optional agingTint |
 | `frontend/pigment/PigmentIdentifier.js` | HSV decision-tree classifier |
 | `frontend/pigment/PigmentAnalysis.js` | Public module: identify / compute params / run worker |
-| `frontend/workers/pigment-deterioration-worker.js` | Per-pigment texture fading (runs off main thread) |
+| `frontend/workers/effects-worker.js` | Single consolidated Web Worker: chemical + per-pigment texture fading (runs off main thread) |
 | `frontend/components/PigmentAnalysisPanel.js` | Vue panel: identify button, display-mode toggle, legend |
 
 ---

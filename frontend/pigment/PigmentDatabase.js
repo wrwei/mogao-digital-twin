@@ -2,10 +2,20 @@
  * Pigment Database
  * Per-pigment Arrhenius parameters and colour references for Dunhuang/Mogao heritage pigments.
  *
- * Ea values sourced from:
+ * Ea_dark for vermilion, azurite, and malachite are the effective ambient-light
+ * activation energies measured in the accelerated-ageing pilot (53, 49, 43 kJ/mol
+ * respectively; see the Heritage Science paper, Table "Per-pigment Arrhenius
+ * kinetic parameters"). Ea_light for these three is retained at literature values.
+ * Remaining pigments' Ea values are literature estimates sourced from:
  *   - Strlič et al. 2015, Heritage Science 3:40
  *   - Johnston-Feller et al. 1984, JAIC 23(2):114
  *   - Bacci et al. 2003, J. Cultural Heritage 4:238
+ *
+ * NOTE: k0_dark / k0_light are illustrative demo rate constants for the interactive
+ * simulation, NOT the paper's calibrated pre-exponentials. The paper tunes k0 to
+ * reproduce the ~48% archaeological colour-loss anchor while consuming these Ea
+ * unchanged; reproducing absolute fading magnitudes here would require recalibrating
+ * k0 against that anchor.
  * Colour targets from Dunhuang Academy conservation reports.
  */
 
@@ -30,7 +40,7 @@ export const PIGMENT_DATABASE = {
         displayName: '石青 Azurite',
         displayZh: '石青',
         displayEn: 'Azurite',
-        Ea_dark: 85000,
+        Ea_dark: 49000,  // measured effective barrier (pilot)
         Ea_light: 18000,
         k0_dark: 0.00005,
         k0_light: 0.0025,
@@ -48,7 +58,7 @@ export const PIGMENT_DATABASE = {
         displayName: '石绿 Malachite',
         displayZh: '石绿',
         displayEn: 'Malachite',
-        Ea_dark: 90000,
+        Ea_dark: 43000,  // measured effective barrier (pilot)
         Ea_light: 22000,
         k0_dark: 0.00003,
         k0_light: 0.0015,
@@ -63,8 +73,8 @@ export const PIGMENT_DATABASE = {
         displayName: '朱砂 Vermilion',
         displayZh: '朱砂',
         displayEn: 'Vermilion',
-        Ea_dark: 75000,
-        Ea_light: 15000,
+        Ea_dark: 53000,  // measured effective barrier (pilot)
+        Ea_light: 18000,
         k0_dark: 0.00008,
         k0_light: 0.003,
         q: 0.7,

@@ -1,10 +1,16 @@
-# Predictive Analytics Plan
+# Predictive Analytics Plan — Delivered Status
 
 Historical + current sensor data → defect forecasting → maintenance planning.
 
-This document outlines how to turn the existing deterioration models and
-telemetry pipeline into a closed-loop predictive system that tells
-conservators *what has already happened*, *what is likely to happen
+> **Status: largely shipped.** This document began as a roadmap; the core
+> phases (historical replay, anomaly detection, maintenance triage) have
+> since been implemented. Phase and section headers below are annotated
+> with their delivery status. It now reads as a delivered-status record
+> rather than a forward plan.
+
+This document describes how the existing deterioration models and
+telemetry pipeline were turned into a closed-loop predictive system that
+tells conservators *what has already happened*, *what is likely to happen
 next*, and *when to intervene*.
 
 ## Goals
@@ -27,27 +33,33 @@ answer four questions for any artifact:
 
 | Capability | File |
 |---|---|
-| Five deterioration models (pure functions) | `backend/runtime/services/DeteriorationService.js` |
+| Five deterioration models (pure functions) | `backend/runtime/services/domain/DeteriorationService.js` |
 | Telemetry ingestion + storage | `TelemetryService.js`, `Sensor.js`, `EnvironmentSample.js` |
 | Per-artifact environment query | `GET /exhibits/:gid/environment` |
 | Time-series chart + summary UI | `frontend/components/LiveDataPanel.js` |
 | Fleet-view sensor dashboard | `frontend/components/SensorDashboard.js` |
 | Simulation panel (sliders + presets) | `frontend/components/SimulationPanel.js` |
+| Historical replay over sensor data | `services/domain/DeteriorationReplayService.js` |
+| Anomaly detection | `services/domain/AnomalyDetectionService.js` |
+| Maintenance triage | `services/domain/MaintenanceService.js`, `frontend/components/MaintenanceQueue.js` |
+| Prediction UI | `frontend/components/PredictionPanel.js` |
 
-**Missing piece**: nothing currently runs the deterioration models over
-the real sensor history. The Simulation panel drives from slider values,
-not from `EnvironmentSample` data.
+**Formerly the missing piece — now delivered**: the deterioration models
+now run over the real sensor history via `DeteriorationReplayService.js`.
+The Simulation panel still supports slider-driven what-if mode, while the
+Prediction panel drives from `EnvironmentSample` data.
 
 ---
 
-## Phase 1 — Historical replay (the foundation)
+## Phase 1 — Historical replay (the foundation) — ✅ SHIPPED
 
-**Goal**: answer "what does the actual sensor history say this artifact
-has already suffered?"
+Shipped as `backend/runtime/services/domain/DeteriorationReplayService.js`
+with the `PredictionPanel.js` frontend. It answers "what does the actual
+sensor history say this artifact has already suffered?"
 
 ### Backend
 
-New service `services/DeteriorationReplayService.js`:
+Service `services/domain/DeteriorationReplayService.js`:
 
 ```js
 replayHistory(artifactGid, { from, to, stepDays = 1 })
@@ -82,11 +94,11 @@ Implementation outline:
      with `N_f` from Basquin.
 4. Return the full trajectory + final cumulative state.
 
-Endpoint: `POST /exhibits/:gid/deterioration/replay`.
+Endpoint (shipped): `GET /exhibits/:gid/deterioration/replay` (historical damage integration + optional forecast).
 
 ### Frontend
 
-Extend the Live Data panel (or add a dedicated "Prediction" tab) with:
+Shipped as a dedicated Prediction panel (`frontend/components/PredictionPanel.js`) with:
 
 - A stacked-area chart showing each model's cumulative contribution.
 - Headline numbers: "After 2.3 years of monitored history, fatigue
@@ -141,7 +153,9 @@ forecast region.
 
 ---
 
-## Phase 3 — Anomaly detection (the alert)
+## Phase 3 — Anomaly detection (the alert) — ✅ SHIPPED
+
+Shipped as `backend/runtime/services/domain/AnomalyDetectionService.js`.
 
 **Goal**: catch problems before they become damage.
 
@@ -170,7 +184,10 @@ webhook).
 
 ---
 
-## Phase 4 — Maintenance recommendation engine
+## Phase 4 — Maintenance recommendation engine — ✅ SHIPPED
+
+Shipped as `backend/runtime/services/domain/MaintenanceService.js` with the
+`frontend/components/MaintenanceQueue.js` view.
 
 **Goal**: prioritise conservator attention across the collection.
 
@@ -250,18 +267,17 @@ Implementation: `jsPDF` (browser side) for a quick path, or
 
 ## Implementation roadmap
 
-| Phase | Ships | Effort | Depends on |
-|---|---|---|---|
-| **1** — Historical replay + UI | ~3 days | foundation | none |
-| **2** — Threshold ETA forecast | +1 day | Phase 1 |
-| **3** — Anomaly detection + alerts | +2 days | independent (parallelisable) |
-| **4** — Maintenance queue view | +3 days | Phases 1–3 |
-| **5** — ML prediction model | weeks | labelled data |
-| **6** — Report / CSV export | +1.5 days | Phase 4 |
+| Phase | Status | Depends on |
+|---|---|---|
+| **1** — Historical replay + UI | ✅ Shipped | none |
+| **2** — Threshold ETA forecast | Forecast wired into the replay endpoint (optional) | Phase 1 |
+| **3** — Anomaly detection + alerts | ✅ Shipped | independent (parallelisable) |
+| **4** — Maintenance queue view | ✅ Shipped | Phases 1–3 |
+| **5** — ML prediction model | Future — gated on labelled data | labelled data |
+| **6** — Report / CSV export | Future | Phase 4 |
 
-**Minimum viable predictive layer**: Phases 1 + 2 + 3 ≈ **six days of
-work**. This alone is already a publishable digital-twin prediction
-capability.
+The minimum viable predictive layer (Phases 1 + 3, plus forecast) is
+delivered — a publishable digital-twin prediction capability.
 
 ---
 

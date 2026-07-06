@@ -22,14 +22,14 @@ Frontend EGL templates were retired in Phase 1 — the Vue 3 frontend is hand-wr
 
 ### Generated Runtime Backend (Node.js/Express/MongoDB)
 - [x] Express app with CORS, body parsing, static file serving
-- [x] 14 Mongoose schemas (from metamodel EClasses)
-- [x] 16 Express routers with CRUD + GID endpoints
-- [x] 16 controllers and 16 services (file upload and health check are inline in app.js)
+- [x] 26 Mongoose schema models (from metamodel EClasses, one per EClass incl. abstract)
+- [x] 13 generated CRUD entities (a router + controller + service each), plus 8 hand-written domain routers/controllers
+- [x] Hand-written domain services layered on top (deterioration, telemetry, replay, anomaly, maintenance, etc.); file upload and health check are inline in app.js
 - [x] JWT authentication middleware with role system
 - [x] Guest read-only access mode
 - [x] Rate limiting on login endpoint
 - [x] File upload (Multer) for 3D models and textures
-- [x] Deterioration API (4 scientific models)
+- [x] Deterioration API (5 scientific models)
 - [x] Health check endpoint
 
 ### Frontend (Vue 3 SPA — hand-written end-to-end)
@@ -46,7 +46,7 @@ The Vue frontend is no longer generated. The codegen scope is the Mongoose data 
 - [x] `PigmentAnalysisPanel.js` + `PigmentAnalysis.js` — Pigment-domain module (identification, restoration, worker dispatch)
 - [x] `SettingsView.js` + ProfileSection / AppearanceSection / UserManagementPanel / DatabaseStatsPanel
 - [x] `LiveDataPanel.js`, `PredictionPanel.js`, `MaintenanceQueue.js`, `SensorDashboard.js`
-- [x] `deterioration-worker.js`, `pigment-deterioration-worker.js` — Web Workers for texture processing
+- [x] `effects-worker.js` — single consolidated Web Worker for texture processing
 - [x] `config.js` — API URL configuration
 - [x] `useEntity.js` — Composable factory function
 
@@ -60,17 +60,16 @@ The Vue frontend is no longer generated. The codegen scope is the Mongoose data 
 - [x] `frontend/pigment/PigmentDatabase.js` — 8 Dunhuang pigment classes with Arrhenius params, target/faded RGB, and optional agingTint per pigment
 - [x] `frontend/pigment/PigmentIdentifier.js` — HSV decision-tree classifier
 - [x] `frontend/pigment/PigmentAnalysis.js` — single seam: identify, compute per-pigment params, dispatch the worker
-- [x] `frontend/workers/pigment-deterioration-worker.js` — per-pigment texture fading (uses `agingTint` from PigmentDatabase, not hard-coded class IDs)
+- [x] `frontend/workers/effects-worker.js` — single consolidated worker; per-pigment texture fading (uses `agingTint` from PigmentDatabase, not hard-coded class IDs)
 - [x] `frontend/components/PigmentAnalysisPanel.js` — identify button + display-mode toggle + legend
 - [x] SimulationEngine + ModelViewer integration via PigmentAnalysis module (no PigmentRestorer; restoration is not part of the current system)
 
 ## Summary
 
-| Layer | Generated Files | Hand-Written Files |
+| Layer | Generated | Hand-Written |
 |-------|:-:|:-:|
-| Backend (Mongoose) | ~60 | 4 (auth, JWT, deterioration, file upload) |
-| Frontend (Vue) | ~30 | 12 (ModelViewer, SimulationPanel, SettingsView, PigmentAnalysisPanel, ML models, etc.) |
-| **Total** | **~90** | **16** |
+| Backend (Mongoose data layer) | 26 schema models + 13 CRUD entities (router + controller + service each) | Domain tier (deterioration, telemetry, replay, anomaly, maintenance), 8 domain routers/controllers, auth, JWT, file upload |
+| Frontend (Vue) | none (frontend is hand-written end-to-end) | 56 components + composables, workers, i18n, app shell |
 
 ## Potential Enhancements
 
@@ -83,7 +82,7 @@ The Vue frontend is no longer generated. The codegen scope is the Mongoose data 
 - [ ] Real-time WebSocket updates
 - [ ] Data export functionality
 - [ ] Advanced filtering and search
-- [ ] Replace the HSV pigment classifier with a trained model (e.g. MobileNet-v2 head) — `experiments/inpainting/` has a partial PyTorch starter but no exporter / loader wired into the runtime
+- [ ] Replace the HSV pigment classifier with a trained model (e.g. MobileNet-v2 head) — `ml/inpainting/` has a partial PyTorch starter but no exporter / loader wired into the runtime
 - [ ] XRF / Raman spectroscopy ground-truth dataset for training the above
 
 ---

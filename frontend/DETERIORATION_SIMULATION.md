@@ -1,5 +1,7 @@
 # Deterioration Simulation - Strlič Dose-Response Framework
 
+> **Historical / superseded.** The current design runs five server-side models in `backend/runtime/services/domain/DeteriorationService.js` (see ARCHITECTURE.md §5). This document describes an earlier design where a single chemical-fading model lived inline in `ModelViewer.js`. It is retained for background and may not reflect the current architecture.
+
 ## Overview
 
 This implementation provides **real-time heritage artifact deterioration simulation** based on the Strlič dose-response framework for polychrome surfaces. The simulation computes texture degradation dynamically based on environmental parameters and applies the deteriorated texture to the 3D model in real-time.
@@ -172,13 +174,18 @@ The info panel displays:
 4. **No spatial effects**: Ignores crack patterns, localized moisture, biological attack
 5. **First-order kinetics**: Real pigments may show more complex kinetics
 
+## Now implemented
+
+These items, listed as future work in the original design, have since shipped:
+
+- [x] Pigment-specific parameter sets — see `frontend/pigment/PigmentDatabase.js` (8 Dunhuang pigment classes with per-pigment Arrhenius params)
+- [x] Crack pattern simulation (Mecklenburg/Bratasz models) — the hygro-mechanical fatigue model (Basquin/Miner) in `DeteriorationService.js`
+- [x] Biological attack visualization (mould growth) — the VTT mould-growth model with procedural mould-spot rendering
+
 ## Future Enhancements
 
 - [ ] CIELAB color space conversion for accurate ΔE calculation
-- [ ] Pigment-specific parameter sets (organic vs. inorganic)
 - [ ] Non-uniform degradation (edge darkening, moisture gradients)
-- [ ] Crack pattern simulation (Mecklenburg/Bratasz models)
-- [ ] Biological attack visualization (mould growth)
 - [ ] Export degraded textures for analysis
 - [ ] Texture comparison slider (before/after)
 - [ ] Preset environmental scenarios (museum, church, outdoor)
