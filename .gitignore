@@ -69,9 +69,13 @@ __pycache__/
 # Large ML model files
 backend/models/
 *.pth
+*.pt
+*.onnx
+ml/**/checkpoints/
 
 # Windows artifacts
 nul
+dev/null
 
 # Reference papers (copyrighted, large PDFs — local working copies only)
 papers/
