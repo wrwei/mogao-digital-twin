@@ -2,10 +2,13 @@
  * Pigment Database
  * Per-pigment Arrhenius parameters and colour references for Dunhuang/Mogao heritage pigments.
  *
- * Ea_dark for vermilion, azurite, and malachite are the effective ambient-light
+ * Ea_dark for vermilion, azurite, and malachite are the dark-pathway
  * activation energies measured in the accelerated-ageing pilot (53, 49, 43 kJ/mol
  * respectively; see the Heritage Science paper, Table "Per-pigment Arrhenius
- * kinetic parameters"). Ea_light for these three is retained at literature values.
+ * kinetic parameters"). Ea_light for these three is assigned from literature
+ * photolytic kinetics, not measured in the pilot.
+ * The humidity-coupling exponent q is anchored at the literature value 0.8 for
+ * these three measured pigments, matching the paper's Methods.
  * Remaining pigments' Ea values are literature estimates sourced from:
  *   - Strlič et al. 2015, Heritage Science 3:40
  *   - Johnston-Feller et al. 1984, JAIC 23(2):114
@@ -40,11 +43,11 @@ export const PIGMENT_DATABASE = {
         displayName: '石青 Azurite',
         displayZh: '石青',
         displayEn: 'Azurite',
-        Ea_dark: 49000,  // measured effective barrier (pilot)
+        Ea_dark: 39000,  // measured dark-pathway barrier (pilot, consolidated pedestal 61d)
         Ea_light: 18000,
         k0_dark: 0.00005,
         k0_light: 0.0025,
-        q: 0.9,
+        q: 0.8,   // anchored at literature value (paper Methods)
         p: 0.85,
         targetRGB: [0, 80, 180],
         fadedRGB: [90, 110, 130],
@@ -58,11 +61,11 @@ export const PIGMENT_DATABASE = {
         displayName: '石绿 Malachite',
         displayZh: '石绿',
         displayEn: 'Malachite',
-        Ea_dark: 43000,  // measured effective barrier (pilot)
+        Ea_dark: 43000,  // measured dark-pathway barrier (pilot, consolidated pedestal 61d)
         Ea_light: 22000,
         k0_dark: 0.00003,
         k0_light: 0.0015,
-        q: 0.85,
+        q: 0.8,   // anchored at literature value (paper Methods)
         p: 0.9,
         targetRGB: [0, 140, 60],
         fadedRGB: [80, 120, 80],
@@ -73,11 +76,11 @@ export const PIGMENT_DATABASE = {
         displayName: '朱砂 Vermilion',
         displayZh: '朱砂',
         displayEn: 'Vermilion',
-        Ea_dark: 53000,  // measured effective barrier (pilot)
+        Ea_dark: 60000,  // measured dark-pathway barrier (pilot, consolidated pedestal 61d)
         Ea_light: 18000,
         k0_dark: 0.00008,
         k0_light: 0.003,
-        q: 0.7,
+        q: 0.8,   // anchored at literature value (paper Methods)
         p: 0.95,
         targetRGB: [200, 30, 15],
         fadedRGB: [130, 80, 70],

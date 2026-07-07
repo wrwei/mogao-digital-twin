@@ -46,14 +46,26 @@ const MOULD_DEFAULTS = {
     declineRate: -0.128
 };
 
+// Two-phase Na2SO4 system (Steiger & Asmussen 2008). Mirabilite (Na2SO4.10H2O)
+// is the stable hydrate below the 32.4 C peritectic; thenardite (Na2SO4) above
+// it. Each phase has its own molar volume and deliquescence-RH line. Matches the
+// paper (Methods Eq. eq:steiger) and experiments/_make_figure_salt.py.
 const SALT_DEFAULTS = {
-    Vm: 5.33e-5,
-    DRH_ref: 84.2,
-    DRH_slope: -0.17,
-    T_ref: 25,
-    tensileStrength: 3.0,
+    nu: 3,                 // Na2SO4 -> 2 Na+ + SO4^2- (Steiger dissociation factor)
+    T_peritectic: 32.4,    // C, mirabilite <-> thenardite transition
+    mirabilite: { Vm: 218e-6, DRH_intercept: 98.5, DRH_slope: -0.33 },  // T < 32.4 C
+    thenardite: { Vm: 53.3e-6, DRH_intercept: 82.0, DRH_slope:  0.15 },  // T >= 32.4 C
+    tensileStrength: 0.5,  // MPa, upper bound of the 0.1-0.5 MPa substrate band (conservative)
     cyclesPerYear: 120
 };
+
+// Select the stable salt phase for a given temperature.
+function saltPhase(T_celsius, params = {}) {
+    const P = { ...SALT_DEFAULTS, ...params };
+    return T_celsius < P.T_peritectic
+        ? { name: 'mirabilite', ...P.mirabilite }
+        : { name: 'thenardite', ...P.thenardite };
+}
 
 // Hygro-mechanical fatigue (HERIe / Bratasz methodology)
 // Default values calibrated for a pigment-on-clay layered system to produce
@@ -246,13 +258,18 @@ function mouldGrowth(T_celsius, RH_percent, totalDays, prevMouldIndex = 0, param
 
 // 4. Salt Crystallization Pressure
 function saltDeliquescenceRH(T_celsius, params = {}) {
-    const { DRH_ref, DRH_slope, T_ref } = { ...SALT_DEFAULTS, ...params };
-    return Math.max(0, Math.min(100, DRH_ref + DRH_slope * (T_celsius - T_ref)));
+    const phase = saltPhase(T_celsius, params);
+    // Linear fits to the Steiger-Asmussen Pitzer curves:
+    //   DRH_mir(T) = 98.5 - 0.33*T_C  ;  DRH_the(T) = 82.0 + 0.15*T_C
+    return Math.max(0, Math.min(100, phase.DRH_intercept + phase.DRH_slope * T_celsius));
 }
 
 function saltCrystallization(T_celsius, RH_percent, totalDays, params = {}, RH_amplitude = 0) {
-    const { Vm, tensileStrength, cyclesPerYear } = { ...SALT_DEFAULTS, ...params };
+    const P = { ...SALT_DEFAULTS, ...params };
+    const { nu, tensileStrength, cyclesPerYear } = P;
     const T_kelvin = T_celsius + 273.15;
+    const phase = saltPhase(T_celsius, params);   // mirabilite < 32.4 C, thenardite above
+    const Vm = phase.Vm;
     const DRH = saltDeliquescenceRH(T_celsius, params);
 
     // Real-world RH cycles. Evaluate pressure at the cycle TROUGH where
@@ -267,7 +284,8 @@ function saltCrystallization(T_celsius, RH_percent, totalDays, params = {}, RH_a
     let pressure_MPa = 0;
     if (isCrystallizing && RH_trough > 0) {
         const S = (DRH / 100) / (RH_trough / 100);
-        pressure_MPa = ((R * T_kelvin) / Vm) * Math.log(S) / 1e6;
+        // Steiger ideal-solution form: Δp = ν R T / Vm · ln(S)  (Methods Eq. eq:steiger)
+        pressure_MPa = ((nu * R * T_kelvin) / Vm) * Math.log(S) / 1e6;
     }
 
     const damageRatio = pressure_MPa / tensileStrength;
@@ -291,6 +309,7 @@ function saltCrystallization(T_celsius, RH_percent, totalDays, params = {}, RH_a
     const cumNorm = Math.min(1, cumulativeDamage / 100);
     return {
         pressure_MPa: Math.round(pressure_MPa * 100) / 100,
+        phase: phase.name,
         DRH: Math.round(DRH * 10) / 10,
         RH_trough: Math.round(RH_trough * 10) / 10,
         isCrystallizing,
@@ -395,6 +414,7 @@ module.exports = {
     lifetimeMultiplier,
     mouldCriticalRH,
     mouldGrowth,
+    saltPhase,
     saltDeliquescenceRH,
     saltCrystallization,
     fatigueDamage,

@@ -124,23 +124,31 @@ describe('mouldGrowth (Model 3, Hukka–Viitanen)', () => {
 
 // ── 5. Salt crystallisation (Model 4) ──────────────────────────────────────
 describe('saltCrystallization (Model 4)', () => {
-    test('DRH is temperature-dependent (linearised)', () => {
-        // Default slope is -0.17 with T_ref=25 → higher T gives lower DRH
+    test('DRH is temperature-dependent (two-phase Steiger)', () => {
+        // Mirabilite at 13 C: DRH = 98.5 - 0.33*13 ≈ 94.2
+        // Thenardite at 40 C: DRH = 82.0 + 0.15*40 = 88.0 → 13 C is higher
         expect(D.saltDeliquescenceRH(13)).toBeGreaterThan(D.saltDeliquescenceRH(40));
     });
 
+    test('phase switches at the 32.4 C peritectic', () => {
+        expect(D.saltPhase(32.3).name).toBe('mirabilite');
+        expect(D.saltPhase(32.5).name).toBe('thenardite');
+    });
+
     test('Mogao dry conditions produce high pressure (not zero)', () => {
-        const r = D.saltCrystallization(13, 35, 200 * 365.25);
-        // This is the subject of the static-pressure caveat in the paper.
-        // Approx 40 MPa from Correns' equation.
+        const r = D.saltCrystallization(13, 35, 200 * 365.25, {}, 15);
+        // Mirabilite phase (T<32.4). Steiger ideal-solution form Δp = νRT/Vm·ln(S)
+        // with ν=3 gives ≈40 MPa — the subject of the static-pressure caveat in the paper.
+        expect(r.phase).toBe('mirabilite');
         expect(r.pressure_MPa).toBeGreaterThan(30);
         expect(r.isCrystallizing).toBe(true);
         expect(r.label).toBe('critical');
     });
 
     test('RH above DRH gives no crystallisation (zero pressure)', () => {
-        // T=40 gives DRH≈81.7; RH=100 > 81.7 → dissolved
+        // T=40 → thenardite, DRH = 82.0 + 0.15*40 = 88.0; RH=100 > 88 → dissolved
         const r = D.saltCrystallization(40, 100, 10 * 365.25);
+        expect(r.phase).toBe('thenardite');
         expect(r.isCrystallizing).toBe(false);
         expect(r.pressure_MPa).toBe(0);
     });

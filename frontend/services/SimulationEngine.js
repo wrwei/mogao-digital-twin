@@ -88,7 +88,7 @@ export const modelParams = reactive({
     chemical:  { Ea_dark: 70000, Ea_light: 25000, k0_dark: 0.0001, k0_light: 0.001, q: 0.8, p: 0.9 },
     lifetime:  { Ea: 70000, n: 1.3, T0: 20, RH0: 50 },
     mould:     { growthCoeff: 0.13, declineRate: -0.128 },
-    saltCryst: { Vm: 5.33e-5, DRH_ref: 84.2, DRH_slope: -0.17, T_ref: 25, tensileStrength: 3.0, cyclesPerYear: 120 },
+    saltCryst: { nu: 3, T_peritectic: 32.4, mirabilite: { Vm: 218e-6, DRH_intercept: 98.5, DRH_slope: -0.33 }, thenardite: { Vm: 53.3e-6, DRH_intercept: 82.0, DRH_slope: 0.15 }, tensileStrength: 0.5, cyclesPerYear: 120 },
     fatigue:   { beta_diff: 5e-5, E: 2000, sigma_fail: 10.0, basquin_b: 6, cyclesPerYear: 365 }
 });
 
