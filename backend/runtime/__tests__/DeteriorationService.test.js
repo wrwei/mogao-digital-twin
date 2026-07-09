@@ -13,25 +13,36 @@ const approx = (got, exp, tol = 1e-3) => Math.abs(got - exp) <= tol;
 
 // ── 1. Paltakari–Karlsson sorption isotherm ─────────────────────────────────
 describe('calculateMoistureContent (Paltakari–Karlsson)', () => {
-    test('produces a finite positive value at mid-range conditions', () => {
-        const M = D.calculateMoistureContent(0.5, 293.15);
+    // T is in degrees CELSIUS (the fitted constants only give a real, positive
+    // moisture content for T < 171; the operating range is ~0–40 °C).
+    test('produces a physical equilibrium moisture content at mid-range conditions', () => {
+        const M = D.calculateMoistureContent(0.5, 20);
         expect(Number.isFinite(M)).toBe(true);
         expect(M).toBeGreaterThan(0);
+        // physical EMC for a paint layer is a few percent, not hundreds
+        expect(M).toBeLessThan(0.3);
     });
 
-    test('finite and positive across the full RH/T operating range', () => {
-        for (const T_k of [273.15, 293.15, 313.15]) {
+    test('finite and physical across the full RH/T operating range', () => {
+        for (const T_c of [0, 20, 40]) {
             for (const rh of [0.1, 0.3, 0.5, 0.7, 0.9]) {
-                const M = D.calculateMoistureContent(rh, T_k);
+                const M = D.calculateMoistureContent(rh, T_c);
                 expect(Number.isFinite(M)).toBe(true);
                 expect(M).toBeGreaterThan(0);
+                expect(M).toBeLessThan(0.3);
             }
         }
     });
 
+    test('moisture content rises monotonically with RH', () => {
+        const lo = D.calculateMoistureContent(0.2, 20);
+        const hi = D.calculateMoistureContent(0.8, 20);
+        expect(hi).toBeGreaterThan(lo);
+    });
+
     test('boundary protection: RH=0 and RH=1 do not diverge', () => {
-        expect(Number.isFinite(D.calculateMoistureContent(0, 293.15))).toBe(true);
-        expect(Number.isFinite(D.calculateMoistureContent(1, 293.15))).toBe(true);
+        expect(Number.isFinite(D.calculateMoistureContent(0, 20))).toBe(true);
+        expect(Number.isFinite(D.calculateMoistureContent(1, 20))).toBe(true);
     });
 });
 
@@ -215,5 +226,202 @@ describe('assess (all models)', () => {
         expect(r.lifetime.multiplier).toBeCloseTo(1.0, 2);
         expect(r.mould.mouldIndex).toBe(0);
         expect(r.fatigue.cumulativeDamage).toBeLessThan(0.1);
+    });
+});
+
+// ── 8. compositeRisk() — paper Eq. eq:composite ─────────────────────────────
+describe('compositeRisk (Eq. composite)', () => {
+    test('assess() attaches a composite channel with the right shape', () => {
+        const r = D.assess({
+            T_celsius: 20, RH_percent: 50, light_klux: 0.15,
+            totalDays: 100 * 365.25, RH_amplitude: 5
+        });
+        expect(r).toHaveProperty('composite');
+        expect(r.composite).toHaveProperty('value');
+        expect(r.composite).toHaveProperty('dominant');
+        expect(r.composite.components).toHaveProperty('chemical');
+        expect(r.composite.components).toHaveProperty('lifetime');
+        expect(r.composite.components).toHaveProperty('mould');
+        expect(r.composite.components).toHaveProperty('salt');
+        expect(r.composite.components).toHaveProperty('fatigue');
+    });
+
+    test('composite is the max of the five normalised channels, clamped to [0,1]', () => {
+        const r = D.assess({
+            T_celsius: 20, RH_percent: 50, light_klux: 0.15,
+            totalDays: 100 * 365.25, RH_amplitude: 5
+        });
+        const c = r.composite.components;
+        const expected = Math.max(c.chemical, c.lifetime, c.mould, c.salt, c.fatigue);
+        expect(r.composite.value).toBeCloseTo(expected, 10);
+        expect(r.composite.value).toBeGreaterThanOrEqual(0);
+        expect(r.composite.value).toBeLessThanOrEqual(1);
+        // dominant label points at the argmax channel
+        expect(c[r.composite.dominant === 'saltCryst' ? 'salt' : r.composite.dominant])
+            .toBeCloseTo(r.composite.value, 10);
+    });
+
+    test('salt saturates the composite when crystallisation pressure exceeds substrate strength', () => {
+        // High T + high RH drives Δp/σ_t well past 1, so the salt sub-index
+        // saturates and the clamped composite reaches its ceiling of 1.
+        const r = D.assess({
+            T_celsius: 30, RH_percent: 80, light_klux: 0,
+            totalDays: 50 * 365.25, RH_amplitude: 0
+        });
+        expect(r.composite.components.salt).toBe(1); // clamped from Δp/σ_t ≫ 1
+        expect(r.composite.value).toBe(1);           // clamped composite ceiling
+    });
+
+    test('salt is the argmax when it is the only saturated channel', () => {
+        // Salt-only synthetic: every other channel below salt.
+        const comp = D.compositeRisk({
+            chemical: { risk: 10 },        // 0.10
+            lifetime: { multiplier: 1.5 }, // 0.67
+            mould: { mouldIndex: 0 },      // 0
+            saltCryst: { damageRatio: 0.95 },
+            fatigue: { cumulativeDamage: 0 }
+        });
+        expect(comp.dominant).toBe('salt');
+        expect(comp.value).toBeCloseTo(0.95, 10);
+    });
+
+    test('compositeRisk falls back to min(1,1/LM) when only a multiplier is given', () => {
+        // No visualEffect.intensity (no time info) → rate-ratio fallback.
+        const channels = {
+            chemical: { risk: 30 },      // 0.30
+            lifetime: { multiplier: 2 }, // min(1, 0.5) = 0.50
+            mould: { mouldIndex: 1.2 },  // 0.20
+            saltCryst: { damageRatio: 0.10 },
+            fatigue: { cumulativeDamage: 0.30 } // 0.10
+        };
+        const comp = D.compositeRisk(channels);
+        expect(comp.value).toBeCloseTo(0.50, 10);
+        expect(comp.dominant).toBe('lifetime');
+    });
+
+    test('lifetime sub-index uses consumption (visualEffect.intensity) when present', () => {
+        // Consumption form: intensity = elapsed / (LM · L_ref). A small
+        // consumption must NOT saturate even though LM < 1 (harsh condition).
+        const channels = {
+            chemical: { risk: 5 },
+            lifetime: { multiplier: 0.3, visualEffect: { intensity: 0.12 } },
+            mould: { mouldIndex: 0 },
+            saltCryst: { damageRatio: 0 },
+            fatigue: { cumulativeDamage: 0 }
+        };
+        const comp = D.compositeRisk(channels);
+        expect(comp.components.lifetime).toBeCloseTo(0.12, 10);
+        // chemical 0.05 < lifetime 0.12 → lifetime leads, well below saturation
+        expect(comp.value).toBeCloseTo(0.12, 10);
+        expect(comp.dominant).toBe('lifetime');
+    });
+
+    test('scalar composite varies spatially across zones (no cliff-saturation)', () => {
+        // Interior 30y: with the consumption-form lifetime term the whole-object
+        // composite must differ between base and face rather than both being 1.
+        const field = D.compositeRiskField({
+            T_celsius: 16, RH_percent: 40, light_klux: 1,
+            totalDays: 30 * 365.25, RH_amplitude: 6
+        });
+        const base = field.find(z => z.id === 'base');
+        const face = field.find(z => z.id === 'face');
+        expect(base.composite.value).toBeGreaterThan(face.composite.value);
+        expect(base.composite.value).toBeLessThan(1);  // not cliff-saturated
+    });
+});
+
+// ── 9. capillaryRH + compositeRiskField — Stage-1 spatial model ─────────────
+describe('capillaryRH (capillary-rise moisture field)', () => {
+    test('RH is elevated at the base and decays to ambient with height', () => {
+        const amb = 40;
+        const base = D.capillaryRH(0, amb);
+        const mid  = D.capillaryRH(0.5, amb);
+        const top  = D.capillaryRH(1, amb);
+        expect(base).toBeGreaterThan(mid);
+        expect(mid).toBeGreaterThan(top);
+        expect(top).toBeGreaterThanOrEqual(amb);   // never below ambient
+        expect(base).toBeLessThanOrEqual(100);      // clamped
+    });
+
+    test('base surcharge lifts RH by the configured amount at h=0', () => {
+        expect(D.capillaryRH(0, 40, { baseSurcharge: 25 })).toBeCloseTo(65, 6);
+    });
+
+    test('clamps to 100 when ambient + surcharge exceeds saturation', () => {
+        expect(D.capillaryRH(0, 90, { baseSurcharge: 25 })).toBe(100);
+    });
+});
+
+describe('compositeRiskField (per-zone spatial composite)', () => {
+    test('returns one entry per zone with a composite and local drivers', () => {
+        const field = D.compositeRiskField({
+            T_celsius: 25, RH_percent: 55, light_klux: 5,
+            totalDays: 50 * 365.25, RH_amplitude: 10
+        });
+        expect(field.length).toBe(3); // DEFAULT_ZONES
+        for (const z of field) {
+            expect(z).toHaveProperty('RH_local');
+            expect(z).toHaveProperty('composite');
+            expect(z.composite.value).toBeGreaterThanOrEqual(0);
+            expect(z.composite.value).toBeLessThanOrEqual(1);
+        }
+    });
+
+    test('base zone sees higher local RH than the face zone (capillary rise)', () => {
+        const field = D.compositeRiskField({
+            T_celsius: 25, RH_percent: 55, light_klux: 5,
+            totalDays: 50 * 365.25, RH_amplitude: 10
+        });
+        const base = field.find(z => z.id === 'base');
+        const face = field.find(z => z.id === 'face');
+        expect(base.RH_local).toBeGreaterThan(face.RH_local);
+    });
+
+    test('salt sub-index decreases with height (capillary availability)', () => {
+        // Poor-storage 50y: salt saturates on RH everywhere, so the spatial
+        // signal must come from availability decaying with height.
+        const field = D.compositeRiskField({
+            T_celsius: 28, RH_percent: 60, light_klux: 5,
+            totalDays: 50 * 365.25, RH_amplitude: 15
+        });
+        const base = field.find(z => z.id === 'base');
+        const torso = field.find(z => z.id === 'torso');
+        const face = field.find(z => z.id === 'face');
+        expect(base.composite.components.salt).toBeGreaterThan(torso.composite.components.salt);
+        expect(torso.composite.components.salt).toBeGreaterThan(face.composite.components.salt);
+        expect(base.saltAvailability).toBeGreaterThan(face.saltAvailability);
+    });
+
+    test('compositeRiskGrid returns an nH x nL lookup grid, monotone in height', () => {
+        const g = D.compositeRiskGrid({
+            T_celsius: 16, RH_percent: 40, light_klux: 1,
+            totalDays: 30 * 365.25, RH_amplitude: 6
+        }, 5, 4);
+        expect(g.nH).toBe(5);
+        expect(g.nL).toBe(4);
+        expect(g.value.length).toBe(5);
+        expect(g.value[0].length).toBe(4);
+        // height index 0 = base (wettest, most salt) -> higher composite than crown
+        const baseRow = g.value[0];
+        const crownRow = g.value[4];
+        const avg = (r) => r.reduce((a, b) => a + b, 0) / r.length;
+        expect(avg(baseRow)).toBeGreaterThan(avg(crownRow));
+        // every cell in [0,1]
+        for (const row of g.value) for (const v of row) {
+            expect(v).toBeGreaterThanOrEqual(0);
+            expect(v).toBeLessThanOrEqual(1);
+        }
+    });
+
+    test('accepts custom zones and honours per-zone light scaling', () => {
+        const field = D.compositeRiskField(
+            { T_celsius: 20, RH_percent: 50, light_klux: 10, totalDays: 3652.5, RH_amplitude: 5 },
+            [{ id: 'lit', name: 'lit', height: 0.9, lightScale: 1.0 },
+             { id: 'dark', name: 'dark', height: 0.9, lightScale: 0.0 }]
+        );
+        const lit = field.find(z => z.id === 'lit');
+        const dark = field.find(z => z.id === 'dark');
+        expect(lit.light_klux).toBeCloseTo(10, 6);
+        expect(dark.light_klux).toBe(0);
     });
 });

@@ -19,6 +19,10 @@
  * reproduce the ~48% archaeological colour-loss anchor while consuming these Ea
  * unchanged; reproducing absolute fading magnitudes here would require recalibrating
  * k0 against that anchor.
+ * These demo values were rescaled by (10091.7)^q per pigment when the
+ * Paltakari–Karlsson isotherm was corrected from a Kelvin+abs surrogate to the
+ * physical Celsius form (see PigmentAnalysis._arrheniusRateConstant), so the
+ * renderer's fade speed is preserved; they remain order-of-magnitude illustrative.
  * Colour targets from Dunhuang Academy conservation reports.
  */
 
@@ -30,8 +34,8 @@ export const PIGMENT_DATABASE = {
         displayEn: 'Ground/Substrate',
         Ea_dark: 70000,
         Ea_light: 25000,
-        k0_dark: 0.0001,
-        k0_light: 0.001,
+        k0_dark: 0.16,
+        k0_light: 1.6,
         q: 0.8,
         p: 0.9,
         targetRGB: [200, 180, 150],
@@ -45,8 +49,8 @@ export const PIGMENT_DATABASE = {
         displayEn: 'Azurite',
         Ea_dark: 39000,  // measured dark-pathway barrier (pilot, consolidated pedestal 61d)
         Ea_light: 18000,
-        k0_dark: 0.00005,
-        k0_light: 0.0025,
+        k0_dark: 0.080,
+        k0_light: 4.0,
         q: 0.8,   // anchored at literature value (paper Methods)
         p: 0.85,
         targetRGB: [0, 80, 180],
@@ -63,8 +67,8 @@ export const PIGMENT_DATABASE = {
         displayEn: 'Malachite',
         Ea_dark: 43000,  // measured dark-pathway barrier (pilot, consolidated pedestal 61d)
         Ea_light: 22000,
-        k0_dark: 0.00003,
-        k0_light: 0.0015,
+        k0_dark: 0.048,
+        k0_light: 2.4,
         q: 0.8,   // anchored at literature value (paper Methods)
         p: 0.9,
         targetRGB: [0, 140, 60],
@@ -78,8 +82,8 @@ export const PIGMENT_DATABASE = {
         displayEn: 'Vermilion',
         Ea_dark: 60000,  // measured dark-pathway barrier (pilot, consolidated pedestal 61d)
         Ea_light: 18000,
-        k0_dark: 0.00008,
-        k0_light: 0.003,
+        k0_dark: 0.13,
+        k0_light: 4.8,
         q: 0.8,   // anchored at literature value (paper Methods)
         p: 0.95,
         targetRGB: [200, 30, 15],
@@ -95,8 +99,8 @@ export const PIGMENT_DATABASE = {
         displayEn: 'Lead White',
         Ea_dark: 65000,
         Ea_light: 30000,
-        k0_dark: 0.00015,
-        k0_light: 0.0008,
+        k0_dark: 0.95,
+        k0_light: 5.1,
         q: 0.95,
         p: 0.8,
         targetRGB: [245, 240, 230],
@@ -112,8 +116,8 @@ export const PIGMENT_DATABASE = {
         displayEn: 'Gold Leaf',
         Ea_dark: 120000,
         Ea_light: 50000,
-        k0_dark: 0.000001,
-        k0_light: 0.0001,
+        k0_dark: 0.0000025,
+        k0_light: 0.00025,
         q: 0.1,
         p: 0.5,
         targetRGB: [212, 175, 55],
@@ -127,8 +131,8 @@ export const PIGMENT_DATABASE = {
         displayEn: 'Red Ochre',
         Ea_dark: 95000,
         Ea_light: 35000,
-        k0_dark: 0.00002,
-        k0_light: 0.0005,
+        k0_dark: 0.0051,
+        k0_light: 0.13,
         q: 0.6,
         p: 0.7,
         targetRGB: [180, 70, 30],
@@ -142,8 +146,8 @@ export const PIGMENT_DATABASE = {
         displayEn: 'Carbon Black',
         Ea_dark: 110000,
         Ea_light: 45000,
-        k0_dark: 0.000005,
-        k0_light: 0.0002,
+        k0_dark: 0.000079,
+        k0_light: 0.0032,
         q: 0.3,
         p: 0.6,
         targetRGB: [15, 15, 15],

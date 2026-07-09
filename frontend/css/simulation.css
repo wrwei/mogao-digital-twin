@@ -510,3 +510,64 @@
         font-size: 16px;
     }
 }
+
+/* ── Composite risk tab (paper Eq. composite) ─────────────────────────────── */
+.composite-summary {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 16px;
+    background: #f7f8fa;
+    border-radius: 6px;
+    margin-bottom: 14px;
+}
+.composite-value {
+    font-size: 34px;
+    font-weight: 700;
+    line-height: 1;
+    min-width: 72px;
+}
+.composite-meta { display: flex; flex-direction: column; gap: 3px; }
+.composite-band { font-size: 14px; font-weight: 600; }
+.composite-dominant { font-size: 12px; color: #555; }
+.composite-breakdown { display: flex; flex-direction: column; gap: 6px; }
+.composite-row {
+    display: grid;
+    grid-template-columns: 120px 1fr 40px;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+}
+.composite-row-label { color: #666; }
+.composite-row-label.is-dominant { color: #222; font-weight: 700; }
+.composite-bar-track {
+    height: 8px;
+    background: #e6e6e6;
+    border-radius: 4px;
+    overflow: hidden;
+}
+.composite-bar-fill { display: block; height: 100%; border-radius: 4px; transition: width 0.2s ease; }
+.composite-row-value { text-align: right; font-variant-numeric: tabular-nums; color: #444; }
+.composite-note { font-size: 11px; color: #777; margin-top: 12px; line-height: 1.45; }
+
+/* Per-zone spatial composite (Stage 1) */
+.composite-zones { margin-top: 14px; border-top: 1px solid #ececec; padding-top: 12px; }
+.composite-zones-title { font-size: 12px; font-weight: 700; color: #444; margin-bottom: 8px; }
+.composite-zone-row {
+    display: grid;
+    grid-template-columns: 140px 46px 1fr;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    margin-bottom: 6px;
+}
+.composite-zone-name { color: #333; }
+.composite-zone-badge {
+    color: #fff;
+    font-weight: 700;
+    text-align: center;
+    border-radius: 4px;
+    padding: 2px 0;
+    font-variant-numeric: tabular-nums;
+}
+.composite-zone-meta { color: #777; font-size: 11px; }

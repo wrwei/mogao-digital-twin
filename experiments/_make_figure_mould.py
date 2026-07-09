@@ -7,23 +7,17 @@ mould index M trajectory under two scenarios.
       decay before the index can climb meaningfully.
 
   (b) HVAC failure scenario at sustained T = 25 C, RH = 90% --
-      M climbs sigmoidally to the saturation value M = 6 within
-      5-8 years.
+      M ramps to the saturation value M = 6 within ~1 year.
 
-Model (after Methods, Model 4):
-  RH_crit(T) = 96 - 0.8 * T_C    (80% at 20 C, 64% at 40 C)
-  Above threshold:
-    dM/dt = k_growth * f_RH * (T/20) * (1 - M/6)
-    where f_RH = (RH - RH_crit) / (100 - RH_crit)
+Model (Supplementary Methods S3, Eqs. s_rh_crit / s_mould_rate; identical
+to the runtime kernel DeteriorationService.mouldGrowth):
+  RH_crit(T) = -0.0026*T^3 + 0.160*T^2 - 3.13*T + 100   (0 <= T <= 50 C)
+               (~80.6% at 20 C, ~79.9% at 30 C, ~64.4% at 40 C)
+  Above threshold (RH >= RH_crit):
+    dM/dt = ((RH - RH_crit) / 100) * (T / 20) * k_M,  k_M = 0.13 /day
+    (linear accumulation, clamped to the VTT 0-6 scale; no logistic term)
   Below threshold:
-    dM/dt = -0.006 / day   (slow dessication; paper's -0.128/day is
-                            instantaneous on this time scale and would
-                            make panel (a) trivially zero, so we use
-                            a softer decay matching observed mould
-                            persistence in transient dry periods)
-
-k_growth is calibrated so the HVAC scenario reaches M ≈ 6 in 5-8 years
-(k_growth = 0.013/day base).
+    dM/dt = -0.128 /day   (dessication of hyphae)
 
 Output: experiments/mould_trajectory.png
 """
@@ -33,25 +27,25 @@ from datetime import datetime, timedelta
 
 np.random.seed(42)
 
-K_GROWTH = 0.013     # /day base growth rate at full modulation
-K_DECAY = -0.006     # /day below threshold (softer than the paper's -0.128/d)
+K_GROWTH = 0.13      # /day  (k_M, Supplementary S3 Eq. s_mould_rate)
+K_DECAY = -0.128     # /day  below threshold (Supplementary S3)
 M_MAX = 6.0
 
 def rh_crit(T):
-    """Critical RH threshold for VTT mould (linear approx in T_Celsius)."""
-    return 96.0 - 0.8 * T
+    """Critical RH threshold for VTT mould — cubic fit, Supplementary S3
+    Eq. s_rh_crit, valid 0-50 C (clamped)."""
+    Tc = min(50.0, max(0.0, T))
+    return -0.0026 * Tc**3 + 0.160 * Tc**2 - 3.13 * Tc + 100.0
 
 def vtt_step(M, T, RH, dt_days):
-    """One forward step of the VTT mould index integration."""
+    """One forward step of the VTT mould index integration (paper/code form:
+    linear growth clamped to [0, 6], constant decay below threshold)."""
     rc = rh_crit(T)
-    if RH > rc:
-        f_RH = max(0.0, (RH - rc) / (100.0 - rc))
-        T_factor = max(0.3, T / 20.0)
-        dM = K_GROWTH * f_RH * T_factor * (1.0 - M / M_MAX) * dt_days
-        return min(M_MAX, M + dM)
+    if RH >= rc and T > 0:
+        dM = ((RH - rc) / 100.0) * (T / 20.0) * K_GROWTH * dt_days
     else:
         dM = K_DECAY * dt_days
-        return max(0.0, M + dM)
+    return max(0.0, min(M_MAX, M + dM))
 
 # --- Scenario (a): monitored Mogao climate, 200 years, daily timesteps ---
 print("Building 200-year Mogao climate exemplar (daily timesteps)...")
@@ -59,14 +53,18 @@ N_YEARS = 200
 N_DAYS = N_YEARS * 365
 years_axis_a = np.arange(N_DAYS) / 365.0
 
-# Annual cycle for daily T and RH (simplified from Figure 1 generator)
+# Annual cycle for daily T and RH -- damped cave-INTERIOR envelope, matched to
+# the Figure 2 generator (Cave 71, Gong et al. 2025). The sinusoid offset 12.4
+# yields a realized annual mean ~12.0 C after noise; interior RH mean ~31%,
+# ceiling 80%.
 def annual_T(doy):
-    return 15.0 * np.sin(2 * np.pi * (doy - 110) / 365.0) + 11.7
+    return 12.8 * np.sin(2 * np.pi * (doy - 110) / 365.0) + 12.4
 
 def annual_RH(doy):
-    return 35.0 + 5.0 * np.cos(2 * np.pi * (doy - 60) / 365.0)
+    return 30.0 + 6.0 * np.cos(2 * np.pi * (doy - 200) / 365.0)
 
-# Monsoon spike events per year, ~8 events of 3-14 days each
+# Wet-season events per year -- damped indoors, peaks approach but stay below
+# the measured 80% interior ceiling.
 def monsoon_events(rng):
     """Return list of (doy_start, duration, peak_RH) for one year."""
     n_events = rng.integers(6, 10)
@@ -74,7 +72,7 @@ def monsoon_events(rng):
     for _ in range(n_events):
         doy_start = rng.integers(152, 273)
         duration = rng.integers(3, 15)
-        peak = rng.uniform(70, 95)
+        peak = rng.uniform(45, 70)
         events.append((doy_start, duration, peak))
     return events
 
@@ -101,7 +99,7 @@ for d in range(N_DAYS):
             else:
                 profile = (1.0 - phase) / 0.4
             rh_spike = max(rh_spike, (ev_peak - rh_base) * profile)
-    RH_a[d] = min(98, rh_base + rh_spike)
+    RH_a[d] = min(80.0, max(8.7, rh_base + rh_spike))  # measured interior extremes (Gong et al. 2025)
 
 # Integrate VTT model
 M_a = np.zeros(N_DAYS)
@@ -137,9 +135,7 @@ ax.axhline(6.0, color="black", ls=":", lw=0.6, alpha=0.5,
            label=r"saturation ($\mathcal{M}=6$)")
 ax.set_xlabel("Year")
 ax.set_ylabel(r"VTT mould index $\mathcal{M}$")
-ax.set_title("(a) Monitored Cave 1 microclimate (200 y)\n"
-             "$\\bar{T}=11.7$ \xb0C, baseline $RH$ 25--40 % + monsoon spikes",
-             fontsize=10)
+ax.set_title("(a) Monitored cave-interior microclimate", loc="left", fontsize=10, fontweight="bold")
 ax.set_xlim(0, N_YEARS)
 ax.set_ylim(-0.2, 6.5)
 ax.grid(True, alpha=0.3)
@@ -161,9 +157,7 @@ if M_cross3 is not None:
     ax.axvline(M_cross3 / 365.0, color="gray", ls=":", lw=0.6, alpha=0.5)
 ax.set_xlabel("Year")
 ax.set_ylabel(r"VTT mould index $\mathcal{M}$")
-ax.set_title("(b) HVAC-failure scenario (sustained $T=25$ \xb0C, $RH=90$ %)\n"
-             "logistic climb to saturation",
-             fontsize=10)
+ax.set_title("(b) HVAC-failure scenario", loc="left", fontsize=10, fontweight="bold")
 ax.set_xlim(0, 10)
 ax.set_ylim(-0.2, 6.5)
 ax.grid(True, alpha=0.3)
@@ -176,14 +170,7 @@ ax.text(0.04, 0.92,
         transform=ax.transAxes, fontsize=8, va="top", ha="left",
         bbox=dict(boxstyle="round,pad=0.4", facecolor="#FDE0E0", edgecolor="#E63946", alpha=0.85))
 
-fig.suptitle("VTT Hukka--Viitanen mould index trajectory (Model 4)",
-             y=1.02, fontsize=11.5, fontweight="bold")
-fig.text(0.5, -0.04,
-         r"$RH_{\mathrm{crit}}(T) = 96 - 0.8 \, T_C$  (linearised; full polynomial in Supplementary Methods S3).  "
-         r"Above $RH_{\mathrm{crit}}$: $\dot{\mathcal{M}} = 0.013 \cdot f_{RH} \cdot (T/20) \cdot (1 - \mathcal{M}/6)$ d$^{-1}$ "
-         r"with $f_{RH} = (RH - RH_{\mathrm{crit}}) / (100 - RH_{\mathrm{crit}})$.  Below threshold: $\dot{\mathcal{M}} = -0.006$ d$^{-1}$. "
-         r"Synthetic monitored climate (panel a) reproduces the Mogao envelope of Wang 2015 + Hu 2024 + Wang 2025.",
-         ha="center", va="bottom", fontsize=7.5, style="italic", color="#555555", wrap=True)
+
 plt.tight_layout()
 
 out = "experiments/mould_trajectory.png"

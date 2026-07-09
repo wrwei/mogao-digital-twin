@@ -74,6 +74,25 @@ export function renderEffect(args) {
         transfer.push(mapCopy);
     }
     if (args.perPigmentParams) payload.pigmentParams = _plain(args.perPigmentParams);
+    // Composite mode carries the five per-mechanism visualEffects plus the
+    // normalised sub-index components map so the worker can layer them.
+    if (args.effects)    payload.effects    = _plain(args.effects);
+    if (args.components) payload.components = _plain(args.components);
+    // Stage-2 per-texel composite: baked driver maps + backend lookup grid.
+    // Copy the map buffers so ownership can transfer to the worker.
+    if (args.spatial && args.driverMaps && args.grid) {
+        const hCopy  = new Uint8Array(args.driverMaps.height).buffer;
+        const ilCopy = new Uint8Array(args.driverMaps.illum).buffer;
+        payload.spatial = true;
+        payload.driverMaps = {
+            height: hCopy,
+            illum: ilCopy,
+            width: args.driverMaps.width,
+            mapHeight: args.driverMaps.mapHeight
+        };
+        payload.grid = _plain(args.grid);
+        transfer.push(hCopy, ilCopy);
+    }
 
     const worker = getWorker();
     const ticket = Symbol('renderEffect');

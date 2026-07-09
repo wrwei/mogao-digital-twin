@@ -45,6 +45,9 @@ self.onmessage = function (e) {
         case 'fatigue':
             applyFatigue(data, width, height, e.data);
             break;
+        case 'composite':
+            applyComposite(data, width, height, e.data);
+            break;
         default:
             // Unknown mode: return the buffer unchanged. The renderer
             // treats this as a no-op (e.g. mode === 'reset' should not
@@ -343,5 +346,108 @@ function applyFatigue(data, width, height, { effect }) {
                 }
             }
         }
+    }
+}
+
+// ── Composite (paper Eq. eq:composite) ──────────────────────────────────────
+// Layers all five mechanism signatures onto one texture. Each layer reuses its
+// own single-model effect function and is applied in ascending order of its
+// normalised sub-index, so the mechanism that dominates the composite index is
+// composited last and reads strongest. The per-mechanism visualEffects and the
+// components map (chemical/lifetime/mould/salt/fatigue in [0,1]) are supplied by
+// the backend compositeRisk() output threaded through renderCommand.
+function applyComposite(data, width, height, payload) {
+    const { effects = {}, components = {}, degradationFactor = 1, pigmentMap, pigmentParams } = payload;
+
+    // Stage-2: if baked driver maps + a backend lookup grid are supplied, paint
+    // a genuine per-texel spatial risk field instead of the whole-object layer.
+    if (payload.spatial && payload.driverMaps && payload.grid) {
+        applyCompositeSpatial(data, width, height, payload);
+        return;
+    }
+
+    // Order the five mechanisms by ascending contribution; skip negligible ones.
+    const order = Object.entries(components)
+        .filter(([, v]) => v > 0.02)
+        .sort((a, b) => a[1] - b[1])
+        .map(([k]) => k);
+
+    for (const mech of order) {
+        switch (mech) {
+            case 'chemical':
+                // Prefer the pigment-aware fade when a pigment map is present.
+                if (pigmentMap && pigmentParams) {
+                    applyChemicalPigment(data, width, height, { pigmentMap, pigmentParams, amplification: 3 });
+                } else {
+                    applyChemicalUniform(data, width, height, { degradationFactor, amplification: 10 });
+                }
+                break;
+            case 'lifetime':
+                applyLifetime(data, width, height, { effect: effects.lifetime });
+                break;
+            case 'mould':
+                applyMould(data, width, height, { effect: effects.mould });
+                break;
+            case 'salt':
+                applySalt(data, width, height, { effect: effects.saltCryst });
+                break;
+            case 'fatigue':
+                applyFatigue(data, width, height, { effect: effects.fatigue });
+                break;
+            default:
+                break;
+        }
+    }
+}
+
+// ── Composite (Stage-2 per-texel spatial field) ─────────────────────────────
+// Paints a spatial deterioration-risk field: for each texel, read the baked
+// height + illumination from the driver maps, bilinearly sample the backend
+// (height × illumination) composite lookup grid, and blend the base colour
+// toward a blue→yellow→red risk ramp. The texture and the driver maps share
+// the model's UV layout, so a texel at (u,v) reads the same (u,v) in each map
+// (nearest-sampled when the map resolution differs from the texture).
+function applyCompositeSpatial(data, width, height, payload) {
+    const { driverMaps, grid } = payload;
+    const hMap = new Uint8Array(driverMaps.height);
+    const ilMap = new Uint8Array(driverMaps.illum);
+    const mw = driverMaps.width, mh = driverMaps.mapHeight;
+    const nH = grid.nH, nL = grid.nL, gval = grid.value;
+
+    // Blue (low) -> yellow (mid) -> red (high) risk ramp.
+    const ramp = (r) => {
+        if (r <= 0.5) { const t = r / 0.5;  return [Math.round(40 + t * 215), Math.round(90 + t * 165), Math.round(200 - t * 160)]; }
+        const t = (r - 0.5) / 0.5;          return [255, Math.round(255 - t * 215), Math.round(40 - t * 40)];
+    };
+    // Bilinear sample of the composite grid at (h, il) in [0,1].
+    const sampleGrid = (h, il) => {
+        const fh = h * (nH - 1), fl = il * (nL - 1);
+        const h0 = Math.floor(fh), l0 = Math.floor(fl);
+        const h1 = Math.min(h0 + 1, nH - 1), l1 = Math.min(l0 + 1, nL - 1);
+        const dh = fh - h0, dl = fl - l0;
+        const v00 = gval[h0][l0], v01 = gval[h0][l1], v10 = gval[h1][l0], v11 = gval[h1][l1];
+        return v00 * (1 - dh) * (1 - dl) + v01 * (1 - dh) * dl + v10 * dh * (1 - dl) + v11 * dh * dl;
+    };
+
+    const total = width * height;
+    for (let i = 0; i < total; i++) {
+        const px = i % width, py = (i / width) | 0;
+        // Texture (px,py) -> UV -> driver-map pixel (nearest).
+        const u = px / (width - 1), v = py / (height - 1);
+        const mx = Math.min(mw - 1, Math.max(0, Math.round(u * (mw - 1))));
+        const my = Math.min(mh - 1, Math.max(0, Math.round(v * (mh - 1))));
+        const mi = my * mw + mx;
+        const hNorm = hMap[mi] / 255;      // 0 = base, 1 = crown
+        const ilNorm = ilMap[mi] / 255;    // 0 = shadowed, 1 = lit
+        const risk = sampleGrid(hNorm, ilNorm);
+
+        const [rr, rg, rb] = ramp(risk);
+        // Blend strength grows with risk so low-risk zones stay close to the
+        // original texture and high-risk zones read strongly in the ramp.
+        const a = 0.25 + 0.55 * risk;
+        const off = i * 4;
+        data[off]     = Math.round(data[off]     * (1 - a) + rr * a);
+        data[off + 1] = Math.round(data[off + 1] * (1 - a) + rg * a);
+        data[off + 2] = Math.round(data[off + 2] * (1 - a) + rb * a);
     }
 }

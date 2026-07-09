@@ -25,6 +25,37 @@ module.exports = {
         }
     },
 
+    // POST /deterioration/assess-field — per-zone spatial composite (Stage 1).
+    // Body: the assess() condition, plus optional `zones` array and `capillary`
+    // tuning. Returns { zones: [...] } with a per-zone composite driven by a
+    // capillary-rise moisture field and per-zone light exposure.
+    async assessField(req, res) {
+        try {
+            const { T_celsius, RH_percent, light_klux, totalDays } = req.body;
+
+            if (T_celsius == null || RH_percent == null || light_klux == null || totalDays == null) {
+                return res.status(400).json({
+                    error: 'Missing required parameters: T_celsius, RH_percent, light_klux, totalDays'
+                });
+            }
+
+            const { zones, grid, ...condition } = req.body;
+            const result = DeteriorationService.compositeRiskField(condition, zones);
+            const payload = { zones: result };
+            // Optional (height x illumination) lookup grid for per-texel
+            // Stage-2 rendering. Enabled with `grid: true` or `grid: {nH,nL}`.
+            if (grid) {
+                const nH = (grid.nH) || 8;
+                const nL = (grid.nL) || 8;
+                payload.grid = DeteriorationService.compositeRiskGrid(condition, nH, nL);
+            }
+            res.json(payload);
+        } catch (error) {
+            console.error('Deterioration assess-field error:', error);
+            res.status(500).json({ error: error.message });
+        }
+    },
+
     // POST /deterioration/chemical — chemical pigment fading only
     async chemical(req, res) {
         try {

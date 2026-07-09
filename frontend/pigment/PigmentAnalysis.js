@@ -43,13 +43,17 @@ export async function identifyPigments(pixelData, width, height) {
  * change it in the other.
  */
 function _arrheniusRateConstant(p, T_kelvin, RH_fraction, light_klux) {
+    // Paltakari–Karlsson isotherm evaluated in CELSIUS (see backend
+    // DeteriorationService.calculateMoistureContent for the unit rationale);
+    // the base is positive only for T < 171, i.e. the Celsius range.
+    const T_celsius = T_kelvin - 273.15;
     const H2O = Math.pow(
-        Math.abs(Math.log(1 - Math.min(RH_fraction, 0.999)) / (1.67 * T_kelvin - 285.655)),
-        1 / (2.491 - 0.012 * T_kelvin)
+        Math.log(1 - Math.min(RH_fraction, 0.999)) / (1.67 * T_celsius - 285.655),
+        1 / (2.491 - 0.012 * T_celsius)
     );
-    const k_dark = p.k0_dark * Math.pow(Math.abs(H2O), p.q) * Math.exp(-p.Ea_dark / (R * T_kelvin));
+    const k_dark = p.k0_dark * Math.pow(H2O, p.q) * Math.exp(-p.Ea_dark / (R * T_kelvin));
     const k_light = light_klux > 0
-        ? p.k0_light * Math.pow(light_klux, p.p) * Math.pow(Math.abs(H2O), p.q) * Math.exp(-p.Ea_light / (R * T_kelvin))
+        ? p.k0_light * Math.pow(light_klux, p.p) * Math.pow(H2O, p.q) * Math.exp(-p.Ea_light / (R * T_kelvin))
         : 0;
     return k_dark + k_light;
 }

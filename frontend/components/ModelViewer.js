@@ -47,6 +47,8 @@ export default {
             originalPixelHeight: 0,
             textureCanvas: null,    // Canvas for texture manipulation
             textureContext: null,   // Canvas 2D context
+            // Baked per-texel driver maps for Stage-2 composite (height / illumination)
+            driverMaps: null,       // { height:Uint8Array, illum:Uint8Array, width, mapHeight } or null
             // Multi-model deterioration results
             mouldResult: null,      // VTT mould growth model output
             enabledChemical: true,  // Whether chemical fading model is active
@@ -353,6 +355,12 @@ export default {
                         this.$emit('pixel-data-ready', { data: this.originalPixelData, width: imageBitmap.width, height: imageBitmap.height });
                     }
 
+                    // ── Step 2b: Load baked driver maps (Stage-2 per-texel composite) ─
+                    // height_map.png + illumination_map.png live alongside the model
+                    // OBJ. Best-effort: absence just disables per-texel composite and
+                    // the overlay falls back to the whole-object layering.
+                    this.driverMaps = await this.loadDriverMaps(baseURL);
+
                     // ── Step 3: Load Three.js texture for rendering ───────────────────
                     const textureLoader = new THREE.TextureLoader();
                     textureLoader.setCrossOrigin('anonymous');
@@ -567,6 +575,45 @@ export default {
          * buffer to the Three.js material. Status toasts and processing
          * lifecycle live here; the actual per-pixel work happens off-thread.
          */
+        /**
+         * Load the baked height + illumination driver maps that sit alongside
+         * the model OBJ (produced offline by experiments/_bake_driver_maps.py).
+         * Returns { height, illum, width, mapHeight } with single-channel Uint8
+         * arrays, or null if either map is missing (Stage-2 then disabled).
+         */
+        async loadDriverMaps(baseURL) {
+            try {
+                const modelPath = this.assetReference && this.assetReference.modelLocation;
+                if (!modelPath) return null;
+                const dir = modelPath.substring(0, modelPath.lastIndexOf('/') + 1);
+                const url = (p) => {
+                    const full = dir + p;
+                    return full.startsWith('http') ? full : baseURL + full;
+                };
+                const decode = async (name) => {
+                    const resp = await fetch(url(name));
+                    if (!resp.ok) throw new Error(`${name} ${resp.status}`);
+                    const bmp = await createImageBitmap(await resp.blob());
+                    const cv = document.createElement('canvas');
+                    cv.width = bmp.width; cv.height = bmp.height;
+                    const cx = cv.getContext('2d');
+                    cx.drawImage(bmp, 0, 0);
+                    const rgba = cx.getImageData(0, 0, bmp.width, bmp.height).data;
+                    // single channel: take R (maps are greyscale)
+                    const out = new Uint8Array(bmp.width * bmp.height);
+                    for (let i = 0; i < out.length; i++) out[i] = rgba[i * 4];
+                    return { data: out, width: bmp.width, height: bmp.height };
+                };
+                const [h, il] = await Promise.all([decode('height_map.png'), decode('illumination_map.png')]);
+                if (h.width !== il.width || h.height !== il.height) return null;
+                console.log(`Driver maps loaded: ${h.width}×${h.height}`);
+                return { height: h.data, illum: il.data, width: h.width, mapHeight: h.height };
+            } catch (err) {
+                console.warn('Driver maps unavailable; per-texel composite disabled:', err.message);
+                return null;
+            }
+        },
+
         async handleRenderCommand(cmd) {
             if (!cmd || !this.model) return;
 
@@ -655,6 +702,29 @@ export default {
                     toastMsg = D <= 0.01
                         ? `🧱 D = ${D.toFixed(3)} — no cracking yet`
                         : `🧱 D = ${D.toFixed(2)} — ${stage}`;
+                    break;
+                }
+                case 'composite': {
+                    this.degradationEnabled = true;
+                    this.enabledChemical = Sim.enabledModels.chemical;
+                    args = { ...base, mode: 'composite',
+                             components: cmd.components,
+                             effects: cmd.effects,
+                             pigmentMap: cmd.pigmentMap,
+                             perPigmentParams: cmd.pigmentParams,
+                             degradationFactor: cmd.degradationFactor };
+                    // Stage-2 per-texel spatial composite: supply the baked
+                    // driver maps + the backend (height×illumination) lookup
+                    // grid so the worker can paint a spatial risk field. Absent
+                    // maps/grid → worker falls back to whole-object layering.
+                    if (this.driverMaps && cmd.grid) {
+                        args.driverMaps = this.driverMaps;
+                        args.grid = cmd.grid;
+                        args.spatial = true;
+                    }
+                    const comp = Sim.assessmentResults.value.composite || { value: 0, dominant: 'chemical' };
+                    const spatialTag = (this.driverMaps && cmd.grid) ? ' (spatial)' : '';
+                    toastMsg = `🎯 Composite risk ${comp.value.toFixed(2)}${spatialTag} — dominant: ${comp.dominant}`;
                     break;
                 }
                 default:

@@ -7,8 +7,11 @@ const express = require('express');
 const router = express.Router();
 const DeteriorationController = require('../../controllers/domain/DeteriorationController');
 
-// Combined assessment — all four models
+// Combined assessment — all five models
 router.post('/assess', DeteriorationController.assess);
+
+// Per-zone spatial composite (Stage-1 capillary-rise moisture field)
+router.post('/assess-field', DeteriorationController.assessField);
 
 // Individual models
 router.post('/chemical', DeteriorationController.chemical);

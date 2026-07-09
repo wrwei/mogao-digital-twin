@@ -86,7 +86,7 @@ ax_main.imshow(baseline, alpha=0.6)
 R_masked = np.ma.masked_where(~silhouette, R_grid)
 im = ax_main.imshow(R_masked, cmap=ramp, alpha=0.55, vmin=0, vmax=1)
 ax_main.axis("off")
-ax_main.set_title("$\\mathcal{R}_{\\mathrm{composite}}$ on the central Buddha mesh", fontsize=11, fontweight="bold")
+ax_main.set_title(r"$\mathcal{R}_{\mathrm{composite}}$", loc="left", fontsize=11, fontweight="bold")
 
 # Colour bar
 cbar = plt.colorbar(ScalarMappable(norm=Normalize(0, 1), cmap=ramp),
@@ -136,14 +136,7 @@ for zname, vals in zone_contributions.items():
                      arrowprops=dict(arrowstyle="->", color="#444",
                                      lw=0.8, alpha=0.6, connectionstyle="arc3,rad=0.1"))
 
-fig.suptitle("Composite deterioration index mapped onto the central Buddha statue, Cave 1",
-             y=0.97, fontsize=12, fontweight="bold")
-fig.text(0.5, -0.005,
-         "Vertical $\\mathcal{R}_{\\mathrm{composite}}$ gradient: highest at the base where salt crystallisation "
-         "and hygro-mechanical fatigue act synergistically, moderate through the drapery, lowest at the face/crown "
-         "where per-pigment chemical fading dominates at lower magnitude. Inset bar charts show per-model "
-         "contributions for three representative zones (illustrative outputs of the framework under the monitored climate).",
-         ha="center", va="bottom", fontsize=7.5, style="italic", color="#555555", wrap=True)
+
 plt.tight_layout()
 
 out = "experiments/composite_risk_map.png"

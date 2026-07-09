@@ -132,6 +132,7 @@ const api = {
     // Deterioration model calculations
     deterioration: {
         assess: (data) => apiClient.post('/deterioration/assess', data),
+        assessField: (data) => apiClient.post('/deterioration/assess-field', data),
         defaults: () => apiClient.get('/deterioration/defaults'),
     },
 

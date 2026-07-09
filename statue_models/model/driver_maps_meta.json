@@ -1,0 +1,17 @@
+{
+  "resolution": 1024,
+  "height": {
+    "min": -1.106841,
+    "max": 0.141293,
+    "encoding": "0-255 -> 0-1 base..crown"
+  },
+  "illumination": {
+    "light_dir": [
+      0.29138575870717925,
+      0.8741572761215378,
+      0.3885143449429057
+    ],
+    "encoding": "0-255 -> 0-1 exposure"
+  },
+  "coverage_fraction": 1.0
+}

@@ -382,6 +382,14 @@ export const messages = {
                     6: '完全覆盖'
                 }
             },
+            composite: {
+                low: '低风险',
+                moderate: '中等风险',
+                high: '高风险',
+                note: '综合风险取五个归一化机制子指数的最大值（保守的最坏情况聚合）。三维叠加按各机制的子指数加权分层，因此主导威胁显示最强。',
+                zonesTitle: '分区空间综合风险',
+                zonesNote: '毛细上升使基座附近的局部相对湿度升高，可溶盐供应随高度递减，因此下部区域比面部/头顶承受更多盐驱动的风险。'
+            },
             toggles: {
                 chemical: '化学褪色',
                 lifetime: '寿命倍数',
@@ -1120,6 +1128,14 @@ export const messages = {
                     5: 'Coverage 50-100%',
                     6: 'Tight coverage'
                 }
+            },
+            composite: {
+                low: 'Low risk',
+                moderate: 'Moderate risk',
+                high: 'High risk',
+                note: 'Composite risk is the maximum of the five normalised mechanism sub-indices (conservative worst-case aggregation). The 3D overlay layers each mechanism weighted by its sub-index, so the dominant threat reads strongest.',
+                zonesTitle: 'Per-zone spatial composite',
+                zonesNote: 'Local RH is raised near the base by capillary rise and soluble-salt supply decays with height, so lower zones carry more salt-driven risk than the face/crown.'
             },
             toggles: {
                 chemical: 'Chemical Fading',

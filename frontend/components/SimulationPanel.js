@@ -127,6 +127,46 @@ export default {
             return t('simulation.mould.active');
         });
 
+        // ── Composite risk (paper Eq. composite) ──────────────────────────
+        const COMPOSITE_LABELS = {
+            chemical: 'Chemical fading', lifetime: 'Lifetime multiplier',
+            mould: 'Mould growth', salt: 'Salt crystallisation', fatigue: 'Hygro-mech. fatigue'
+        };
+        const compositeResult = computed(() =>
+            assessmentResults.value.composite || { value: 0, dominant: 'chemical', components: {} });
+        const compositeColor = computed(() => {
+            const v = compositeResult.value.value;
+            if (v >= 0.6) return '#ef4444';   // red — high
+            if (v >= 0.3) return '#f59e0b';   // amber — moderate
+            return '#10b981';                 // green — low
+        });
+        const compositeBand = computed(() => {
+            const v = compositeResult.value.value;
+            if (v >= 0.6) return t('simulation.composite.high');
+            if (v >= 0.3) return t('simulation.composite.moderate');
+            return t('simulation.composite.low');
+        });
+        const compositeDominantLabel = computed(() =>
+            COMPOSITE_LABELS[compositeResult.value.dominant] || compositeResult.value.dominant);
+        const compositeRows = computed(() => {
+            const c = compositeResult.value.components || {};
+            const dom = compositeResult.value.dominant;
+            return ['chemical', 'lifetime', 'mould', 'salt', 'fatigue'].map(k => ({
+                key: k, label: COMPOSITE_LABELS[k], value: c[k] || 0, dominant: k === dom
+            }));
+        });
+        // Per-zone spatial composite (Stage 1): base / torso / face.
+        const compositeZones = computed(() => (Sim.compositeField.value || []).map(z => ({
+            id: z.id,
+            name: z.name,
+            RH_local: z.RH_local,
+            saltAvailability: z.saltAvailability,
+            value: z.composite ? z.composite.value : 0,
+            dominant: z.composite ? (COMPOSITE_LABELS[z.composite.dominant] || z.composite.dominant) : '',
+            color: z.composite && z.composite.value >= 0.6 ? '#ef4444'
+                 : z.composite && z.composite.value >= 0.3 ? '#f59e0b' : '#10b981'
+        })));
+
         // ── Busy state ────────────────────────────────────────────────────
         const busy = computed(() => presetLoading.value || props.textureProcessing);
         watch(busy, v => emit('busy-changed', v));
@@ -260,6 +300,7 @@ export default {
             temperatureStatus, lightColor, lightStatus, humidityStatus,
             chemicalResult, lifetimeResult, mouldResult, saltCrystResult, fatigueResult,
             displayMouldIndex, mouldStatusColor, mouldStatusLabel, busy,
+            compositeResult, compositeColor, compositeBand, compositeDominantLabel, compositeRows, compositeZones,
             // Template references engine.history as timeSeriesData (legacy name)
             timeSeriesData: history,
             // Methods
@@ -312,6 +353,7 @@ export default {
                         <option value="mould">🦠 VTT / Finnish Mould Growth (Hukka &amp; Viitanen 1999)</option>
                         <option value="salt">🧂 Salt Crystallisation Pressure (Scherer 1999 / Steiger 2005)</option>
                         <option value="fatigue">🧱 Hygro-mechanical Fatigue (HERIe / Bratasz 2013)</option>
+                        <option value="composite">🎯 Composite Risk (max of all five models)</option>
                     </select>
 
                 <!-- ═══ CHEMICAL TAB ═══ -->
@@ -573,6 +615,41 @@ export default {
                         </div>
                         <button class="param-reset-btn" @click="resetModelParams('fatigue')">Reset defaults</button>
                     </div>
+                </div>
+
+                <!-- ═══ COMPOSITE TAB ═══ -->
+                <div v-if="activeTab === 'composite'" class="sim-tab-content">
+                    <div class="composite-summary" :style="{ borderLeft: '5px solid ' + compositeColor }">
+                        <div class="composite-value" :style="{ color: compositeColor }">
+                            {{ compositeResult.value.toFixed(2) }}
+                        </div>
+                        <div class="composite-meta">
+                            <div class="composite-band">{{ compositeBand }}</div>
+                            <div class="composite-dominant">Dominant: <strong>{{ compositeDominantLabel }}</strong></div>
+                        </div>
+                    </div>
+                    <div class="composite-breakdown">
+                        <div v-for="row in compositeRows" :key="row.key" class="composite-row">
+                            <span class="composite-row-label" :class="{ 'is-dominant': row.dominant }">{{ row.label }}</span>
+                            <span class="composite-bar-track">
+                                <span class="composite-bar-fill"
+                                      :style="{ width: (row.value * 100).toFixed(0) + '%', background: row.dominant ? compositeColor : '#9aa0a6' }"></span>
+                            </span>
+                            <span class="composite-row-value">{{ row.value.toFixed(2) }}</span>
+                        </div>
+                    </div>
+                    <div v-if="compositeZones.length" class="composite-zones">
+                        <div class="composite-zones-title">{{ t('simulation.composite.zonesTitle') }}</div>
+                        <div v-for="z in compositeZones" :key="z.id" class="composite-zone-row">
+                            <span class="composite-zone-name">{{ z.name }}</span>
+                            <span class="composite-zone-badge" :style="{ background: z.color }">{{ z.value.toFixed(2) }}</span>
+                            <span class="composite-zone-meta">RH {{ z.RH_local }}% · {{ z.dominant }}</span>
+                        </div>
+                        <p class="composite-note">{{ t('simulation.composite.zonesNote') }}</p>
+                    </div>
+                    <p class="composite-note">
+                        {{ t('simulation.composite.note') }}
+                    </p>
                 </div>
 
                 </div>

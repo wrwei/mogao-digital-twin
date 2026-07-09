@@ -66,7 +66,8 @@ function defaultResults() {
         lifetime: { multiplier: 1, label: 'longer', color: '#10b981' },
         mould: { mouldIndex: 0, rhCritical: 80, isAboveThreshold: false, risk: 0, label: 'low', growthRate: 0, visualEffect: { coverage: 0, intensity: 0, type: 'mould' } },
         saltCryst: { pressure_MPa: 0, DRH: 84.2, isCrystallizing: false, damageRatio: 0, cumulativeDamage: 0, risk: 0, label: 'safe', visualEffect: { spalling: 0, type: 'salt' } },
-        fatigue: { stress_MPa: 0, cyclesToFailure: null, cyclesApplied: 0, cumulativeDamage: 0, crackDensity: 0, risk: 0, label: 'low', visualEffect: { crackDensity: 0, type: 'fatigue' } }
+        fatigue: { stress_MPa: 0, cyclesToFailure: null, cyclesApplied: 0, cumulativeDamage: 0, crackDensity: 0, risk: 0, label: 'low', visualEffect: { crackDensity: 0, type: 'fatigue' } },
+        composite: { value: 0, dominant: 'chemical', components: { chemical: 0, lifetime: 0, mould: 0, salt: 0, fatigue: 0 } }
     };
 }
 
@@ -102,6 +103,8 @@ export const presetLoading = ref(false);
 const _presetGeneration = ref(0);
 
 export const assessmentResults = ref(defaultResults());
+export const compositeField = ref([]);   // per-zone spatial composite (Stage 1)
+export const compositeGrid = ref(null);   // (height x illumination) lookup grid (Stage 2)
 export const mouldIndex = ref(0);
 export const pigmentMap = ref(null);
 export const pigmentRegionSummary = ref(null);
@@ -154,6 +157,33 @@ export const renderCommand = computed(() => {
     if (tab === 'salt'  && enabledModels.saltCryst)    return { mode: 'salt',     salt:     r.saltCryst };
     if (tab === 'lifetime' && enabledModels.lifetime)  return { mode: 'lifetime', lifetime: r.lifetime, totalDays: totalDays.value };
     if (tab === 'fatigue'  && enabledModels.fatigue)   return { mode: 'fatigue',  fatigue:  r.fatigue };
+    if (tab === 'composite' && r.composite) {
+        // Layer every enabled mechanism, weighted by its normalised sub-index.
+        // Mechanisms toggled off in enabledModels are zeroed so the overlay
+        // reflects only the active models (matching the per-tab behaviour).
+        const c = r.composite.components || {};
+        const gate = (on, v) => (on ? (v || 0) : 0);
+        return {
+            mode: 'composite',
+            components: {
+                chemical: gate(enabledModels.chemical,  c.chemical),
+                lifetime: gate(enabledModels.lifetime,  c.lifetime),
+                mould:    gate(enabledModels.mould,     c.mould),
+                salt:     gate(enabledModels.saltCryst, c.salt),
+                fatigue:  gate(enabledModels.fatigue,   c.fatigue)
+            },
+            effects: {
+                lifetime:  r.lifetime.visualEffect,
+                mould:     r.mould.visualEffect,
+                saltCryst: r.saltCryst.visualEffect,
+                fatigue:   r.fatigue.visualEffect
+            },
+            pigmentMap: pigmentMap.value,
+            pigmentParams: perPigmentParams.value,
+            degradationFactor: enabledModels.chemical ? r.chemical.degradationFactor : 1.0,
+            grid: compositeGrid.value   // Stage-2 per-texel lookup (null → uniform layering)
+        };
+    }
     return { mode: 'chemical-fade', pigmentMap: null, perPigmentParams: null, degradationFactor: 1.0 };
 });
 
@@ -181,6 +211,31 @@ async function _runAssessment() {
             fatigueParams: modelParams.fatigue
         });
         assessmentResults.value = response.data;
+
+        // Per-zone spatial composite (Stage 1). Best-effort: a failure here
+        // must not block the scalar assessment or the rest of the UI.
+        try {
+            const fieldResp = await window.api.deterioration.assessField({
+                T_celsius: env.temperature,
+                RH_percent: env.humidity,
+                light_klux: env.simLight,
+                totalDays: totalDays.value,
+                prevMouldIndex: mouldIndex.value,
+                RH_amplitude: env.simRHAmplitude,
+                chemicalParams: modelParams.chemical,
+                lifetimeParams: modelParams.lifetime,
+                mouldParams: modelParams.mould,
+                saltCrystParams: modelParams.saltCryst,
+                fatigueParams: modelParams.fatigue,
+                grid: { nH: 12, nL: 8 }   // Stage-2 per-texel lookup grid
+            });
+            compositeField.value = (fieldResp.data && fieldResp.data.zones) || [];
+            compositeGrid.value = (fieldResp.data && fieldResp.data.grid) || null;
+        } catch (fieldErr) {
+            console.warn('assess-field failed; per-zone composite unavailable:', fieldErr);
+            compositeField.value = [];
+            compositeGrid.value = null;
+        }
 
         if (pigmentMap.value && enabledModels.chemical) {
             perPigmentParams.value = computePerPigmentParams({

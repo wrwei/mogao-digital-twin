@@ -66,12 +66,19 @@ N_DAYS = N_YEARS * 365
 times = np.arange(N_DAYS) / 365.0
 
 def annual_T(doy):
-    # Peak summer ~32 C, winter ~-5 C, mean ~13.5 C -- captures the Mogao
-    # range that occasionally crosses the 32.4 C peritectic in summer
-    return 18.0 * np.sin(2 * np.pi * (doy - 110) / 365.0) + 13.5
+    # Damped cave-interior temperature (mean 12.4 C, this simplified sinusoid
+    # spans ~-0.4..+25.2 C). Only the upper end matters for the salt phase:
+    # the interior never reaches the 32.4 C mirabilite/thenardite peritectic
+    # (measured Cave-71 interior max ~25.8 C, Gong et al. 2025), so mirabilite
+    # is the stable phase year-round. The measured interior annual minimum is
+    # lower (-6.7 C) but is immaterial here, as salt behaviour is governed by
+    # the RH-vs-DRH gap, not by the cold extreme.
+    return 12.8 * np.sin(2 * np.pi * (doy - 110) / 365.0) + 12.4
 
 def annual_RH(doy):
-    return 35.0 + 5.0 * np.cos(2 * np.pi * (doy - 60) / 365.0)
+    # Interior baseline RH (mean ~31%, drier winter/spring, modest wet-season
+    # rise). Capped at the measured 80% interior ceiling downstream.
+    return 30.0 + 6.0 * np.cos(2 * np.pi * (doy - 200) / 365.0)
 
 rng = np.random.default_rng(seed=42)
 T_arr = np.zeros(N_DAYS)
@@ -89,13 +96,13 @@ for d in range(N_DAYS):
         for _ in range(n_events):
             doy_start = rng.integers(152, 273)
             duration = rng.integers(3, 15)
-            peak = rng.uniform(70, 95) * intensity
+            # Interior wet-season rises are damped: peaks approach but stay
+            # below the measured 80% interior ceiling (rock-mass buffering).
+            peak = rng.uniform(45, 70) * min(intensity, 1.15)
             year_events.append((doy_start, duration, peak))
-    # Add summer heat-event tail (occasional +3-5 C heat dome)
-    heat_event_kick = 0.0
-    if 180 < doy < 240 and rng.random() < 0.04:
-        heat_event_kick = rng.uniform(3.0, 6.0)
-    T_arr[d] = annual_T(doy) + rng.normal(0, 1.2) + heat_event_kick
+    # Interior temperature is rock-damped: no sharp summer heat domes, and the
+    # 32.4 C peritectic is never reached (interior max ~25.8 C).
+    T_arr[d] = min(25.8, annual_T(doy) + rng.normal(0, 0.6))
     rh_base = annual_RH(doy) + rng.normal(0, 2.0)
     rh_spike = 0.0
     for ev_start, ev_dur, ev_peak in year_events:
@@ -108,7 +115,7 @@ for d in range(N_DAYS):
             else:
                 profile = (1.0 - phase) / 0.4
             rh_spike = max(rh_spike, (ev_peak - rh_base) * profile)
-    RH_arr[d] = min(98, max(15, rh_base + rh_spike))
+    RH_arr[d] = min(80.0, max(8.7, rh_base + rh_spike))  # measured interior extremes (Gong et al. 2025)
 
 # --- Compute crystallisation pressure time-series (panel a) ---
 dp_mir = np.zeros(N_DAYS)
@@ -153,8 +160,7 @@ ax.set_ylim(0.01, 200)
 ax.set_xlim(0, zoom_years)
 ax.set_xlabel("Year")
 ax.set_ylabel(r"Crystallisation pressure $\Delta p$ (MPa, log scale)")
-ax.set_title(f"(a) Steiger crystallisation pressure (first {zoom_years} y shown for clarity)",
-             fontsize=10)
+ax.set_title("(a) Steiger crystallisation pressure", loc="left", fontsize=10, fontweight="bold")
 ax.grid(True, alpha=0.3, which="both")
 ax.legend(loc="upper right", fontsize=8, framealpha=0.9)
 ax.text(0.04, 0.06,
@@ -164,35 +170,35 @@ ax.text(0.04, 0.06,
         transform=ax.transAxes, fontsize=7.5, va="bottom", ha="left",
         bbox=dict(boxstyle="round,pad=0.4", facecolor="#FFF8E1", edgecolor="#999", alpha=0.85))
 
-# Panel (b): cumulative half-cycle count
+# Panel (b): interior RH vs mirabilite DRH over a representative year --
+# shows the deliquescence gap never closes, hence zero wet--dry cycles and
+# a persistently supersaturated (statically stressed) crystalline phase.
 ax = axes[1]
-ax.plot(times, cycles, color="#6A4C93", lw=1.4)
-# Mark monsoon years (intensity > 1) with vertical light-orange spans
-for yr in range(N_YEARS):
-    if monsoon_intensity[yr] > 1.2:
-        ax.axvspan(yr, yr + 1, color="orange", alpha=0.10)
-ax.set_xlabel("Year")
-ax.set_ylabel("Cumulative half-cycle count")
-ax.set_title(f"(b) Cumulative DRH crossings over {N_YEARS} years",
-             fontsize=10)
-ax.set_xlim(0, N_YEARS)
+rep = np.arange(365)                       # one representative year
+RH_year = RH_arr[:365]
+drh_mir_year = drh_mir(T_arr[:365])
+ax.plot(rep, RH_year, color="#2E86AB", lw=0.9, label="interior $RH$")
+ax.plot(rep, drh_mir_year, color="#888", lw=1.4, ls=":",
+        label=r"$\mathrm{DRH}_{\mathrm{mir}}(T)$ (deliquescence)")
+ax.fill_between(rep, RH_year, drh_mir_year, where=(drh_mir_year > RH_year),
+                color="#2E86AB", alpha=0.12,
+                label="supersaturation gap (always $>0$)")
+ax.axhline(80.0, color="#2E86AB", lw=0.8, ls="--", alpha=0.6,
+           label="measured $RH$ ceiling (80\\%)")
+ax.set_xlabel("Day of year")
+ax.set_ylabel("Relative humidity (\\%)")
+ax.set_title(r"(b) Interior $RH$ vs deliquescence threshold", loc="left", fontsize=10, fontweight="bold")
+ax.set_xlim(0, 365)
+ax.set_ylim(0, 100)
 ax.grid(True, alpha=0.3)
-mean_per_year = cycles[-1] / N_YEARS
-ax.text(0.04, 0.92,
-        f"total half-cycles in {N_YEARS} y: {int(cycles[-1])}\n"
-        f"mean ${{\\sim}}{mean_per_year:.1f}$ /year\n"
-        f"orange shading = above-average monsoon years",
-        transform=ax.transAxes, fontsize=8, va="top", ha="left",
+ax.legend(loc="lower center", fontsize=7.5, framealpha=0.9, ncol=2)
+ax.text(0.035, 0.52,
+        f"DRH crossings in {N_YEARS} y: {int(cycles[-1])}\n"
+        f"phase: mirabilite, persistently supersaturated\n"
+        f"$\\Rightarrow$ sustained static pressure, not cyclic",
+        transform=ax.transAxes, fontsize=7.5, va="top", ha="left",
         bbox=dict(boxstyle="round,pad=0.4", facecolor="#F3E5F5", edgecolor="#6A4C93", alpha=0.85))
 
-fig.suptitle("Salt crystallisation under the Cave 1 microclimate (Model 5)",
-             y=1.02, fontsize=11.5, fontweight="bold")
-fig.text(0.5, -0.04,
-         r"Steiger ideal-solution form: $\Delta p = \nu R T / V_m \cdot \ln(S)$ with $\nu=3$ for Na$_2$SO$_4$ dissociation, "
-         r"$V_m = 218 \times 10^{-6}$ m$^3$/mol (mirabilite, $T<32.4$ \textdegree{}C) or $53.3 \times 10^{-6}$ m$^3$/mol "
-         r"(thenardite, $T \geq 32.4$ \textdegree{}C), $S = \mathrm{DRH}/RH$.  "
-         r"DRH$_{\mathrm{mir}}(T) = 98.5 - 0.33 T_C$, DRH$_{\mathrm{the}}(T) = 82.0 + 0.15 T_C$ (linear fits to Steiger \& Asmussen Pitzer curves).",
-         ha="center", va="bottom", fontsize=7.5, style="italic", color="#555555", wrap=True)
 plt.tight_layout()
 
 out = "experiments/salt_crystallisation.png"
@@ -201,4 +207,4 @@ print(f"Saved: {out}")
 print(f"Mirabilite peak pressure: {dp_mir.max():.2f} MPa")
 print(f"Thenardite peak pressure: {dp_the.max():.2f} MPa")
 print(f"Cumulative half-cycles over {N_YEARS} y: {int(cycles[-1])}")
-print(f"Mean cycles per year: {mean_per_year:.2f}")
+print(f"Interior RH max: {RH_arr.max():.1f}%, min DRH_mir: {drh_mir(T_arr).min():.1f}%")
