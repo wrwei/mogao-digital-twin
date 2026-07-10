@@ -427,7 +427,7 @@ function assess(params) {
  *   R_composite = max( ΔE_chem / ΔE_max,          // chemical fading
  *                      min(1, 1 / LM),            // Michalski lifetime multiplier
  *                      M / 6,                     // VTT mould index
- *                      Δp / σ_t,                  // salt crystallisation pressure
+ *                      α_s · Δp / σ_t,            // salt crystallisation pressure
  *                      D / 3 )                    // Basquin-Miner fatigue damage
  *
  * clamped to [0, 1]. The per-channel normalised sub-indices are returned
@@ -436,9 +436,15 @@ function assess(params) {
  *
  * @param {object} channels - the five-model object returned by assess()
  *   (or any object exposing .chemical/.lifetime/.mould/.saltCryst/.fatigue).
+ * @param {object} [opts]
+ * @param {number} [opts.saltAvailability=1] - salt-supply factor α_s ∈ [0,1]
+ *   (paper Eq. eq:composite) scaling the normalised salt sub-index. Defaults to
+ *   1 (the base / worst-zone case where soluble salt is fully available), so the
+ *   bare scalar composite is that worst-zone evaluation; compositeRiskField()
+ *   passes the height-decayed α_s per zone.
  * @returns {{value:number, dominant:string, components:object}}
  */
-function compositeRisk(channels) {
+function compositeRisk(channels, opts = {}) {
     const clamp01 = (x) => Math.max(0, Math.min(1, x));
 
     // ΔE_chem / ΔE_max: chemical.risk is min(100, scientificDegradation),
@@ -464,8 +470,14 @@ function compositeRisk(channels) {
     }
     // M / 6: VTT mould index on its native 0-6 scale.
     const mould = clamp01((channels.mould?.mouldIndex ?? 0) / 6);
-    // Δp / σ_t: salt kernel already exposes this as damageRatio.
-    const salt = clamp01(channels.saltCryst?.damageRatio ?? 0);
+    // α_s · Δp/σ_t: the salt kernel exposes Δp/σ_t as damageRatio. The
+    // crystallisation pressure exceeds substrate tensile strength wherever the
+    // interior is sub-deliquescent (Δp/σ_t ≫ 1 → sub-index clamps to 1), so the
+    // spatial differentiator is salt AVAILABILITY: the supply factor α_s ∈ [0,1]
+    // scales the normalised salt sub-index by the fraction of soluble salt that
+    // capillary transport delivers to the zone (α_s = 1 at the salt-fed base).
+    const saltAvailability = clamp01(opts.saltAvailability == null ? 1 : opts.saltAvailability);
+    const salt = clamp01(channels.saltCryst?.damageRatio ?? 0) * saltAvailability;
     // D / 3: Miner cumulative fatigue damage.
     const fatigue = clamp01((channels.fatigue?.cumulativeDamage ?? 0) / 3);
 
@@ -562,16 +574,12 @@ function compositeRiskField(params, zones) {
             ? Math.exp(-height / saltLambda)
             : Math.max(0, Math.min(1, z.saltAvailability));
         // Crystallisation pressure saturates the salt sub-index (Δp/σ_t ≫ 1)
-        // wherever salt is present, so scale the NORMALISED (clamped) sub-index
-        // by availability: a zone's salt risk is the fraction of soluble salt
-        // that reaches that height. damageRatio is expressed on the same 0-1
-        // scale compositeRisk() clamps it to.
-        const saltSubIndex = Math.min(1, channels.saltCryst.damageRatio || 0) * saltAvailability;
-        const scaled = {
-            ...channels,
-            saltCryst: { ...channels.saltCryst, damageRatio: saltSubIndex }
-        };
-        const composite = compositeRisk(scaled);
+        // wherever salt is present, so the zone's salt risk is set by the
+        // fraction of soluble salt that reaches this height. Pass the
+        // height-decayed availability α_s through to compositeRisk (paper
+        // Eq. eq:composite), which scales the normalised salt sub-index by it;
+        // the returned per-zone channels keep the ungated damageRatio.
+        const composite = compositeRisk(channels, { saltAvailability });
 
         return {
             id: z.id,

@@ -272,6 +272,26 @@ describe('compositeRisk (Eq. composite)', () => {
         expect(r.composite.value).toBe(1);           // clamped composite ceiling
     });
 
+    test('saltAvailability (α_s) scales the salt sub-index; defaults to 1', () => {
+        // Δp/σ_t ≫ 1 so the raw salt sub-index clamps to 1; α_s then scales it.
+        const channels = {
+            chemical: { risk: 5 },          // 0.05
+            lifetime: { multiplier: 10 },   // 0.10
+            mould: { mouldIndex: 0 },
+            saltCryst: { damageRatio: 5 },  // clamps to 1 before α_s
+            fatigue: { cumulativeDamage: 0 }
+        };
+        // default α_s = 1 → salt fully available (base / worst zone)
+        expect(D.compositeRisk(channels).components.salt).toBe(1);
+        // α_s = 0.3 → salt sub-index scaled to 0.3
+        expect(D.compositeRisk(channels, { saltAvailability: 0.3 }).components.salt)
+            .toBeCloseTo(0.3, 10);
+        // α_s = 0 → no soluble salt reaches the zone → no salt risk
+        const dry = D.compositeRisk(channels, { saltAvailability: 0 });
+        expect(dry.components.salt).toBe(0);
+        expect(dry.dominant).toBe('lifetime'); // 0.10 now leads
+    });
+
     test('salt is the argmax when it is the only saturated channel', () => {
         // Salt-only synthetic: every other channel below salt.
         const comp = D.compositeRisk({
