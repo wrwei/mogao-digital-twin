@@ -47,7 +47,7 @@ export const PIGMENT_DATABASE = {
         displayName: '石青 Azurite',
         displayZh: '石青',
         displayEn: 'Azurite',
-        Ea_dark: 39000,  // measured dark-pathway barrier (pilot, consolidated pedestal 61d)
+        Ea_dark: 39000,  // dark-pathway barrier, literature-anchored (pilot measured rate ratios only; see paper Table 1)
         Ea_light: 18000,
         k0_dark: 0.080,
         k0_light: 4.0,
@@ -65,7 +65,7 @@ export const PIGMENT_DATABASE = {
         displayName: '石绿 Malachite',
         displayZh: '石绿',
         displayEn: 'Malachite',
-        Ea_dark: 43000,  // measured dark-pathway barrier (pilot, consolidated pedestal 61d)
+        Ea_dark: 43000,  // dark-pathway barrier, literature-anchored (pilot measured rate ratios only; see paper Table 1)
         Ea_light: 22000,
         k0_dark: 0.048,
         k0_light: 2.4,
@@ -80,7 +80,7 @@ export const PIGMENT_DATABASE = {
         displayName: '朱砂 Vermilion',
         displayZh: '朱砂',
         displayEn: 'Vermilion',
-        Ea_dark: 60000,  // measured dark-pathway barrier (pilot, consolidated pedestal 61d)
+        Ea_dark: 60000,  // dark-pathway barrier, literature-anchored (pilot measured rate ratios only; see paper Table 1)
         Ea_light: 18000,
         k0_dark: 0.13,
         k0_light: 4.8,

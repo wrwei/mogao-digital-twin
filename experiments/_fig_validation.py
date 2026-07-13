@@ -6,10 +6,12 @@ Two panels:
       measurements (days 25/27/31/34). Each point is a (spot, test-day) pair,
       predicted vs observed DeltaE*_ab, colour-coded by environmental arm. The
       dashed line is y = x (perfect prediction). RMSE / MAE / R^2 are computed
-      here from the consolidated measured data at run time.
-  (b) Bootstrap 95% CIs on the inferred dark-pathway activation energies
-      (vermilion 60 [46,74], azurite 39 [17,58], malachite 43 [30,63] kJ/mol;
-      two-arm Arrhenius at q=0.8, full 61-day window, 1000 spot-index resamples).
+      here from the recovered (definitive) measured data at run time.
+  (b) Room/chamber fade-rate ratios with bootstrap 95% CIs (vermilion ~2.0,
+      azurite ~1.7, malachite ~1.5; per-spot linear DeltaE*(t) slopes over the
+      full 61-day window, 2000 spot-index resamples). The two arms differ in
+      T, RH and illumination simultaneously, so we report the measured rate
+      contrast rather than a deconvolved activation energy.
 
 DeltaE computed directly from L*a*b* vs each spot's day-0 baseline.
 Single caption in the paper; plot + axis labels only here.
@@ -26,7 +28,7 @@ mpl.rcParams.update({"font.family": "sans-serif", "font.size": 9, "axes.linewidt
 INK = "#333333"; MARK = "#0072B2"
 ROOM = "#0072B2"; CHAM = "#E63946"
 
-DATA = os.path.join(os.path.dirname(__file__), "mogao_data_measured_consolidated.xlsx")
+DATA = os.path.join(os.path.dirname(__file__), "mogao_data_measured_recovered.xlsx")
 PIGS = ["Vermilion", "Azurite", "Malachite"]
 TRAIN_MAX = 12
 TEST_DAYS = [25, 27, 31, 34]
@@ -78,15 +80,55 @@ wb = openpyxl.load_workbook(DATA, data_only=True)
 pred, obs, arms, stats = cross_validation(wb)
 print(f"CV: n={stats['n']} RMSE={stats['rmse']:.2f} MAE={stats['mae']:.2f} R2={stats['r2']:.1f}")
 
-# Bootstrap CIs on the dark-pathway Ea (kJ/mol).
-# WARNING (2026-07-09): these hard-coded values (60/39/43) are NOT reproducible from
-# the measured pedestal data by a standard two-arm Arrhenius at q=0.8. A clean
-# recomputation from mogao_data_measured_recovered.xlsx (the definitive source) yields
-# ~20-40 kJ/mol with wide CIs (most spanning or approaching zero), because the 23C/40%RH room arm fades as fast
-# as or faster than the 40C/10%RH chamber arm (moisture, not temperature, dominates the
-# rate difference over this small pilot). Pending resolution of the correct estimator;
-# do not treat the plotted CIs below as verified.
-ci = [("Vermilion", 60, 46, 74), ("Azurite", 39, 17, 58), ("Malachite", 43, 30, 63)]
+# Room/chamber fade-rate ratio per pigment, with bootstrap 95% CIs, computed here
+# from mogao_data_measured_recovered.xlsx (the definitive source): per-spot linear
+# DeltaE*(t) slopes on the pedestal specimens over the full 61-day window, then the
+# ratio of the mean room slope to the mean chamber slope. 2000 spot-index resamples
+# (seed 42). Because the two arms differ in temperature, humidity AND illumination
+# (lit room vs dark chamber) simultaneously, this ratio is the primary measurable
+# result; it is NOT deconvolved into an activation energy (see Methods/Results).
+def _rate_ratio_ci(wb, seed=42, nboot=2000):
+    base = {}
+    for pig in PIGS:
+        for d in _rows(wb, pig):
+            if d["L*"] is None:
+                continue
+            key = (pig, str(d["arm_code"]), str(d["spot"]))
+            if d["day"] == 0:
+                base[key] = (d["L*"], d["a*"], d["b*"])
+    ser = {}
+    for pig in PIGS:
+        for d in _rows(wb, pig):
+            key = (pig, str(d["arm_code"]), str(d["spot"]))
+            if d["L*"] is None or key not in base:
+                continue
+            L0, a0, b0 = base[key]
+            dE = math.sqrt((d["L*"] - L0) ** 2 + (d["a*"] - a0) ** 2 + (d["b*"] - b0) ** 2)
+            ser.setdefault(key, []).append((d["day"], dE))
+    rng = np.random.default_rng(seed)
+    out = []
+    for pig in PIGS:
+        room, cham = {}, {}
+        for key, pts in ser.items():
+            if key[0] != pig:
+                continue
+            pts = np.array(sorted(pts))
+            s = np.polyfit(pts[:, 0], pts[:, 1], 1)[0]
+            (room if "room" in key[1] else cham)[key[2]] = s
+        rk, ck = list(room), list(cham)
+        ratio = np.mean(list(room.values())) / np.mean(list(cham.values()))
+        boot = []
+        for _ in range(nboot):
+            rr = np.mean([room[rk[i]] for i in rng.integers(0, len(rk), len(rk))])
+            cc = np.mean([cham[ck[i]] for i in rng.integers(0, len(ck), len(ck))])
+            if cc > 0:
+                boot.append(rr / cc)
+        lo, hi = np.percentile(boot, [2.5, 97.5])
+        out.append((pig, round(ratio, 1), round(lo, 1), round(hi, 1)))
+    return out
+
+ci = _rate_ratio_ci(wb)
+print("rate ratios:", ci)
 
 fig, (axA, axB) = plt.subplots(1, 2, figsize=(11, 4.2))
 
@@ -119,13 +161,14 @@ for (name, est, lo, hi), yi in zip(ci, y):
     axB.plot([lo, lo], [yi - 0.09, yi + 0.09], color=MARK, lw=1.4)
     axB.plot([hi, hi], [yi - 0.09, yi + 0.09], color=MARK, lw=1.4)
     axB.plot(est, yi, "o", color=MARK, mec="white", mew=0.8, ms=7, zorder=3)
-    axB.annotate(f"{est}  [{lo}, {hi}]", (hi, yi), xytext=(6, 0), textcoords="offset points",
+    axB.annotate(rf"{est}$\times$  [{lo}, {hi}]", (hi, yi), xytext=(6, 0), textcoords="offset points",
                  va="center", fontsize=8.5, color=INK)
 axB.set_yticks(y); axB.set_yticklabels([d[0] for d in ci], fontsize=10)
-axB.set_ylim(-0.6, len(ci) - 0.4); axB.set_xlim(0, 90)
-axB.set_xlabel(r"effective activation energy $E_a$ (kJ/mol)")
-axB.set_xticks([0, 20, 40, 60, 80])
-axB.set_title(r"(b) Bootstrap 95% CI on $E_a$", loc="left", fontsize=10, fontweight="bold")
+axB.axvline(1, color="#BBBBBB", lw=0.9, ls="--", zorder=1)  # ratio = 1: arms age equally
+axB.set_ylim(-0.6, len(ci) - 0.4); axB.set_xlim(0, 9)
+axB.set_xlabel("room/chamber fade-rate ratio")
+axB.set_xticks([0, 1, 2, 4, 6, 8])
+axB.set_title("(b) Room/chamber fade-rate ratio (95% CI)", loc="left", fontsize=10, fontweight="bold")
 axB.grid(True, axis="x", color="#E6E6E6", lw=0.6, zorder=0)
 for sp in ("top", "right", "left"):
     axB.spines[sp].set_visible(False)
