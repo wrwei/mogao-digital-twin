@@ -5,7 +5,7 @@ Two panels:
       the early measurements (days 0-12) and used to predict the late-window
       measurements (days 25/27/31/34). Each point is a (spot, test-day) pair,
       predicted vs observed DeltaE*_ab, colour-coded by environmental arm. The
-      dashed line is y = x (perfect prediction). RMSE / MAE / R^2 are computed
+      dashed line is y = x (perfect prediction). RMSE / MAE / Q^2 (out-of-sample) are computed
       here from the recovered (definitive) measured data at run time.
   (b) Room/chamber fade-rate ratios with bootstrap 95% CIs (vermilion ~2.0,
       azurite ~1.7, malachite ~1.5; per-spot linear DeltaE*(t) slopes over the
@@ -147,7 +147,7 @@ axA.set_ylabel(r"predicted $\Delta E^*_{ab}$ (from days 0--12 rate)")
 axA.set_title("(a) Time-window cross-validation", loc="left", fontsize=10, fontweight="bold")
 axA.legend(fontsize=7.5, frameon=False, loc="upper left")
 axA.text(0.97, 0.05,
-         f"RMSE $= {stats['rmse']:.2f}$\nMAE $= {stats['mae']:.2f}$\n$R^2 = {stats['r2']:.1f}$  ($n={stats['n']}$)",
+         f"RMSE $= {stats['rmse']:.2f}$\nMAE $= {stats['mae']:.2f}$\n$Q^2 = {stats['r2']:.1f}$  ($n={stats['n']}$)",
          transform=axA.transAxes, ha="right", va="bottom", fontsize=8.5, color=INK,
          bbox=dict(boxstyle="round,pad=0.35", fc="white", ec="#CCCCCC", lw=0.8))
 axA.grid(True, color="#EEEEEE", lw=0.6, zorder=0)

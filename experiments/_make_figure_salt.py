@@ -184,9 +184,9 @@ ax.fill_between(rep, RH_year, drh_mir_year, where=(drh_mir_year > RH_year),
                 color="#2E86AB", alpha=0.12,
                 label="supersaturation gap (always $>0$)")
 ax.axhline(80.0, color="#2E86AB", lw=0.8, ls="--", alpha=0.6,
-           label="measured $RH$ ceiling (80\\%)")
+           label="measured $RH$ ceiling (80%)")
 ax.set_xlabel("Day of year")
-ax.set_ylabel("Relative humidity (\\%)")
+ax.set_ylabel("Relative humidity (%)")
 ax.set_title(r"(b) Interior $RH$ vs deliquescence threshold", loc="left", fontsize=10, fontweight="bold")
 ax.set_xlim(0, 365)
 ax.set_ylim(0, 100)

@@ -1,27 +1,38 @@
-"""Generate Figure 9 (fig:composite) for the paper: composite
-deterioration index R_composite mapped onto the central Buddha
-statue with per-zone bar-chart insets.
+"""Generate Figure 10 (fig:composite) for the paper: composite
+deterioration index R_composite mapped onto the sculpture, with
+per-zone bar-chart insets.
 
-This is a 2D representation of the framework's 3D composite-risk
-overlay output, suitable for the paper figure. A vertical risk
-gradient is overlaid on the baseline statue image -- highest at the
-base (salt + hygro-mechanical fatigue act synergistically), moderate
-through the drapery (mixed mechanisms), low at the face/crown
-(per-pigment chemical fading dominates but at lower magnitude).
-
-The per-zone bar-chart insets show the per-model contributions
-described in the Results subsection: base dominated by salt; drapery
-dominated by fatigue; face dominated by chemical fading. The values
-are illustrative -- representative of what the framework outputs
-under the monitored climate -- not direct measurements.
+The three anchor zones (base, torso/drapery, face/crown) and their
+per-mechanism sub-index breakdown are the REAL output of the runtime's
+`compositeRiskField()` at the cave-baseline interior over the 200-year
+calibration horizon (T = 13 C, RH = 35 %, 2 klux). Those values are
+precomputed by `_emit_composite_zone_data.js` into
+`composite_zone_data.json` and loaded here; the vertical risk profile
+overlaid on the statue is a smooth interpolation between the three
+computed anchor points (base highest, driven by capillary salt
+availability; face second, driven by per-pigment chemical fading under
+light exposure), and each inset bar chart plots that zone's five
+computed normalised sub-indices. The vertical placement between anchors
+is a schematic of the loading pattern, not a per-vertex simulation.
 
 Output: experiments/composite_risk_map.png
 """
+import json
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap, Normalize
 from matplotlib.cm import ScalarMappable
 from PIL import Image
+
+# --- Load the REAL per-zone composite output ---------------------------------
+_here = os.path.dirname(os.path.abspath(__file__))
+with open(os.path.join(_here, "composite_zone_data.json")) as _f:
+    ZONE_DATA = json.load(_f)
+# order base (low) -> face (high) by height
+ZONES = sorted(ZONE_DATA["zones"], key=lambda z: z["height"])
+print("Loaded computed zones:",
+      {z["id"]: round(z["composite"], 3) for z in ZONES})
 
 # Baseline statue image
 baseline = np.array(Image.open(
@@ -36,25 +47,20 @@ print(f"Image: {H}x{W}")
 y_norm = np.arange(H) / H  # 0 (top) to 1 (bottom)
 x_norm = (np.arange(W) - W / 2) / (W / 2)  # -1 (left) to +1 (right)
 
-# Vertical risk profile -- approximation of the spatial pattern described
-# in the Results composite-risk subsection
+# Vertical risk profile -- linear interpolation between the three COMPUTED
+# anchor zones. compositeRiskField reports each zone at a normalised height
+# above the base (0 = base contact, 1 = crown); the statue image runs
+# y_img = 0 (top/crown) to 1 (bottom/base), so image height maps as
+# h = 1 - y_img. Interpolating R_composite(h) between the computed anchors
+# makes the overlaid gradient a render of the runtime output rather than a
+# hand-drawn curve.
+_anchor_h = np.array([z["height"] for z in ZONES])          # ascending
+_anchor_R = np.array([z["composite"] for z in ZONES])
+
 def vertical_risk(y):
-    """y in [0, 1] from top to bottom."""
-    # Crown / face: low (~0.25)
-    # Body / drapery: moderate (~0.45-0.55)
-    # Lower drapery / base: high (~0.75-0.9)
-    if y < 0.30:
-        # Face/crown
-        return 0.22 + 0.05 * y / 0.30
-    elif y < 0.55:
-        # Upper body
-        return 0.30 + 0.20 * (y - 0.30) / 0.25
-    elif y < 0.80:
-        # Drapery folds
-        return 0.50 + 0.20 * (y - 0.55) / 0.25
-    else:
-        # Base
-        return 0.70 + 0.20 * (y - 0.80) / 0.20
+    """y in [0, 1] from top (crown) to bottom (base)."""
+    h = 1.0 - y                                             # normalised height
+    return float(np.interp(h, _anchor_h, _anchor_R))
 
 R_grid = np.zeros((H, W))
 for i in range(H):
@@ -100,15 +106,19 @@ mechanisms = ["chemical\nfading", "Michalski\nlifetime", "VTT\nmould",
               "salt\ncrystallisation", "hygro-mech.\nfatigue"]
 colours = ["#E63946", "#F4A261", "#2A9D8F", "#264653", "#6A4C93"]
 
+# Real per-zone sub-index vectors [chemical, lifetime, mould, salt, fatigue]
+# from compositeRiskField (composite_zone_data.json).
+_comp_order = ["chemical", "lifetime", "mould", "salt", "fatigue"]
+_by_id = {z["id"]: z for z in ZONES}
 zone_contributions = {
-    "Face": [0.45, 0.20, 0.00, 0.10, 0.08],
-    "Drapery": [0.35, 0.18, 0.02, 0.30, 0.55],
-    "Base": [0.20, 0.15, 0.00, 0.95, 0.65],
+    "Face":    [_by_id["face"]["components"][k] for k in _comp_order],
+    "Drapery": [_by_id["torso"]["components"][k] for k in _comp_order],
+    "Base":    [_by_id["base"]["components"][k] for k in _comp_order],
 }
 zone_positions = {
-    "Face":    {"img_xy": (0.30, 0.20), "inset_xy": (0.02, 0.60, 0.19, 0.22)},
-    "Drapery": {"img_xy": (0.50, 0.55), "inset_xy": (0.02, 0.20, 0.19, 0.22)},
-    "Base":    {"img_xy": (0.45, 0.92), "inset_xy": (0.74, 0.18, 0.19, 0.22)},
+    "Face":    {"img_xy": (0.30, 0.20), "inset_xy": (0.015, 0.68, 0.19, 0.22)},
+    "Drapery": {"img_xy": (0.50, 0.55), "inset_xy": (0.015, 0.39, 0.19, 0.22)},
+    "Base":    {"img_xy": (0.45, 0.92), "inset_xy": (0.015, 0.10, 0.19, 0.22)},
 }
 
 for zname, vals in zone_contributions.items():

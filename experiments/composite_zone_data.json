@@ -1,0 +1,59 @@
+{
+  "params": {
+    "T_celsius": 13,
+    "RH_percent": 35,
+    "light_klux": 2,
+    "totalDays": 73050,
+    "RH_amplitude": 10
+  },
+  "zones": [
+    {
+      "id": "base",
+      "name": "Base / lower drapery",
+      "height": 0.12,
+      "RH_local": 52.7,
+      "saltAvailability": 0.619,
+      "composite": 0.6187833918061408,
+      "dominant": "salt",
+      "components": {
+        "chemical": 0.34759936701084565,
+        "lifetime": 0.5309177455190399,
+        "mould": 0,
+        "salt": 0.6187833918061408,
+        "fatigue": 0.024333333333333332
+      }
+    },
+    {
+      "id": "torso",
+      "name": "Torso / mid drapery",
+      "height": 0.5,
+      "RH_local": 41,
+      "saltAvailability": 0.135,
+      "composite": 0.43899621472177897,
+      "dominant": "chemical",
+      "components": {
+        "chemical": 0.43899621472177897,
+        "lifetime": 0.38256619178843126,
+        "mould": 0,
+        "salt": 0.1353352832366127,
+        "fatigue": 0.024333333333333332
+      }
+    },
+    {
+      "id": "face",
+      "name": "Face / crown",
+      "height": 0.85,
+      "RH_local": 37.2,
+      "saltAvailability": 0.033,
+      "composite": 0.4917880170423178,
+      "dominant": "chemical",
+      "components": {
+        "chemical": 0.4917880170423178,
+        "lifetime": 0.3372681007688901,
+        "mould": 0,
+        "salt": 0.03337326996032608,
+        "fatigue": 0.024333333333333332
+      }
+    }
+  ]
+}

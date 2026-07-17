@@ -175,20 +175,36 @@ function runReplay(dailyBuckets, opts = {}) {
         mouldIndex = Math.max(0, Math.min(6, mouldIndex + mouldRate * 1));
 
         // --- Salt ----------------------------------------------------------
+        // Salt damage is accrued per dissolution→crystallisation cycle following the
+        // Grossi–Brimblecombe / Steiger treatment (Methods Model 5, Supplementary S4),
+        // using the SAME phase-correct, ν-scaled pressure model as saltCrystallization()
+        // in DeteriorationService (mirabilite/thenardite switch at the peritectic; tensile
+        // strength and ν from SALT_DEFAULTS). A wet→dry EDGE is one half-cycle; damage is
+        // added only on that transition, scaled by the Miner-style per-cycle ratio. Under a
+        // persistently sub-deliquescent interior (RH < DRH year-round) there are no edges,
+        // so saltCum stays 0 and no calendar ETA is produced — matching the paper's salt
+        // narrative (Results: zero wet–dry cycles; hazard is spatial via alpha_s, not temporal).
         const DRH = D.saltDeliquescenceRH(T, saltP);
         const isCrystallising = RH < DRH;
-        // Count an event on a wet→dry edge (dissolution→crystallisation cycle)
-        if (prevRHAbove === true && !isCrystallising === false) saltEvents += 1;
-        if (prevRHAbove !== null && prevRHAbove === false && isCrystallising === true) saltEvents += 1;
-        prevRHAbove = !isCrystallising;
-        // Per-event damage proxy: supersaturation at the moment of event
-        if (isCrystallising && RH > 0) {
-            const S = (DRH / 100) / (RH / 100);
-            const pressureMPa = ((R * (T + 273.15)) / (saltP.Vm ?? 5.33e-5)) * Math.log(S) / 1e6;
-            const tensile = saltP.tensileStrength ?? 3.0;
-            // Normalise: pressure/tensile per day, scaled by small daily factor
-            saltCum += Math.max(0, (pressureMPa - tensile)) / tensile * 0.0001;
+        // Detect a dissolution→crystallisation edge (wet→dry): one half-cycle event.
+        const crystallisationEdge =
+            prevRHAbove === true && isCrystallising === true;
+        if (crystallisationEdge) {
+            saltEvents += 1;
+            if (RH > 0) {
+                const phase = D.saltPhase(T, saltP);
+                const nu = (saltP.nu ?? D.SALT_DEFAULTS.nu);
+                const tensile = (saltP.tensileStrength ?? D.SALT_DEFAULTS.tensileStrength);
+                const S = (DRH / 100) / (RH / 100);
+                const pressureMPa = ((nu * R * (T + 273.15)) / phase.Vm) * Math.log(S) / 1e6;
+                // Miner-style per-half-cycle damage: (Δp/σ_t) × 0.5 cycle, capped per event.
+                const damageRatio = Math.max(0, pressureMPa) / tensile;
+                saltCum += Math.min(damageRatio, 100) * 0.5;
+            }
         }
+        // Track the RH-vs-DRH state for the NEXT step's edge detection:
+        // prevRHAbove === true means "was above DRH (dissolved/wet)".
+        prevRHAbove = !isCrystallising;
 
         // --- Fatigue (Basquin + Miner) -------------------------------------
         if (dRH > 0.1) {

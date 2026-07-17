@@ -38,7 +38,7 @@ export const PRESET_CATALOG = {
     poorStorage: { temp: 30, rh: 80,  years: 50,  light: 5,    rhAmplitude: 20, label: 'Poor Storage 50y',            models: ['chemical', 'lifetime', 'mould', 'salt', 'fatigue'] },
     extreme:     { temp: 40, rh: 100, years: 10,  light: 30,   rhAmplitude: 30, label: 'Extreme 10y',                 models: ['chemical', 'lifetime', 'mould', 'fatigue'] },
     longTerm200: { temp: 20, rh: 50,  years: 200, light: 0.15, rhAmplitude: 5,  label: '200y Museum',                 models: ['chemical', 'lifetime', 'mould', 'salt', 'fatigue'] },
-    mogao200:    { temp: 13, rh: 35,  years: 200, light: 2,    rhAmplitude: 15, label: '200y Mogao (cold/dry)',       models: ['chemical', 'lifetime', 'mould', 'salt', 'fatigue'] },
+    mogao200:    { temp: 13, rh: 35,  years: 200, light: 2,    rhAmplitude: 10, label: '200y Mogao (cold/dry)',       models: ['chemical', 'lifetime', 'mould', 'salt', 'fatigue'] }, // daily dRH capped at the monitored monsoon-peak (~10%); dry-season is ~5% (Cave 71 record)
     tropical200: { temp: 28, rh: 75,  years: 200, light: 5,    rhAmplitude: 20, label: '200y Tropical (humid/warm)',  models: ['chemical', 'lifetime', 'mould', 'salt', 'fatigue'] },
     demoChemical: { temp: 25, rh: 50, years: 50,  light: 20,   rhAmplitude: 10, label: '⚗️ Light Exposure Test 50y',   models: ['chemical'] },
     demoLifetime: { temp: 5,  rh: 35, years: 200, light: 0,    rhAmplitude: 5,  label: '⏳ Cold Dry Archive 200y',      models: ['lifetime'] },
